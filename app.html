@@ -128,6 +128,41 @@
   }
   .login-error.show { display: block; }
 
+  /* Séparateur "— ou —" entre les deux modes de connexion */
+  .login-separator {
+    display: flex; align-items: center; gap: 12px;
+    margin: 18px 0 6px; color: #999; font-size: 12px;
+  }
+  .login-separator::before,
+  .login-separator::after {
+    content: ''; flex: 1; height: 1px; background: #e0e0e0;
+  }
+
+  /* Bouton magic link : style secondaire (contour plutôt que plein) */
+  .login-card button.secondary {
+    margin-top: 12px;
+    background: #fff;
+    color: var(--p);
+    border: 1.5px solid var(--p);
+  }
+  .login-card button.secondary:hover {
+    background: var(--p);
+    color: #fff;
+  }
+
+  /* Message de succès (lien magique envoyé) */
+  .login-info {
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: #e8f5e9;
+    border-left: 3px solid #2e7d32;
+    border-radius: 6px;
+    color: #1b5e20;
+    font-size: 12.5px;
+    display: none;
+  }
+  .login-info.show { display: block; }
+
   /* ============ APP PRINCIPALE (placeholder) ============ */
   .app { display: none; min-height: 100vh; }
   .app.show { display: block; }
@@ -333,7 +368,14 @@
       <button type="submit" id="login-btn">Se connecter</button>
     </form>
 
+    <div class="login-separator"><span>ou</span></div>
+
+    <button type="button" id="magic-btn" class="secondary">
+      📧 Recevoir un lien magique
+    </button>
+
     <div class="login-error" id="login-error"></div>
+    <div class="login-info" id="login-info"></div>
   </div>
 </div>
 
@@ -438,7 +480,9 @@ const ui = {
   app:         document.getElementById('app'),
   loginForm:   document.getElementById('login-form'),
   loginBtn:    document.getElementById('login-btn'),
+  magicBtn:    document.getElementById('magic-btn'),
   loginError:  document.getElementById('login-error'),
+  loginInfo:   document.getElementById('login-info'),
   emailInput:  document.getElementById('email'),
   passInput:   document.getElementById('password'),
   tenantBadge: document.getElementById('tenant-badge'),
@@ -455,9 +499,16 @@ function setStatus(text, level = 'ok') {
 function showLoginError(msg) {
   ui.loginError.textContent = msg;
   ui.loginError.classList.add('show');
+  ui.loginInfo.classList.remove('show');
 }
 
 function hideLoginError() {
+  ui.loginError.classList.remove('show');
+}
+
+function showLoginInfo(msg) {
+  ui.loginInfo.textContent = msg;
+  ui.loginInfo.classList.add('show');
   ui.loginError.classList.remove('show');
 }
 
@@ -486,6 +537,35 @@ ui.loginForm.addEventListener('submit', async (e) => {
   } finally {
     ui.loginBtn.disabled = false;
     ui.loginBtn.textContent = 'Se connecter';
+  }
+});
+
+// Handler du bouton "Recevoir un lien magique".
+// L'utilisateur saisit son email (champ partagé avec le formulaire mot de passe)
+// et clique : Supabase envoie un email contenant un lien de connexion. Au clic
+// sur le lien dans le mail, retour sur cette page, authentification automatique,
+// puis bascule vers shell.html via onAuthChange.
+ui.magicBtn.addEventListener('click', async () => {
+  hideLoginError();
+  const email = ui.emailInput.value.trim();
+  if (!email) {
+    showLoginError('Saisissez votre email avant de demander un lien magique.');
+    ui.emailInput.focus();
+    return;
+  }
+  ui.magicBtn.disabled = true;
+  ui.magicBtn.textContent = 'Envoi du lien…';
+  try {
+    await WB3Auth.signInWithMagicLink(email);
+    showLoginInfo(
+      '✓ Lien envoyé à ' + email + '. Vérifiez votre boîte mail (et vos spams) ' +
+      'puis cliquez sur le lien pour vous connecter.'
+    );
+  } catch (err) {
+    showLoginError(err.message || 'Impossible d\'envoyer le lien magique.');
+  } finally {
+    ui.magicBtn.disabled = false;
+    ui.magicBtn.textContent = '📧 Recevoir un lien magique';
   }
 });
 
