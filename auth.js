@@ -39,6 +39,23 @@
     return data.user;
   }
 
+  // Connexion par lien magique (Magic Link). Envoie un email contenant
+  // un lien qui authentifie l'utilisateur au clic — sans mot de passe.
+  // Le lien renvoie l'utilisateur sur la même page (app.html) où
+  // onAuthStateChange détectera la session et basculera vers shell.html.
+  async function signInWithMagicLink(email) {
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectTo,
+        shouldCreateUser: true, // l'allow-list côté DB filtre les emails autorisés
+      },
+    });
+    if (error) throw error;
+    return true;
+  }
+
   async function signOut() {
     const { error } = await client.auth.signOut();
     if (error) throw error;
@@ -107,6 +124,7 @@
 
   global.WB3Auth = {
     signIn,
+    signInWithMagicLink,
     signOut,
     getSession,
     restoreSession,
