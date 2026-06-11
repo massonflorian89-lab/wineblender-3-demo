@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Traçabilité — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill, .filter-chip → theme.css (composants partagés) */
+
+  /* ── Hero ── */
+  .tr-hero {
+    position:relative; overflow:hidden;
+    background:var(--color-bg-elevated);
+    border-radius:var(--radius-lg);
+    box-shadow:0 1px 4px rgba(0,0,0,.06);
+    padding:var(--space-6);
+    margin-bottom:var(--space-4);
+  }
+  .hero-strip {
+    position:absolute; top:0; left:0; right:0; height:5px;
+  }
+  .hero-strip.rouge { background:#b00020; }
+  .hero-strip.blanc { background:#d4c089; }
+  .hero-strip.rose  { background:#d89dad; }
+  .hero-strip.gris  { background:#9e9ea0; }
+  .hero-strip.cuve  { background:var(--color-primary); }
+  .hero-nom  { font-size:var(--text-title-1); font-weight:700; margin-bottom:var(--space-1); }
+  .hero-meta { font-size:var(--text-callout); color:var(--color-ink-tertiary); margin-bottom:var(--space-3); }
+  .hero-tags { display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center; }
+
+  /* ── Mode badge ── */
+  .mode-badge {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 12px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+  }
+  .mode-lot  { background:#e3f2fd; color:#1565c0; }
+  .mode-cuve { background:#f3e5f5; color:#6a1b9a; }
+
+  /* ── Tabs ── */
+  .tr-tabs {
+    display:flex; gap:2px; margin-bottom:var(--space-4);
+    border-bottom:1.5px solid var(--color-border);
+  }
+  .tr-tab {
+    padding:8px 16px; border:none; background:none;
+    font-size:var(--text-callout); font-weight:500; color:var(--color-ink-tertiary);
+    cursor:pointer; border-bottom:2.5px solid transparent; margin-bottom:-1.5px;
+    transition:all .14s;
+  }
+  .tr-tab:hover { color:var(--color-ink); }
+  .tr-tab.active { color:var(--color-primary); border-bottom-color:var(--color-primary); font-weight:600; }
+
+  /* ── Sections ── */
+  .tr-section {
+    background:var(--color-bg-elevated);
+    border-radius:var(--radius-lg);
+    border:1px solid var(--color-border);
+    margin-bottom:var(--space-4);
+    overflow:hidden;
+  }
+  .tr-section-head {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:var(--space-3) var(--space-4);
+    border-bottom:1px solid var(--color-border);
+    font-weight:600; font-size:var(--text-body);
+  }
+  .tr-section-head .count {
+    font-size:var(--text-caption); font-weight:500;
+    color:var(--color-ink-tertiary); background:var(--color-bg-subtle);
+    padding:1px 7px; border-radius:var(--radius-pill);
+  }
+  .tr-section-body { padding:var(--space-4); }
+  .tr-empty { padding:var(--space-6); text-align:center; color:var(--color-ink-tertiary); font-size:var(--text-callout); }
+
+  /* ── Timeline ── */
+  .timeline { display:flex; flex-direction:column; gap:0; }
+  .tl-item {
+    display:flex; gap:var(--space-3); padding:var(--space-3) 0;
+    border-bottom:1px solid var(--color-border);
+  }
+  .tl-item:last-child { border-bottom:none; }
+  .tl-spine {
+    display:flex; flex-direction:column; align-items:center;
+    flex-shrink:0; width:28px; padding-top:2px;
+  }
+  .tl-dot {
+    width:10px; height:10px; border-radius:50%;
+    background:var(--color-primary); flex-shrink:0;
+  }
+  .tl-dot.op      { background:var(--color-primary); }
+  .tl-dot.analyse { background:#2e7d32; }
+  .tl-dot.apport  { background:#d97706; }
+  .tl-dot.cuve-in { background:#1565c0; }
+  .tl-dot.cuve-out{ background:#9e9e9e; }
+  .tl-dot.genea   { background:#6a1b9a; }
+  .tl-line {
+    width:2px; flex:1; min-height:12px;
+    background:var(--color-border); margin-top:var(--space-1);
+  }
+  .tl-body { flex:1; min-width:0; padding-bottom:var(--space-1); }
+  .tl-date { font-size:var(--text-caption); color:var(--color-ink-tertiary); margin-bottom:2px; }
+  .tl-title { font-size:var(--text-body); font-weight:600; margin-bottom:var(--space-1); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .tl-detail { font-size:var(--text-caption); color:var(--color-ink-secondary); display:flex; flex-direction:column; gap:3px; }
+  .tl-row { display:flex; gap:var(--space-2); align-items:flex-start; flex-wrap:wrap; }
+
+  /* ── Chips ── */
+  .chip-sm {
+    display:inline-flex; align-items:center; gap:3px;
+    padding:2px 8px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600;
+    white-space:nowrap;
+  }
+  .chip-op-type  { background:var(--color-bg-mute); color:var(--color-ink-secondary); }
+  .chip-statut   { padding:2px 7px; border-radius:999px; font-size:10px; font-weight:600; }
+  .chip-src      { background:#fff8e1; color:#e65100; }
+  .chip-dst      { background:#e8f5e9; color:#2e7d32; }
+  .chip-prod     { background:#fce4ec; color:#880e4f; }
+  .chip-cuve     { background:#e8eaf6; color:#283593; cursor:pointer; }
+  .chip-lot      { background:#f3e5f5; color:#6a1b9a; cursor:pointer; }
+  .chip-lot:hover, .chip-cuve:hover { opacity:.8; }
+  .chip-analyse  { background:#e8f5e9; color:#2e7d32; }
+  .chip-realise  { background:#e8f5e9; color:#2e7d32; }
+  .chip-brouillon{ background:#fff8e1; color:#856404; }
+  .chip-annule   { background:#fce8e8; color:#c62828; }
+
+  /* ── Genealogy tree ── */
+  .genea-wrap { display:flex; align-items:flex-start; gap:var(--space-4); flex-wrap:wrap; padding:var(--space-4); }
+  .genea-col  { display:flex; flex-direction:column; gap:var(--space-2); min-width:140px; }
+  .genea-col-label { font-size:10px; text-transform:uppercase; font-weight:600; color:var(--color-ink-tertiary); margin-bottom:var(--space-1); }
+  .genea-arrow { font-size:var(--text-title-1); color:var(--color-ink-tertiary); display:flex; align-items:center; padding-top:30px; }
+  .genea-node {
+    display:flex; flex-direction:column; gap:3px;
+    padding:10px 13px; border-radius:var(--radius-md);
+    border:1.5px solid var(--color-border); background:var(--color-bg-elevated);
+    cursor:pointer; transition:all .15s; max-width:210px;
+  }
+  .genea-node:hover { box-shadow:0 2px 8px rgba(0,0,0,.12); }
+  .genea-node--parent:hover { border-color:#7b1fa2; }
+  .genea-node--child:hover  { border-color:#2e7d32; }
+  .genea-node-name { font-weight:600; font-size:var(--text-callout); color:var(--color-ink); }
+  .genea-node-sub  { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .genea-node-vol  { font-size:var(--text-caption); color:var(--color-primary); font-weight:600; }
+  .genea-node-tag  { display:inline-block; font-size:9px; padding:1px 5px; border-radius:3px; font-weight:500; }
+  .genea-tag-auto   { background:#e3f2fd; color:#1565c0; }
+  .genea-tag-manual { background:#f3e5f5; color:#6a1b9a; }
+  .genea-tag-ops    { background:var(--color-bg-subtle); color:var(--color-ink-tertiary); }
+  .genea-current {
+    display:flex; flex-direction:column; align-items:center; gap:var(--space-1); text-align:center;
+    background:var(--color-primary); color:#fff;
+    padding:14px 18px; border-radius:var(--radius-md);
+    font-weight:600; min-width:140px;
+  }
+  .genea-current-sub { font-size:10px; opacity:.75; font-weight:400; }
+
+  /* ── Par cuve ── */
+  .cuve-group {
+    border:1.5px solid var(--color-border); border-radius:var(--radius-md);
+    margin-bottom:var(--space-3); overflow:hidden;
+  }
+  .cuve-group-head {
+    display:flex; align-items:center; gap:var(--space-3);
+    padding:10px var(--space-4);
+    background:var(--color-bg-subtle);
+    border-bottom:1px solid var(--color-border);
+    font-weight:600;
+  }
+  .cuve-group-head .cuve-nom { font-size:var(--text-body); }
+  .cuve-group-head .cuve-meta { font-size:var(--text-caption); color:var(--color-ink-tertiary); font-weight:400; }
+  .cuve-group-ops { padding:var(--space-2) var(--space-4); }
+  .cuve-group-ops .tl-item { padding:var(--space-2) 0; }
+  .cuve-empty-ops { padding:var(--space-3) var(--space-4); font-size:var(--text-caption); color:var(--color-ink-tertiary); font-style:italic; }
+
+  /* ── Lot-in-cuve cards ── */
+  .lot-card-sm {
+    display:flex; align-items:center; gap:var(--space-3);
+    padding:var(--space-3) var(--space-4);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-md); margin-bottom:var(--space-2);
+    background:var(--color-bg);
+  }
+  .lot-card-sm:last-child { margin-bottom:0; }
+  .lot-card-sm .lc-color { width:6px; height:36px; border-radius:3px; flex-shrink:0; }
+  .lot-card-sm .lc-nom   { font-weight:600; font-size:var(--text-callout); }
+  .lot-card-sm .lc-meta  { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .lot-card-sm .lc-vol   { font-weight:600; color:var(--color-primary); font-size:var(--text-callout); margin-left:auto; }
+  .lot-card-sm .lc-links { display:flex; gap:6px; flex-shrink:0; }
+
+  /* ── Analyse mini ── */
+  .analyse-grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+    gap:var(--space-2);
+  }
+  .an-kpi { background:var(--color-bg-subtle); border-radius:var(--radius-sm); padding:8px 10px; }
+  .an-kpi .k-lbl  { font-size:9px; text-transform:uppercase; letter-spacing:.4px; font-weight:600; color:var(--color-ink-tertiary); }
+  .an-kpi .k-val  { font-size:var(--text-body); font-weight:700; color:var(--color-ink); margin-top:2px; }
+  .an-kpi .k-unit { font-size:9px; font-weight:400; color:var(--color-ink-tertiary); }
+
+  /* ── Statut badges ── */
+  .statut-badge {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:3px 9px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+  }
+  .statut-vendange      { background:#f5ede0; color:#8b6b3d; }
+  .statut-mout          { background:#faf3e7; color:#a07640; }
+  .statut-mout_stabule  { background:#faf7e5; color:#8b7430; }
+  .statut-mout_debourbe { background:#faf0d7; color:#956820; }
+  .statut-fa            { background:#fff0ea; color:#d04f00; }
+  .statut-fml           { background:#fff3e7; color:#b05a00; }
+  .statut-vin           { background:#fce9ec; color:#b00020; }
+  .statut-elevage       { background:#e8f0fa; color:#1a4870; }
+  .statut-vin_filtre    { background:#f3e0e3; color:#9a0025; }
+  .statut-pre_mise      { background:#ece8f5; color:#5a3a8a; }
+  .statut-conditionne   { background:#f0ece5; color:#555; }
+  .statut-sorti         { background:#f2f2f2; color:#888; }
+
+  @media(max-width:600px){
+    .genea-wrap { flex-direction:column; }
+    .genea-arrow { transform:rotate(90deg); padding-top:0; align-self:center; }
+    .tr-tabs { overflow-x:auto; }
+  }
+
+  /* ── Recherche globale ── */
+  .search-wrap {
+    position:relative; margin-bottom:var(--space-3);
+  }
+  .search-input {
+    width:100%; padding:12px 16px; font-size:var(--text-body);
+    border:1.5px solid var(--color-border); border-radius:var(--radius-lg);
+    background:var(--color-bg-elevated); color:var(--color-ink);
+    font-family:inherit; transition:border .15s;
+  }
+  .search-input:focus { outline:none; border-color:var(--color-primary); box-shadow:0 0 0 3px rgba(26,72,112,.1); }
+  .search-results {
+    position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:100;
+    background:var(--color-bg-elevated); border:1.5px solid var(--color-border);
+    border-radius:var(--radius-md); box-shadow:0 8px 24px rgba(0,0,0,.12);
+    max-height:360px; overflow-y:auto;
+  }
+  .sr-group-label {
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--color-ink-tertiary); padding:8px 14px 4px; background:var(--color-bg-subtle);
+    border-bottom:1px solid var(--color-border);
+  }
+  .sr-item {
+    display:flex; align-items:center; gap:var(--space-3);
+    padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--color-border-light,#f4f4f4);
+    transition:background .1s;
+  }
+  .sr-item:hover { background:var(--color-bg-mute); }
+  .sr-item:last-child { border-bottom:none; }
+  .sr-item-name { font-weight:600; font-size:var(--text-callout); }
+  .sr-item-meta { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .sr-empty { padding:16px 14px; text-align:center; color:var(--color-ink-tertiary); font-size:var(--text-callout); }
+
+  /* ── Filtres timeline globale ── */
+  .filter-row {
+    display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap;
+    margin-bottom:var(--space-4);
+  }
+  .filter-lbl { font-size:var(--text-caption); color:var(--color-ink-tertiary); font-weight:600; white-space:nowrap; }
+  /* .filter-chip (+:hover +.active) → theme.css (composants partagés) */
+  .period-sep { color:var(--color-ink-quaternary); font-size:var(--text-caption); }
+  .period-date {
+    padding:4px 8px; border:1.5px solid var(--color-border); border-radius:var(--radius-sm);
+    font-size:var(--text-caption); font-family:inherit; background:var(--color-bg-elevated);
+    color:var(--color-ink);
+  }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <span id="bc-parent" style="color:rgba(255,255,255,.65);font-size:var(--text-caption)">…</span>
+    <span class="sep">/</span>
+    <h1 id="page-title" style="font-size:var(--text-callout);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;color:#fff">Traçabilité</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+  <div id="content">
+    <div class="loading-state"><div class="spinner"></div>Chargement de la traçabilité…</div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+// ── Constantes ─────────────────────────────────────────────────
+const STATUT_LABELS = {
+  vendange:'🍇 Vendange', mout:'🌊 Moût', mout_stabule:'🧊 Stabulation',
+  mout_debourbe:'🔽 Débourbage', fa:'🌡 Ferm. alc.', fml:'🧫 Ferm. malo.',
+  vin:'🍷 Vin', elevage:'🛢 Élevage', vin_filtre:'🔬 Filtré',
+  pre_mise:'📦 Pré-mise', conditionne:'🍾 Conditionné', sorti:'🚪 Sorti',
+};
+const COULEUR_LABELS = { rouge:'Rouge', blanc:'Blanc', rose:'Rosé', gris:'Gris' };
+const COULEUR_ICONS  = { rouge:'🔴', blanc:'⚪', rose:'🌸', gris:'🩶' };
+const COULEUR_STRIP  = { rouge:'#b00020', blanc:'#d4c089', rose:'#d89dad', gris:'#9e9ea0' };
+const OP_ICONS = {
+  soutirage:'🔄', assemblage:'🧬', sulfitage:'🧪', collage:'🍂', filtration:'🔬',
+  levurage:'🦠', enzymage:'⚗️', chaptalisation:'🍯', acidification:'⬆️',
+  desacidification:'⬇️', malo:'🧫', mise_en_bouteille:'🍾', autre:'⚙️',
+  // Ajustements de cave
+  complement_de_plein:'💧', ouillage:'🪣', ajustement_volume:'⚖️',
+  correction_jauge:'📏', perte_technique:'📉', correction_administrative:'📋',
+};
+const OP_LABELS = {
+  soutirage:'Soutirage', assemblage:'Assemblage', sulfitage:'Sulfitage',
+  collage:'Collage', filtration:'Filtration', levurage:'Levurage',
+  enzymage:'Enzymage', chaptalisation:'Chaptalisation', acidification:'Acidification',
+  desacidification:'Désacidification', malo:'Malo', mise_en_bouteille:'Mise bouteille', autre:'Autre',
+  // Ajustements de cave
+  complement_de_plein:'Complément de plein', ouillage:'Ouillage',
+  ajustement_volume:'Ajustement volume', correction_jauge:'Correction de jauge',
+  perte_technique:'Perte technique', correction_administrative:'Correction administrative',
+};
+const TYPE_ICONS = { cuve:'🏺', barrique:'🛢', tonneau:'🪣', bac:'🧊', citerne:'🚛', bouteille:'🍾', autre:'📦' };
+const LOT_STATUT_COLORS = {
+  vendange:'#f5ede0|#8b6b3d', mout:'#faf3e7|#a07640', mout_stabule:'#faf7e5|#8b7430',
+  mout_debourbe:'#faf0d7|#956820', fa:'#fff0ea|#d04f00', fml:'#fff3e7|#b05a00',
+  vin:'#fce9ec|#b00020', elevage:'#e8f0fa|#1a4870', vin_filtre:'#f3e0e3|#9a0025',
+  pre_mise:'#ece8f5|#5a3a8a', conditionne:'#f0ece5|#555', sorti:'#f2f2f2|#888',
+};
+
+// ── Utilitaires ─────────────────────────────────────────────────
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmt(n) {
+  if (n == null || n === '') return '—';
+  const num = parseFloat(n);
+  if (isNaN(num)) return '—';
+  return num % 1 === 0 ? String(num) : num.toFixed(2).replace(/\.?0+$/,'');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
+}
+function fmtDateShort(d) {
+  if (!d) return '';
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+}
+function logout() { WB3Auth.signOut().then(() => WB3Nav.navigateTop('app.html')); }
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+function nav(url) { WB3Nav.navigate(url); }
+
+// ── État ────────────────────────────────────────────────────────
+let _mode      = null; // 'lot' | 'cuve' | 'global'
+let _activeTab = 'historique';
+let _globalFilters = { typeFilter: 'all', days: 90 };
+let _lotFilters    = { opType: 'all', contenant: '' };
+let _searchDebounce = null;
+
+// ── Init ────────────────────────────────────────────────────────
+(async function init() {
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient ||
+      typeof window.WB3DB === 'undefined'    || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>';
+    return;
+  }
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>';
+    return;
+  }
+  document.getElementById('tenant-pill').textContent = `🏢 ${ctx.tenant.nom} · ${ctx.tenant.role}`;
+
+  const params = new URLSearchParams(location.search);
+  const lotId        = params.get('id');
+  const contenantId  = params.get('contenant');
+
+  if (lotId) {
+    _mode = 'lot';
+    await loadLot(lotId);
+  } else if (contenantId) {
+    _mode = 'cuve';
+    await loadCuve(contenantId);
+  } else {
+    _mode = 'global';
+    await loadGlobal();
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// MODE GLOBAL (aucun paramètre URL — recherche + timeline récente)
+// ═══════════════════════════════════════════════════════════════
+
+async function loadGlobal() {
+  document.getElementById('page-title').textContent = 'Traçabilité';
+  document.title = 'Traçabilité globale — WineBlender 3';
+  document.getElementById('bc-parent').innerHTML = '';
+
+  renderGlobalShell();
+  await refreshGlobalTimeline();
+}
+
+function renderGlobalShell() {
+  const today = new Date().toISOString().slice(0, 10);
+  const from  = new Date(Date.now() - _globalFilters.days * 86400000).toISOString().slice(0, 10);
+
+  document.getElementById('content').innerHTML = `
+    <div style="position:relative">
+      <div class="search-wrap">
+        <input type="search" id="search-input" class="search-input"
+               placeholder="🔍 Rechercher un lot ou une cuve…"
+               autocomplete="off" oninput="handleSearch(this.value)">
+        <div class="search-results" id="search-results" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <span class="filter-lbl">Type :</span>
+      <button id="ft-all" class="filter-chip active" onclick="setGlobalType('all')">Tout</button>
+      <button id="ft-mouvement" class="filter-chip" onclick="setGlobalType('mouvement')">🔄 Mouvements</button>
+      <button id="ft-analyse"   class="filter-chip" onclick="setGlobalType('analyse')">🔬 Analyses</button>
+      <span class="period-sep" style="margin-left:var(--space-2)">|</span>
+      <span class="filter-lbl">Période :</span>
+      <button id="pd-30"  class="filter-chip" onclick="setGlobalDays(30)">30 j</button>
+      <button id="pd-90"  class="filter-chip active" onclick="setGlobalDays(90)">90 j</button>
+      <button id="pd-365" class="filter-chip" onclick="setGlobalDays(365)">1 an</button>
+      <span class="period-sep">du</span>
+      <input type="date" id="date-from" class="period-date" value="${from}" onchange="setGlobalCustomRange()">
+      <span class="period-sep">au</span>
+      <input type="date" id="date-to"   class="period-date" value="${today}" onchange="setGlobalCustomRange()">
+    </div>
+
+    <div id="global-timeline">
+      <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+    </div>
+  `;
+}
+
+async function refreshGlobalTimeline() {
+  const container = document.getElementById('global-timeline');
+  if (!container) return;
+  container.innerHTML = '<div class="loading-state"><div class="spinner"></div>Chargement…</div>';
+
+  const fromEl = document.getElementById('date-from');
+  const toEl   = document.getElementById('date-to');
+  const date_from = fromEl?.value || null;
+  const date_to   = toEl?.value   || null;
+
+  try {
+    const data = await WB3DB.getGlobalTimeline({ date_from, date_to });
+    container.innerHTML = renderGlobalTimeline(data);
+  } catch(e) {
+    container.innerHTML = `<div class="tr-section"><div class="tr-empty">Erreur : ${escapeHtml(e.message)}</div></div>`;
+  }
+}
+
+function renderGlobalTimeline({ mouvements, analyses }) {
+  const typeFilter = _globalFilters.typeFilter;
+  const events = [];
+
+  if (typeFilter === 'all' || typeFilter === 'mouvement')
+    mouvements.forEach(m => events.push({ type:'mouvement', date: m.date_mouvement, data: m }));
+  if (typeFilter === 'all' || typeFilter === 'analyse')
+    analyses.forEach(a => events.push({ type:'analyse', date: a.date_analyse, data: a }));
+
+  events.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  if (!events.length) return `
+    <div class="tr-section"><div class="tr-empty">
+      <div style="font-size:var(--text-display);margin-bottom:var(--space-2)">🌳</div>
+      Aucun événement enregistré sur cette période.
+    </div></div>`;
+
+  const items = events.map((e, i) => {
+    const isLast = i === events.length - 1;
+    if (e.type === 'mouvement') return renderMouvementItem(e.data, isLast);
+    if (e.type === 'analyse')   return renderGlobalAnalyseItem(e.data, isLast);
+    return '';
+  }).join('');
+
+  return `
+    <div class="tr-section">
+      <div class="tr-section-head">
+        📋 Événements récents
+        <span class="count">${events.length}</span>
+        <span style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">mouvements + analyses · ${mouvements.length + analyses.length} total</span>
+      </div>
+      <div class="tr-section-body" style="padding:var(--space-2) var(--space-4)">
+        <div class="timeline">${items}</div>
+      </div>
+    </div>`;
+}
+
+function setGlobalType(type) {
+  _globalFilters.typeFilter = type;
+  ['all','mouvement','analyse'].forEach(t => {
+    const btn = document.getElementById(`ft-${t}`);
+    if (btn) btn.classList.toggle('active', t === type);
+  });
+  refreshGlobalTimeline();
+}
+
+function setGlobalDays(days) {
+  _globalFilters.days = days;
+  [30, 90, 365].forEach(d => {
+    const btn = document.getElementById(`pd-${d}`);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const fromEl = document.getElementById('date-from');
+  if (fromEl) fromEl.value = from;
+  refreshGlobalTimeline();
+}
+
+function setGlobalCustomRange() {
+  [30, 90, 365].forEach(d => {
+    const btn = document.getElementById(`pd-${d}`);
+    if (btn) btn.classList.remove('active');
+  });
+  refreshGlobalTimeline();
+}
+
+// ── Recherche ───────────────────────────────────────────────────
+function handleSearch(val) {
+  const resultsEl = document.getElementById('search-results');
+  if (!resultsEl) return;
+
+  if (val.length < 2) {
+    resultsEl.style.display = 'none';
+    return;
+  }
+
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(async () => {
+    try {
+      const res = await WB3DB.searchEntities(val);
+      renderSearchResults(res, resultsEl);
+    } catch(e) {
+      resultsEl.innerHTML = `<div class="sr-empty">Erreur de recherche</div>`;
+      resultsEl.style.display = 'block';
+    }
+  }, 280);
+}
+
+function renderSearchResults({ lots, contenants }, el) {
+  if (!lots.length && !contenants.length) {
+    el.innerHTML = `<div class="sr-empty">Aucun résultat</div>`;
+    el.style.display = 'block';
+    return;
+  }
+
+  let html = '';
+
+  if (lots.length) {
+    html += `<div class="sr-group-label">🍷 Lots (${lots.length})</div>`;
+    html += lots.map(l => {
+      const [bg, fg] = (LOT_STATUT_COLORS[l.statut] || '#eee|#555').split('|');
+      return `<div class="sr-item" onclick="nav('tracabilite.html?id=${l.id}');document.getElementById('search-results').style.display='none'">
+        <span style="font-size:18px">${COULEUR_ICONS[l.couleur] || '🍷'}</span>
+        <div>
+          <div class="sr-item-name">${escapeHtml(l.nom)}${l.millesime ? ` <span style="font-weight:400;opacity:.6">${l.millesime}</span>` : ''}</div>
+          <div class="sr-item-meta">
+            <span style="background:${bg};color:${fg};padding:1px 6px;border-radius:99px;font-size:9px;font-weight:600">${STATUT_LABELS[l.statut] || l.statut || ''}</span>
+            ${l.numero_lot ? ` · <span style="font-family:monospace">${escapeHtml(l.numero_lot)}</span>` : ''}
+            ${l.volume_actuel_hl != null ? ` · ${fmt(l.volume_actuel_hl)} hL` : ''}
+          </div>
+        </div>
+        <span style="margin-left:auto;font-size:10px;color:var(--color-ink-quaternary)">→ Trace</span>
+      </div>`;
+    }).join('');
+  }
+
+  if (contenants.length) {
+    html += `<div class="sr-group-label">🏺 Cuves (${contenants.length})</div>`;
+    html += contenants.map(c => `<div class="sr-item" onclick="nav('tracabilite.html?contenant=${c.id}');document.getElementById('search-results').style.display='none'">
+        <span style="font-size:18px">${TYPE_ICONS[c.type] || '📦'}</span>
+        <div>
+          <div class="sr-item-name">${escapeHtml(c.nom)}</div>
+          <div class="sr-item-meta">${c.type || ''}${c.capacite_hl ? ` · ${fmt(c.capacite_hl)} hL` : ''}</div>
+        </div>
+        <span style="margin-left:auto;font-size:10px;color:var(--color-ink-quaternary)">→ Trace</span>
+      </div>`).join('');
+  }
+
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+// Fermer les résultats si clic en dehors
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.search-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const r = document.getElementById('search-results');
+    if (r) r.style.display = 'none';
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MODE LOT
+// ═══════════════════════════════════════════════════════════════
+
+async function loadLot(lotId) {
+  try {
+    const [detail, filiation, mouvements] = await Promise.all([
+      WB3DB.getLotDetail(lotId),
+      WB3DB.queryLotFiliation(lotId).catch(() => ({parents:[],children:[]})),
+      WB3DB.getLotMouvements(lotId).catch(() => []),
+    ]);
+    renderLot(detail, filiation, mouvements);
+  } catch(e) {
+    console.error('[WB3 tracabilite lot]', e);
+    document.getElementById('content').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">❌</div><div class="title">Erreur de chargement</div>
+        <div class="desc">${escapeHtml(e.message)}</div>
+        <div class="actions"><a href="lots.html" class="btn">← Lots</a></div>
+      </div>`;
+  }
+}
+
+function renderLot(detail, filiation, mouvements) {
+  const { lot, apports, opLots, prodByOp, contByOp, othersByOp } = detail;
+
+  document.getElementById('page-title').textContent = lot.nom;
+  document.title = `Traçabilité ${lot.nom} — WineBlender 3`;
+
+  // Breadcrumb
+  const bcP = document.getElementById('bc-parent');
+  bcP.innerHTML = `<a href="lots.html" style="color:rgba(255,255,255,.65);font-size:var(--text-caption)">🍷 Lots</a>
+    <span style="color:rgba(255,255,255,.4);margin:0 4px">/</span>
+    <a href="lot-detail.html?id=${lot.id}" style="color:rgba(255,255,255,.65);font-size:var(--text-caption)">${escapeHtml(lot.nom)}</a>`;
+
+  // Sorter ops by date desc
+  const sortedOps = [...opLots].sort((a,b) =>
+    (b.operations.date_operation || '').localeCompare(a.operations.date_operation || ''));
+
+  // Current cuves
+  const currentCuves = (lot.lot_contenants || [])
+    .map(lc => lc.contenants).filter(Boolean);
+
+  const stripCls = lot.couleur || 'rouge';
+  const couleurLabel = `${COULEUR_ICONS[lot.couleur]||''} ${COULEUR_LABELS[lot.couleur]||lot.couleur||''}`;
+  const statutLabel  = STATUT_LABELS[lot.statut] || lot.statut || '';
+  const [bg, fg] = (LOT_STATUT_COLORS[lot.statut] || '#eee|#555').split('|');
+
+  const cuveLinksHtml = currentCuves.length
+    ? currentCuves.map(c =>
+        `<a class="chip-sm chip-cuve" onclick="nav('tracabilite.html?contenant=${c.id}')" title="Traçabilité de la cuve">
+          ${TYPE_ICONS[c.type]||'🏺'} ${escapeHtml(c.nom)}
+        </a>`).join('')
+    : '';
+
+  const html = `
+    <!-- Actions -->
+    <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);flex-wrap:wrap">
+      <a href="lot-detail.html?id=${lot.id}" class="btn btn--secondary btn--sm">← Fiche lot</a>
+      <a href="lots.html" class="btn btn--secondary btn--sm">← Lots</a>
+    </div>
+
+    <!-- Hero -->
+    <div class="tr-hero">
+      <div class="hero-strip ${stripCls}"></div>
+      <div class="hero-nom">${COULEUR_ICONS[lot.couleur]||'🍷'} ${escapeHtml(lot.nom)}</div>
+      <div class="hero-meta">
+        ${couleurLabel}${lot.millesime ? ` · 📅 ${lot.millesime}` : ''}
+        ${lot.numero_lot ? ` · <span style="font-family:monospace;font-size:.9em;opacity:.75">${escapeHtml(lot.numero_lot)}</span>` : ''}
+      </div>
+      <div class="hero-tags">
+        <span class="mode-badge mode-lot">📋 Traçabilité lot</span>
+        <span class="statut-badge statut-${lot.statut}" style="background:${bg};color:${fg}">${statutLabel}</span>
+        ${lot.volume_actuel_hl != null ? `<span class="chip-sm chip-op-type">📦 ${fmt(lot.volume_actuel_hl)} hL</span>` : ''}
+        ${cuveLinksHtml}
+        <a href="lot-detail.html?id=${lot.id}" class="btn btn--sm btn--secondary" style="margin-left:auto">📄 Fiche</a>
+      </div>
+    </div>
+
+    <!-- Mini-arbre généalogique -->
+    ${renderLotMiniTree(lot, filiation)}
+
+    <!-- Tabs -->
+    <div class="tr-tabs" id="lot-tabs">
+      <button class="tr-tab${_activeTab==='historique'?' active':''}" onclick="setLotTab('historique')">📋 Historique complet</button>
+      <button class="tr-tab${_activeTab==='parcours'?' active':''}" onclick="setLotTab('parcours')">🏺 Par cuve</button>
+      <button class="tr-tab${_activeTab==='genea'?' active':''}" onclick="setLotTab('genea')">🧬 Généalogie</button>
+    </div>
+
+    <div id="lot-tab-content"></div>
+  `;
+
+  document.getElementById('content').innerHTML = html;
+
+  // Store data on window for tab switching
+  window._lotData = { detail, filiation, mouvements, sortedOps };
+  renderLotTab(_activeTab);
+}
+
+function setLotTab(key) {
+  _activeTab = key;
+  document.querySelectorAll('.tr-tab').forEach(b => b.classList.toggle('active', b.textContent.trim().startsWith(
+    key==='historique'?'📋': key==='parcours'?'🏺':'🧬'
+  )));
+  renderLotTab(key);
+}
+
+function renderLotTab(key) {
+  if (!window._lotData) return;
+  const container = document.getElementById('lot-tab-content');
+  if (!container) return;
+  const { detail, filiation, mouvements, sortedOps } = window._lotData;
+  const { lot, apports, prodByOp, contByOp, othersByOp } = detail;
+
+  if (key === 'historique') {
+    container.innerHTML = renderLotHistorique(lot, apports, sortedOps, prodByOp, contByOp, othersByOp, mouvements);
+  } else if (key === 'parcours') {
+    container.innerHTML = renderLotParCuve(lot, sortedOps, prodByOp, contByOp, othersByOp, mouvements);
+  } else if (key === 'genea') {
+    container.innerHTML = renderLotGenea(lot, filiation, sortedOps, detail.othersByOp);
+  }
+}
+
+// ── Filtres lot ──────────────────────────────────────────────────
+function setLotOpType(val) {
+  _lotFilters.opType = val;
+  renderLotTab('historique');
+}
+function setLotContenant(val) {
+  _lotFilters.contenant = val.trim().toLowerCase();
+  renderLotTab('historique');
+}
+
+// ── Mini-arbre généalogique textuel ─────────────────────────────
+function renderLotMiniTree(lot, filiation) {
+  const parents  = (filiation.parents  || []).filter(p => p.lot);
+  const children = (filiation.children || []).filter(c => c.lot);
+  if (!parents.length && !children.length) return '';
+
+  const parentChips = parents.map(p =>
+    `<button class="chip-sm chip-lot" onclick="nav('tracabilite.html?id=${p.lot.id}')" title="Traçabilité ${escapeHtml(p.lot.nom)}">
+      ${COULEUR_ICONS[p.lot.couleur]||'🍷'} ${escapeHtml(p.lot.nom)}${p.lot.millesime ? ` · ${p.lot.millesime}` : ''}${p.volume_hl != null ? ` <span style="opacity:.6;font-weight:400">${fmt(p.volume_hl)} hL</span>` : ''}
+    </button>`
+  ).join('');
+
+  const childChips = children.map(c =>
+    `<button class="chip-sm chip-lot" onclick="nav('tracabilite.html?id=${c.lot.id}')" title="Traçabilité ${escapeHtml(c.lot.nom)}">
+      ${COULEUR_ICONS[c.lot.couleur]||'🍷'} ${escapeHtml(c.lot.nom)}${c.lot.millesime ? ` · ${c.lot.millesime}` : ''}${c.volume_hl != null ? ` <span style="opacity:.6;font-weight:400">${fmt(c.volume_hl)} hL</span>` : ''}
+    </button>`
+  ).join('');
+
+  const currentPill = `<span style="background:var(--color-primary);color:#fff;padding:3px 12px;border-radius:var(--radius-pill);font-size:var(--text-caption);font-weight:600;white-space:nowrap">${COULEUR_ICONS[lot.couleur]||'🍷'} ${escapeHtml(lot.nom)}</span>`;
+
+  return `
+  <div style="background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-3);display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap">
+    <span style="color:var(--color-ink-tertiary);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;flex-shrink:0">🧬 Filiation</span>
+    ${parentChips ? `<div style="display:flex;gap:var(--space-1);flex-wrap:wrap;align-items:center">${parentChips}</div><span style="color:var(--color-ink-quaternary);font-size:16px;flex-shrink:0">→</span>` : ''}
+    ${currentPill}
+    ${childChips ? `<span style="color:var(--color-ink-quaternary);font-size:16px;flex-shrink:0">→</span><div style="display:flex;gap:var(--space-1);flex-wrap:wrap;align-items:center">${childChips}</div>` : ''}
+  </div>`;
+}
+
+// ── Tab: Historique complet ─────────────────────────────────────
+function renderLotHistorique(lot, apports, sortedOps, prodByOp, contByOp, othersByOp, mouvements) {
+  const mvtOpIds = new Set((mouvements || []).map(m => m.operation_id).filter(Boolean));
+  const events = [];
+
+  // Apports
+  (apports || []).forEach(a => events.push({ kind:'apport', date: a.date_apport || '', data: a }));
+
+  // Physical movements (lot_mouvements — source de vérité)
+  (mouvements || []).forEach(m => events.push({ kind:'mouvement', date: m.date_mouvement || '', data: m }));
+
+  // Operations NOT already covered by a physical movement
+  sortedOps.filter(ol => !mvtOpIds.has(ol.operations.id)).forEach(ol => events.push({
+    kind:'op', date: ol.operations.date_operation || '', data: ol,
+  }));
+
+  events.sort((a,b) => b.date.localeCompare(a.date));
+  const totalEvents = events.length;
+
+  // ── Filtres client-side ────────────────────────────────────────
+  const { opType, contenant: contenantQ } = _lotFilters;
+  let filtered = events;
+  if (opType !== 'all') {
+    if      (opType === 'apport')    filtered = events.filter(e => e.kind === 'apport');
+    else if (opType === 'mouvement') filtered = events.filter(e => e.kind === 'mouvement');
+    else                             filtered = events.filter(e => e.kind === 'op' && e.data.operations.type_operation === opType);
+  }
+  if (contenantQ) {
+    filtered = filtered.filter(e => {
+      if (e.kind === 'mouvement') {
+        const m = e.data;
+        return (m.contenant_source?.nom || '').toLowerCase().includes(contenantQ)
+            || (m.contenant_dest?.nom   || '').toLowerCase().includes(contenantQ);
+      }
+      if (e.kind === 'op') {
+        const opId = e.data.operations.id;
+        return (contByOp[opId] || []).some(oc => (oc.contenants?.nom || '').toLowerCase().includes(contenantQ));
+      }
+      return false;
+    });
+  }
+
+  // ── UI filtres ─────────────────────────────────────────────────
+  const opTypeOptions = `
+    <option value="all"${opType==='all'?' selected':''}>Tout</option>
+    <option value="apport"${opType==='apport'?' selected':''}>🍇 Apports</option>
+    <option value="mouvement"${opType==='mouvement'?' selected':''}>🔄 Mouvements</option>
+    ${Object.entries(OP_LABELS).map(([k,v]) =>
+      `<option value="${k}"${opType===k?' selected':''}>${v}</option>`
+    ).join('')}`;
+
+  const filterBar = `
+  <div class="filter-row" style="margin-bottom:var(--space-3)">
+    <span class="filter-lbl">Type :</span>
+    <select class="period-date" style="padding:4px 8px;border-radius:var(--radius-sm)" onchange="setLotOpType(this.value)">${opTypeOptions}</select>
+    <span class="filter-lbl" style="margin-left:var(--space-2)">Contenant :</span>
+    <input type="text" class="period-date" style="width:140px" placeholder="Filtrer par cuve…" value="${escapeHtml(_lotFilters.contenant)}" oninput="setLotContenant(this.value)">
+    ${(opType !== 'all' || contenantQ) ? `<button class="filter-chip" onclick="_lotFilters.opType='all';_lotFilters.contenant='';renderLotTab('historique')">✕ Réinitialiser</button>` : ''}
+  </div>`;
+
+  if (!filtered.length) {
+    return filterBar + `<div class="tr-section"><div class="tr-empty">${totalEvents ? 'Aucun événement ne correspond aux filtres.' : 'Aucun événement enregistré'}</div></div>`;
+  }
+
+  const itemsHtml = filtered.map((ev, idx) => {
+    const isLast = idx === filtered.length - 1;
+    const lineHtml = isLast ? '' : `<div class="tl-line"></div>`;
+
+    if (ev.kind === 'apport') {
+      const a = ev.data;
+      return `<div class="tl-item">
+        <div class="tl-spine"><div class="tl-dot apport"></div>${lineHtml}</div>
+        <div class="tl-body">
+          <div class="tl-date">${fmtDate(a.date_apport)}</div>
+          <div class="tl-title">🍇 Apport${a.numero ? ` <span style="opacity:.6;font-size:.85em">#${escapeHtml(String(a.numero))}</span>` : ''}</div>
+          <div class="tl-detail">
+            <div class="tl-row">
+              ${a.apporteur  ? `<span class="chip-sm chip-op-type">👤 ${escapeHtml(a.apporteur)}</span>`  : ''}
+              ${a.provenance ? `<span class="chip-sm chip-op-type">📍 ${escapeHtml(a.provenance)}</span>` : ''}
+              ${a.poids_kg  != null ? `<span class="chip-sm chip-op-type">⚖️ ${fmt(a.poids_kg)} kg</span>`     : ''}
+              ${a.volume_hl != null ? `<span class="chip-sm chip-op-type">📦 ${fmt(a.volume_hl)} hL</span>`    : ''}
+              ${a.degre_probable != null ? `<span class="chip-sm chip-op-type">🌡 ${fmt(a.degre_probable)}°</span>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    if (ev.kind === 'mouvement') return renderMouvementItem(ev.data, isLast);
+    if (ev.kind === 'op')        return renderOpItem(ev.data, prodByOp, contByOp, othersByOp, isLast);
+    return '';
+  }).join('');
+
+  const filteredNote = filtered.length < totalEvents
+    ? `<span style="color:var(--color-warning);font-size:var(--text-caption);margin-left:var(--space-1)">(${filtered.length} / ${totalEvents} affichés)</span>` : '';
+
+  return filterBar + `
+    <div class="tr-section">
+      <div class="tr-section-head">
+        📋 Historique complet
+        <span class="count">${filtered.length} événement${filtered.length!==1?'s':''}</span>${filteredNote}
+        <span style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">${(mouvements||[]).length} mouvement${(mouvements||[]).length!==1?'s':''} physique${(mouvements||[]).length!==1?'s':''}</span>
+      </div>
+      <div class="tr-section-body" style="padding:var(--space-2) var(--space-4)">
+        <div class="timeline">${itemsHtml}</div>
+      </div>
+    </div>`;
+}
+
+// ── Tab: Par cuve ───────────────────────────────────────────────
+function renderLotParCuve(lot, sortedOps, prodByOp, contByOp, othersByOp, mouvements) {
+  const cuveGroups = new Map(); // contenant_id → { nom, id, ops: [] }
+  const nocuveOps  = [];
+
+  sortedOps.forEach(ol => {
+    const opId = ol.operations.id;
+    const cuves = (contByOp[opId] || []).filter(oc => oc.contenants);
+    if (cuves.length === 0) {
+      nocuveOps.push(ol);
+    } else {
+      cuves.forEach(oc => {
+        const cId = oc.contenants.id;
+        if (!cuveGroups.has(cId)) cuveGroups.set(cId, { id: cId, nom: oc.contenants.nom || 'Cuve ?', ops: [] });
+        if (!cuveGroups.get(cId).ops.find(o => o.operations.id === ol.operations.id)) {
+          cuveGroups.get(cId).ops.push(ol);
+        }
+      });
+    }
+  });
+
+  // Compute cuve presence periods from lot_mouvements (replaces cuveHistory)
+  const cuvePeriodsMap = new Map(); // contenant_id → { nom, entrees: [], sorties: [] }
+  (mouvements || []).forEach(m => {
+    if (m.contenant_dest) {
+      const cId = m.contenant_dest.id;
+      if (!cuveGroups.has(cId)) cuveGroups.set(cId, { id: cId, nom: m.contenant_dest.nom, ops: [] });
+      if (!cuvePeriodsMap.has(cId)) cuvePeriodsMap.set(cId, { nom: m.contenant_dest.nom, entrees: [], sorties: [] });
+      if (['entree', 'transfert'].includes(m.sens)) cuvePeriodsMap.get(cId).entrees.push(m.date_mouvement);
+    }
+    if (m.contenant_source) {
+      const cId = m.contenant_source.id;
+      if (!cuveGroups.has(cId)) cuveGroups.set(cId, { id: cId, nom: m.contenant_source.nom, ops: [] });
+      if (!cuvePeriodsMap.has(cId)) cuvePeriodsMap.set(cId, { nom: m.contenant_source.nom, entrees: [], sorties: [] });
+      if (['sortie', 'sortie_definitive', 'transfert'].includes(m.sens)) cuvePeriodsMap.get(cId).sorties.push(m.date_mouvement);
+    }
+  });
+
+  if (cuveGroups.size === 0 && nocuveOps.length === 0) {
+    return `<div class="tr-section"><div class="tr-empty">
+      <div style="font-size:32px;margin-bottom:var(--space-2)">🏺</div>
+      Aucune cuve liée à ce lot pour l'instant.
+      <div style="margin-top:var(--space-2);font-size:var(--text-caption)">Les liaisons cuve-lot apparaîtront dès les premières opérations.</div>
+    </div></div>`;
+  }
+
+  let html = `
+    <div class="tr-section" style="margin-bottom:var(--space-3)">
+      <div class="tr-section-head">
+        🏺 Traçabilité par cuve
+        <span class="count">${cuveGroups.size} cuve${cuveGroups.size>1?'s':''}</span>
+        <span style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">Groupé par contenant · opérations liées</span>
+      </div>
+      <div style="padding:var(--space-4)">
+  `;
+
+  cuveGroups.forEach((grp, cId) => {
+    const periods = cuvePeriodsMap.get(cId);
+    let periodStr = '';
+    if (periods) {
+      const firstIn  = [...periods.entrees].sort()[0];
+      const lastOut  = [...periods.sorties].sort().at(-1);
+      if (firstIn) {
+        periodStr = `Présence : du ${fmtDateShort(firstIn)} au ${lastOut ? fmtDateShort(lastOut) : '<b style="color:#2e7d32">maintenant</b>'}`;
+      }
+    }
+
+    const opsHtml = grp.ops.length
+      ? `<div class="cuve-group-ops"><div class="timeline">
+          ${grp.ops.map((ol,i) => renderOpItem(ol, prodByOp, contByOp, othersByOp, i===grp.ops.length-1)).join('')}
+        </div></div>`
+      : `<div class="cuve-empty-ops">Aucune opération enregistrée sur cette cuve pour ce lot</div>`;
+
+    html += `<div class="cuve-group">
+      <div class="cuve-group-head">
+        <span style="font-size:18px">🏺</span>
+        <div>
+          <div class="cuve-nom">${escapeHtml(grp.nom)}</div>
+          ${periodStr ? `<div class="cuve-meta">${periodStr}</div>` : ''}
+        </div>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn--sm btn--secondary" onclick="nav('tracabilite.html?contenant=${cId}')">📋 Traçabilité cuve</button>
+          <button class="btn btn--sm btn--secondary" onclick="nav('contenant-detail.html?id=${cId}')">🔗 Fiche</button>
+        </div>
+      </div>
+      ${opsHtml}
+    </div>`;
+  });
+
+  if (nocuveOps.length > 0) {
+    html += `<div class="cuve-group">
+      <div class="cuve-group-head"><span>⚙️</span><div class="cuve-nom">Sans cuve rattachée</div></div>
+      <div class="cuve-group-ops"><div class="timeline">
+        ${nocuveOps.map((ol,i) => renderOpItem(ol, prodByOp, contByOp, othersByOp, i===nocuveOps.length-1)).join('')}
+      </div></div>
+    </div>`;
+  }
+
+  html += `</div></div>`;
+  return html;
+}
+
+// ── Tab: Généalogie ─────────────────────────────────────────────
+function renderLotGenea(lot, filiation, sortedOps, othersByOp) {
+  const filParents  = (filiation.parents  || []).filter(p => p.lot);
+  const filChildren = (filiation.children || []).filter(c => c.lot);
+
+  // Augment with ops-derived links (not in lot_filiation)
+  const opsParentIds = new Set(filParents.map(p => p.parent_id));
+  const opsChildIds  = new Set(filChildren.map(c => c.lot_id));
+  const gParents  = new Map();
+  const gChildren = new Map();
+  sortedOps.forEach(ol => {
+    const opId = ol.operations.id;
+    if (ol.role === 'destination') {
+      (othersByOp[opId] || []).filter(o2 => o2.role === 'source' && o2.lots)
+        .forEach(o2 => { if (!gParents.has(o2.lots.id) && !opsParentIds.has(o2.lots.id)) gParents.set(o2.lots.id, o2.lots); });
+    }
+    if (ol.role === 'source') {
+      (othersByOp[opId] || []).filter(o2 => o2.role === 'destination' && o2.lots)
+        .forEach(o2 => { if (!gChildren.has(o2.lots.id) && !opsChildIds.has(o2.lots.id)) gChildren.set(o2.lots.id, o2.lots); });
+    }
+  });
+
+  const hasParents  = filParents.length > 0 || gParents.size > 0;
+  const hasChildren = filChildren.length > 0 || gChildren.size > 0;
+  const total = filParents.length + filChildren.length + gParents.size + gChildren.size;
+
+  if (total === 0) {
+    return `<div class="tr-section"><div class="tr-empty">
+      <div style="font-size:32px;margin-bottom:var(--space-2)">🧬</div>
+      Ce lot n'a pas de filiation connue.<br>
+      <span style="font-size:var(--text-caption)">Les liens seront créés automatiquement lors des assemblages.</span>
+    </div></div>`;
+  }
+
+  function _node(l, cls, volHl, tag) {
+    const [bg, fg] = (LOT_STATUT_COLORS[l.statut] || '#eee|#555').split('|');
+    return `<div class="genea-node ${cls}" onclick="nav('lot-detail.html?id=${l.id}')">
+      <span class="genea-node-name">${COULEUR_ICONS[l.couleur]||'🍷'} ${escapeHtml(l.nom)}</span>
+      ${l.numero_lot ? `<span class="genea-node-sub" style="font-family:monospace">${escapeHtml(l.numero_lot)}</span>` : ''}
+      ${l.millesime ? `<span class="genea-node-sub">📅 ${l.millesime}</span>` : ''}
+      ${volHl != null ? `<span class="genea-node-vol">${fmt(volHl)} hL</span>` : ''}
+      <span class="chip-statut" style="background:${bg};color:${fg};font-size:9px;padding:1px 6px;border-radius:99px;font-weight:600;margin-top:2px;width:fit-content">
+        ${STATUT_LABELS[l.statut]||l.statut||''}
+      </span>
+      ${tag ? `<span class="genea-node-tag ${tag.cls}">${tag.lbl}</span>` : ''}
+      <span style="font-size:9px;color:var(--color-ink-tertiary);margin-top:2px">🔗 Voir traçabilité</span>
+    </div>`;
+  }
+
+  const parentsCols = `
+    <div class="genea-col">
+      <div class="genea-col-label">← Sources (${filParents.length + gParents.size})</div>
+      ${filParents.map(p => _node(p.lot, 'genea-node--parent', p.volume_hl,
+        p.source_type === 'manual'
+          ? {cls:'genea-tag-manual', lbl:'Manuel'}
+          : {cls:'genea-tag-auto', lbl:'Assemblage'}
+      )).join('')}
+      ${[...gParents.values()].map(l => _node(l, 'genea-node--parent', null, {cls:'genea-tag-ops', lbl:'Opération'})).join('')}
+    </div>`;
+
+  const childrenCols = `
+    <div class="genea-col">
+      <div class="genea-col-label">→ Dérivés (${filChildren.length + gChildren.size})</div>
+      ${filChildren.map(c => _node(c.lot, 'genea-node--child', c.volume_hl, null)).join('')}
+      ${[...gChildren.values()].map(l => _node(l, 'genea-node--child', null, {cls:'genea-tag-ops', lbl:'Opération'})).join('')}
+    </div>`;
+
+  return `<div class="tr-section">
+    <div class="tr-section-head">🧬 Généalogie <span class="count">${total} lot${total>1?'s':''} lié${total>1?'s':''}</span></div>
+    <div class="genea-wrap">
+      ${hasParents ? parentsCols : ''}
+      ${hasParents ? '<div class="genea-arrow">→</div>' : ''}
+      <div class="genea-col">
+        <div class="genea-col-label" style="color:var(--color-primary)">Ce lot</div>
+        <div class="genea-current">
+          <span style="font-size:18px">${COULEUR_ICONS[lot.couleur]||'🍷'}</span>
+          <span>${escapeHtml(lot.nom)}</span>
+          ${lot.numero_lot ? `<span class="genea-current-sub" style="font-family:monospace">${escapeHtml(lot.numero_lot)}</span>` : ''}
+          ${lot.millesime ? `<span class="genea-current-sub">📅 ${lot.millesime}</span>` : ''}
+          ${lot.volume_actuel_hl != null ? `<span class="genea-current-sub">${fmt(lot.volume_actuel_hl)} hL</span>` : ''}
+        </div>
+      </div>
+      ${hasChildren ? '<div class="genea-arrow">→</div>' : ''}
+      ${hasChildren ? childrenCols : ''}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODE CUVE
+// ═══════════════════════════════════════════════════════════════
+
+async function loadCuve(contenantId) {
+  try {
+    const [detail, mouvements] = await Promise.all([
+      WB3DB.getContenantDetail(contenantId),
+      WB3DB.getContenantMouvements(contenantId).catch(() => []),
+    ]);
+    renderCuve(detail, mouvements);
+  } catch(e) {
+    console.error('[WB3 tracabilite cuve]', e);
+    document.getElementById('content').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">❌</div><div class="title">Erreur de chargement</div>
+        <div class="desc">${escapeHtml(e.message)}</div>
+        <div class="actions"><a href="cuverie.html" class="btn">← Cuverie</a></div>
+      </div>`;
+  }
+}
+
+function renderCuve(detail, mouvements) {
+  const { cont, lotConts, opConts, lotsByOp, prodByOp, analyses } = detail;
+
+  document.getElementById('page-title').textContent = cont.nom;
+  document.title = `Traçabilité ${cont.nom} — WineBlender 3`;
+
+  const bcP = document.getElementById('bc-parent');
+  bcP.innerHTML = `<a href="cuverie.html" style="color:rgba(255,255,255,.65);font-size:var(--text-caption)">🏺 Cuverie</a>
+    <span style="color:rgba(255,255,255,.4);margin:0 4px">/</span>
+    <a href="contenant-detail.html?id=${cont.id}" style="color:rgba(255,255,255,.65);font-size:var(--text-caption)">${escapeHtml(cont.nom)}</a>`;
+
+  const lots = (lotConts || []).map(lc => ({ ...lc.lots, volume_hl: lc.volume_hl })).filter(Boolean);
+  const volStock = (lotConts || []).reduce((s,lc) => s + (Number(lc.volume_hl)||0), 0);
+  const pct = cont.capacite_hl ? Math.min(100, Math.round(volStock / cont.capacite_hl * 100)) : 0;
+  const typeIcon = TYPE_ICONS[cont.type] || '📦';
+
+  // Build timeline: ops + analyses sorted by date desc
+  const opContsSorted = [...(opConts||[])].sort((a,b) =>
+    (b.operations.date_operation||'').localeCompare(a.operations.date_operation||''));
+  const analysesSorted = [...(analyses||[])].sort((a,b) =>
+    (b.date_analyse||'').localeCompare(a.date_analyse||''));
+
+  const timeline = [
+    ...opContsSorted.map(oc => ({ kind:'op', date: oc.operations.date_operation||'', data: oc })),
+    ...analysesSorted.map(a  => ({ kind:'analyse', date: a.date_analyse||'', data: a })),
+  ].sort((a,b) => b.date.localeCompare(a.date));
+
+  // Lots currently in the cuve
+  const lotsHtml = lots.length ? lots.map(l => {
+    const [bg, fg] = (LOT_STATUT_COLORS[l.statut]||'#eee|#555').split('|');
+    return `<div class="lot-card-sm">
+      <div class="lc-color" style="background:${COULEUR_STRIP[l.couleur]||'#ccc'}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="lc-nom">${COULEUR_ICONS[l.couleur]||'🍷'} ${escapeHtml(l.nom)}${l.millesime ? ` <span style="font-weight:400;opacity:.6">· ${l.millesime}</span>` : ''}</div>
+        <div class="lc-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px">
+          <span class="chip-statut" style="background:${bg};color:${fg};padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600">${STATUT_LABELS[l.statut]||l.statut||''}</span>
+          ${l.volume_hl != null ? `<span class="chip-sm chip-op-type">📦 ${fmt(l.volume_hl)} hL dans cette cuve</span>` : ''}
+          ${l.volume_actuel_hl != null ? `<span class="chip-sm chip-op-type">📊 ${fmt(l.volume_actuel_hl)} hL total</span>` : ''}
+        </div>
+      </div>
+      <div class="lc-links">
+        <button class="btn btn--sm btn--secondary" onclick="nav('tracabilite.html?id=${l.id}')" title="Traçabilité du lot">📋 Traçabilité lot</button>
+        <button class="btn btn--sm btn--secondary" onclick="nav('lot-detail.html?id=${l.id}')">🔗 Fiche</button>
+      </div>
+    </div>`;
+  }).join('')
+  : `<div class="tr-empty">Aucun lot en cuve actuellement</div>`;
+
+  // Operations timeline (with cuve mode context — showing which lot was in the cuve at op time)
+  const opsHtml = timeline.length ? `<div class="timeline">${
+    timeline.map((ev, idx) => {
+      const isLast = idx === timeline.length - 1;
+      if (ev.kind === 'op') {
+        return renderCuveOpItem(ev.data, lotsByOp, prodByOp, isLast);
+      }
+      if (ev.kind === 'analyse') {
+        return renderAnalyseItem(ev.data, isLast);
+      }
+      return '';
+    }).join('')
+  }</div>` : `<div class="tr-empty">Aucune opération ni analyse enregistrée</div>`;
+
+  // Lots ayant séjourné dans cette cuve — depuis lot_mouvements
+  const lotPassageMap = new Map(); // lot_id → { lot, entrees: [], sorties: [] }
+  (mouvements || []).forEach(m => {
+    if (!m.lot_id) return;
+    if (!lotPassageMap.has(m.lot_id)) lotPassageMap.set(m.lot_id, { lot: m.lot, entrees: [], sorties: [] });
+    const p = lotPassageMap.get(m.lot_id);
+    if (m.contenant_dest?.id === cont.id && ['entree','transfert'].includes(m.sens))
+      p.entrees.push(m.date_mouvement);
+    if (m.contenant_source?.id === cont.id && ['sortie','sortie_definitive','transfert'].includes(m.sens))
+      p.sorties.push(m.date_mouvement);
+  });
+
+  const histHtml = lotPassageMap.size ? [...lotPassageMap.values()].map(({ lot: l, entrees, sorties }) => {
+    if (!l) return '';
+    const firstIn = [...entrees].sort()[0];
+    const lastOut = [...sorties].sort().at(-1);
+    const [bg, fg] = (LOT_STATUT_COLORS[l.statut]||'#eee|#555').split('|');
+    return `<div class="lot-card-sm">
+      <div class="lc-color" style="background:${COULEUR_STRIP[l.couleur]||'#ccc'}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="lc-nom">${COULEUR_ICONS[l.couleur]||'🍷'} ${escapeHtml(l.nom||'Lot inconnu')}${l.millesime ? ` · ${l.millesime}` : ''}</div>
+        <div class="lc-meta" style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap">
+          ${firstIn ? `<span class="chip-sm chip-op-type">📥 ${fmtDateShort(firstIn)}</span>` : ''}
+          ${lastOut ? `<span class="chip-sm chip-op-type">📤 ${fmtDateShort(lastOut)}</span>` : `<span class="chip-sm chip-dst" style="background:#e8f5e9;color:#2e7d32">En cuve</span>`}
+          ${l.statut ? `<span class="chip-statut" style="background:${bg};color:${fg};padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600">${STATUT_LABELS[l.statut]||l.statut}</span>` : ''}
+        </div>
+      </div>
+      ${l.id ? `<button class="btn btn--sm btn--secondary" onclick="nav('tracabilite.html?id=${l.id}')">📋 Traçabilité lot</button>` : ''}
+    </div>`;
+  }).join('') : `<div class="tr-empty">Aucun mouvement enregistré pour cette cuve</div>`;
+
+  const html = `
+    <!-- Actions -->
+    <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);flex-wrap:wrap">
+      <a href="contenant-detail.html?id=${cont.id}" class="btn btn--secondary btn--sm">← Fiche cuve</a>
+      <a href="cuverie.html" class="btn btn--secondary btn--sm">← Cuverie</a>
+    </div>
+
+    <!-- Hero -->
+    <div class="tr-hero">
+      <div class="hero-strip cuve"></div>
+      <div class="hero-nom">${typeIcon} ${escapeHtml(cont.nom)}</div>
+      <div class="hero-meta">
+        ${cont.type ? `${typeIcon} ${cont.type}` : ''}
+        ${cont.capacite_hl ? ` · ${fmt(cont.capacite_hl)} hL` : ''}
+        ${cont.materiau ? ` · ${escapeHtml(cont.materiau)}` : ''}
+        ${cont.travees ? ` · 📍 ${escapeHtml(cont.travees.nom)}` : ''}
+      </div>
+      <div class="hero-tags">
+        <span class="mode-badge mode-cuve">🏺 Traçabilité cuve</span>
+        ${pct > 0 ? `<span class="chip-sm chip-op-type">📦 ${fmt(volStock)} / ${fmt(cont.capacite_hl)} hL (${pct}%)</span>` : ''}
+        <a href="contenant-detail.html?id=${cont.id}" class="btn btn--sm btn--secondary" style="margin-left:auto">📄 Fiche</a>
+      </div>
+    </div>
+
+    <!-- Lots actuels -->
+    <div class="tr-section">
+      <div class="tr-section-head">
+        🍷 Lot${lots.length>1?'s':''} en cuve
+        <span class="count">${lots.length}</span>
+      </div>
+      <div class="tr-section-body" style="padding:var(--space-3) var(--space-4)">${lotsHtml}</div>
+    </div>
+
+    <!-- Timeline opérations + analyses -->
+    <div class="tr-section">
+      <div class="tr-section-head">
+        📋 Opérations &amp; analyses sur cette cuve
+        <span class="count">${timeline.length} événements</span>
+        <span style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">⚠️ Spécifiques à cette cuve</span>
+      </div>
+      <div class="tr-section-body" style="padding:var(--space-2) var(--space-4)">${opsHtml}</div>
+    </div>
+
+    <!-- Historique des lots (depuis lot_mouvements) -->
+    <div class="tr-section">
+      <div class="tr-section-head">
+        📜 Lots passés dans cette cuve
+        <span class="count">${lotPassageMap.size}</span>
+        <span style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">${(mouvements||[]).length} mouvement${(mouvements||[]).length!==1?'s':''}</span>
+      </div>
+      <div class="tr-section-body" style="padding:var(--space-3) var(--space-4)">${histHtml}</div>
+    </div>
+  `;
+
+  document.getElementById('content').innerHTML = html;
+}
+
+// ── Rendu d'un mouvement physique (lot_mouvements) ──────────────
+function renderMouvementItem(m, isLast) {
+  const SENS = {
+    entree:            { icon:'📥', dot:'cuve-in',  label:'Entrée en cuve' },
+    sortie:            { icon:'📤', dot:'cuve-out', label:'Sortie de cuve' },
+    transfert:         { icon:'🔄', dot:'op',       label:'Transfert' },
+    sortie_definitive: { icon:'🚪', dot:'genea',    label:'Sortie définitive' },
+  };
+  const s = SENS[m.sens] || { icon:'⚡', dot:'op', label: m.sens || '?' };
+  const lineHtml = isLast ? '' : `<div class="tl-line"></div>`;
+  const typeLabel = (m.type_operation || '').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  const lot = m.lot;
+  const lotBtn = lot
+    ? `<button class="chip-sm chip-lot" onclick="nav('tracabilite.html?id=${lot.id}')">${COULEUR_ICONS[lot.couleur]||'🍷'} ${escapeHtml(lot.nom)}${lot.millesime ? ' · ' + lot.millesime : ''}</button>`
+    : '';
+
+  const srcBtn = m.contenant_source
+    ? `<button class="chip-sm chip-cuve" onclick="nav('tracabilite.html?contenant=${m.contenant_source.id}')">🏺 ${escapeHtml(m.contenant_source.nom)}</button>`
+    : '';
+  const dstBtn = m.contenant_dest
+    ? `<button class="chip-sm chip-cuve" onclick="nav('tracabilite.html?contenant=${m.contenant_dest.id}')">🏺 ${escapeHtml(m.contenant_dest.nom)}</button>`
+    : '';
+  const routeHtml = srcBtn && dstBtn ? `${srcBtn} → ${dstBtn}` : srcBtn || dstBtn;
+
+  return `<div class="tl-item">
+    <div class="tl-spine"><div class="tl-dot ${s.dot}"></div>${lineHtml}</div>
+    <div class="tl-body">
+      <div class="tl-date">${fmtDate(m.date_mouvement)}</div>
+      <div class="tl-title">${s.icon} ${s.label}${typeLabel ? ` <span class="chip-sm chip-op-type">${typeLabel}</span>` : ''}</div>
+      <div class="tl-detail">
+        ${m.volume_hl != null ? `<span class="chip-sm chip-op-type">📦 ${fmt(m.volume_hl)} hL</span>` : ''}
+        ${lotBtn ? `<div class="tl-row" style="margin-top:3px">${lotBtn}</div>` : ''}
+        ${routeHtml ? `<div class="tl-row" style="margin-top:3px">${routeHtml}</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Rendu d'une analyse (mode global) ──────────────────────────
+function renderGlobalAnalyseItem(a, isLast) {
+  const lineHtml = isLast ? '' : `<div class="tl-line"></div>`;
+  const lot = a.lots;
+  const cont = a.contenants;
+  const lotBtn = lot
+    ? `<button class="chip-sm chip-lot" onclick="nav('tracabilite.html?id=${lot.id}')">${COULEUR_ICONS[lot.couleur]||'🍷'} ${escapeHtml(lot.nom)}</button>`
+    : '';
+  const cuveBtn = cont
+    ? `<button class="chip-sm chip-cuve" onclick="nav('tracabilite.html?contenant=${cont.id}')">🏺 ${escapeHtml(cont.nom)}</button>`
+    : '';
+  const kpis = [
+    a.so2_libre != null && `SO₂L ${fmt(a.so2_libre)} mg/L`,
+    a.ph        != null && `pH ${fmt(a.ph)}`,
+    a.tav       != null && `TAV ${fmt(a.tav)} %vol`,
+    a.acidite_volatile != null && `AV ${fmt(a.acidite_volatile)} g/L`,
+  ].filter(Boolean).join(' · ');
+
+  return `<div class="tl-item">
+    <div class="tl-spine"><div class="tl-dot analyse"></div>${lineHtml}</div>
+    <div class="tl-body">
+      <div class="tl-date">${fmtDate(a.date_analyse)}</div>
+      <div class="tl-title">🔬 Analyse ${lotBtn} ${cuveBtn}</div>
+      ${kpis ? `<div class="tl-detail" style="margin-top:3px">${kpis}</div>` : ''}
+      ${a.notes ? `<div style="font-style:italic;color:var(--color-ink-tertiary);font-size:var(--text-caption);margin-top:var(--space-1)">"${escapeHtml(a.notes)}"</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Rendu d'une opération (mode lot - timeline) ─────────────────
+function renderOpItem(ol, prodByOp, contByOp, othersByOp, isLast) {
+  const op    = ol.operations;
+  const opId  = op.id;
+  const prods = prodByOp[opId] || [];
+  const conts = contByOp[opId]  || [];
+  const others = othersByOp[opId] || [];
+
+  const icon  = OP_ICONS[op.type_operation] || '⚙️';
+  const label = OP_LABELS[op.type_operation] || op.type_operation || 'Opération';
+  const statutChip = op.statut === 'realise'
+    ? `<span class="chip-sm chip-realise">✓ Réalisé</span>`
+    : op.statut === 'annule'
+      ? `<span class="chip-sm chip-annule">✗ Annulé</span>`
+      : `<span class="chip-sm chip-brouillon">⏳ En cours</span>`;
+  const lineHtml = isLast ? '' : `<div class="tl-line"></div>`;
+
+  // Products row
+  const prodsHtml = prods.map(p => {
+    const pc  = p.produits_lots?.produits_catalogue;
+    const nom = pc?.nom || '?';
+    const qty = p.quantite != null ? `${fmt(p.quantite)} ${escapeHtml(p.unite||'')}` : '';
+    let actifStr = '';
+    if (pc?.concentration != null && p.quantite != null) {
+      const g = p.quantite * pc.concentration;
+      actifStr = g >= 1000
+        ? ` → ${(g/1000).toLocaleString('fr-FR',{maximumFractionDigits:3})} kg actif`
+        : ` → ${g.toLocaleString('fr-FR',{maximumFractionDigits:2})} g actif`;
+    }
+    return `<span class="chip-sm chip-prod">⚗️ ${escapeHtml(nom)} · <b>${qty}</b>${actifStr}</span>`;
+  }).join('');
+
+  // Contenants row
+  const contsHtml = conts.map(oc => {
+    if (!oc.contenants) return '';
+    const roleCls = oc.role === 'source' ? 'chip-src' : 'chip-dst';
+    const roleLbl = oc.role === 'source' ? '↑src' : '↓dst';
+    return `<span class="chip-sm chip-cuve" onclick="nav('tracabilite.html?contenant=${oc.contenants.id}')"
+      title="Traçabilité de cette cuve">${oc.contenants.nom} <span class="${roleCls}" style="font-size:9px">${roleLbl}</span></span>`;
+  }).join('');
+
+  // Other lots
+  const othersHtml = others.map(o2 => {
+    if (!o2.lots) return '';
+    const rCls = o2.role === 'source' ? 'chip-src' : 'chip-dst';
+    const rLbl = o2.role === 'source' ? 'src' : 'dst';
+    return `<span class="chip-sm chip-lot" onclick="nav('lot-detail.html?id=${o2.lots.id}')" title="Fiche lot">
+      ${COULEUR_ICONS[o2.lots.couleur]||'🍷'} ${escapeHtml(o2.lots.nom)}
+      <span class="${rCls}" style="font-size:9px">${rLbl}</span>
+      ${o2.volume_hl != null ? `<b>${fmt(o2.volume_hl)} hL</b>` : ''}
+    </span>`;
+  }).join('');
+
+  const heureSuffix = op.heure_operation ? ` ${op.heure_operation.slice(0,5)}` : '';
+
+  return `<div class="tl-item">
+    <div class="tl-spine"><div class="tl-dot op"></div>${lineHtml}</div>
+    <div class="tl-body">
+      <div class="tl-date">${fmtDate(op.date_operation)}${heureSuffix}${op.operateur ? ` · ${escapeHtml(op.operateur)}` : ''}</div>
+      <div class="tl-title">
+        ${icon} ${label}
+        ${op.reference ? `<span style="font-weight:400;opacity:.6;font-size:.85em">${escapeHtml(op.reference)}</span>` : ''}
+        ${statutChip}
+        ${ol.role ? `<span class="chip-sm ${ol.role==='source'?'chip-src':'chip-dst'}">${ol.role==='source'?'↑ Source':'↓ Destination'}</span>` : ''}
+      </div>
+      <div class="tl-detail">
+        ${ol.volume_hl != null ? `<span class="chip-sm chip-op-type">📦 ${fmt(ol.volume_hl)} hL</span>` : ''}
+        ${prodsHtml ? `<div class="tl-row">${prodsHtml}</div>` : ''}
+        ${contsHtml ? `<div class="tl-row">${contsHtml}</div>` : ''}
+        ${othersHtml ? `<div class="tl-row">${othersHtml}</div>` : ''}
+        ${op.notes ? `<div style="font-style:italic;color:var(--color-ink-tertiary);font-size:var(--text-caption)">"${escapeHtml(op.notes)}"</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Rendu d'une opération côté cuve ────────────────────────────
+function renderCuveOpItem(oc, lotsByOp, prodByOp, isLast) {
+  const op    = oc.operations;
+  const opId  = op.id;
+  const prods = prodByOp[opId] || [];
+  const opLots = lotsByOp[opId] || [];
+
+  const icon  = OP_ICONS[op.type_operation] || '⚙️';
+  const label = OP_LABELS[op.type_operation] || op.type_operation || 'Opération';
+  const statutChip = op.statut === 'realise'
+    ? `<span class="chip-sm chip-realise">✓ Réalisé</span>`
+    : op.statut === 'annule'
+      ? `<span class="chip-sm chip-annule">✗ Annulé</span>`
+      : `<span class="chip-sm chip-brouillon">⏳</span>`;
+  const lineHtml = isLast ? '' : `<div class="tl-line"></div>`;
+
+  // Products
+  const prodsHtml = prods.map(p => {
+    const pc  = p.produits_lots?.produits_catalogue;
+    const nom = pc?.nom || '?';
+    const qty = p.quantite != null ? `${fmt(p.quantite)} ${escapeHtml(p.unite||'')}` : '';
+    let doseStr = '';
+    if (pc?.concentration != null && p.quantite != null && op.volume_hl) {
+      const gActif = p.quantite * pc.concentration;
+      const mgL = (gActif / (op.volume_hl * 100)) * 1000;
+      doseStr = ` → ${mgL.toLocaleString('fr-FR',{maximumFractionDigits:1})} mg/L`;
+    } else if (pc?.concentration != null && p.quantite != null) {
+      const g = p.quantite * pc.concentration;
+      doseStr = g >= 1000
+        ? ` → ${(g/1000).toLocaleString('fr-FR',{maximumFractionDigits:3})} kg actif`
+        : ` → ${g.toLocaleString('fr-FR',{maximumFractionDigits:2})} g actif`;
+    }
+    return `<span class="chip-sm chip-prod">⚗️ ${escapeHtml(nom)} · <b>${qty}</b>${doseStr}</span>`;
+  }).join('');
+
+  // Lots in this op (with role context)
+  const lotsHtml = opLots.map(ol => {
+    if (!ol.lots) return '';
+    const rCls = ol.role === 'source' ? 'chip-src' : 'chip-dst';
+    const rLbl = ol.role === 'source' ? '↑ source' : '↓ dest';
+    return `<span class="chip-sm chip-lot" onclick="nav('lot-detail.html?id=${ol.lots.id}')">
+      ${COULEUR_ICONS[ol.lots.couleur]||'🍷'} ${escapeHtml(ol.lots.nom)}${ol.lots.millesime ? ` · ${ol.lots.millesime}` : ''}
+      <span class="${rCls}" style="font-size:9px">${rLbl}</span>
+    </span>`;
+  }).join('');
+
+  const roleBadge = oc.role ? `<span class="chip-sm ${oc.role==='source'?'chip-src':'chip-dst'}">${oc.role==='source'?'↑ source':'↓ dest'}</span>` : '';
+
+  return `<div class="tl-item">
+    <div class="tl-spine"><div class="tl-dot op"></div>${lineHtml}</div>
+    <div class="tl-body">
+      <div class="tl-date">${fmtDate(op.date_operation)}${op.operateur ? ` · ${escapeHtml(op.operateur)}` : ''}</div>
+      <div class="tl-title">
+        ${icon} ${label} ${statutChip} ${roleBadge}
+        ${op.reference ? `<span style="font-weight:400;opacity:.6;font-size:.85em">${escapeHtml(op.reference)}</span>` : ''}
+      </div>
+      <div class="tl-detail">
+        ${oc.volume_hl != null ? `<span class="chip-sm chip-op-type">📦 ${fmt(oc.volume_hl)} hL</span>` : ''}
+        ${prodsHtml ? `<div class="tl-row">${prodsHtml}</div>` : ''}
+        ${lotsHtml ? `<div class="tl-row" style="margin-top:3px">${lotsHtml}</div>` : ''}
+        ${op.notes ? `<div style="font-style:italic;color:var(--color-ink-tertiary);font-size:var(--text-caption);margin-top:3px">"${escapeHtml(op.notes)}"</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Rendu d'une analyse ─────────────────────────────────────────
+function renderAnalyseItem(a, isLast) {
+  const lineHtml = isLast ? '' : `<div class="tl-line"></div>`;
+  const kpis = [
+    a.so2_libre    != null && { lbl:'SO₂ libre',  val: fmt(a.so2_libre),  unit:'mg/L' },
+    a.so2_total    != null && { lbl:'SO₂ total',  val: fmt(a.so2_total),  unit:'mg/L' },
+    a.ph           != null && { lbl:'pH',          val: fmt(a.ph),         unit:'' },
+    a.ta           != null && { lbl:'TA',           val: fmt(a.ta),         unit:'g/L' },
+    a.tav          != null && { lbl:'TAV',          val: fmt(a.tav),        unit:'%vol' },
+    a.acidite_volatile != null && { lbl:'AV',       val: fmt(a.acidite_volatile), unit:'g/L' },
+    a.sucres_residuels != null && { lbl:'Sucres',   val: fmt(a.sucres_residuels), unit:'g/L' },
+  ].filter(Boolean);
+
+  const lotsHtml = a.lots
+    ? `<button class="chip-sm chip-lot" onclick="nav('lot-detail.html?id=${a.lots.id}')">${COULEUR_ICONS[a.lots.couleur]||'🍷'} ${escapeHtml(a.lots.nom)}</button>`
+    : '';
+
+  return `<div class="tl-item">
+    <div class="tl-spine"><div class="tl-dot analyse"></div>${lineHtml}</div>
+    <div class="tl-body">
+      <div class="tl-date">${fmtDate(a.date_analyse)}</div>
+      <div class="tl-title">🔬 Analyse ${lotsHtml}</div>
+      ${kpis.length ? `<div class="analyse-grid" style="margin-top:6px">
+        ${kpis.map(k => `<div class="an-kpi"><div class="k-lbl">${k.lbl}</div><div class="k-val">${k.val}<span class="k-unit"> ${k.unit}</span></div></div>`).join('')}
+      </div>` : ''}
+      ${a.notes ? `<div style="font-style:italic;color:var(--color-ink-tertiary);font-size:var(--text-caption);margin-top:var(--space-1)">"${escapeHtml(a.notes)}"</div>` : ''}
+    </div>
+  </div>`;
+}
+</script>
+</body>
+</html>

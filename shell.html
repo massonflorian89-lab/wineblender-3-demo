@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<!-- 9.4 — PWA installable -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="WineBlender">
+<link rel="apple-touch-icon" href="img/icon-wineblender-192.png">
+<script src="pwa.js" defer></script>
+<title>WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);var w=parseInt(localStorage.getItem('wb3_sidebar_width'),10);if(w>=180&&w<=400)document.documentElement.style.setProperty('--nav-w',w+'px');})();</script>
+<style>
+  :root {
+    --nav-w:    220px;
+    --nav-rail:  52px;
+    --nav-bg:   var(--color-primary-deep, #0d2137);
+    --nav-acc:  var(--color-accent, #e8b04a);
+    --tb-h:      44px;
+    --ph-h:      34px;
+    --border:   var(--color-border, #e5e0d8);
+    --bg:       var(--color-bg, #f7f3ee);
+    --ink:      var(--color-ink, #1c1c1e);
+    --muted:    var(--color-ink-tertiary, #6b6b70);
+    --p:        var(--color-primary, #6a1b2a);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px; background: var(--bg); color: var(--ink);
+  }
+
+  /* ── Sidebar ──────────────────────────────────────────────────── */
+  .shell-nav {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: var(--nav-w);
+    background: var(--nav-bg);
+    display: flex; flex-direction: column;
+    z-index: 10; overflow: hidden;
+    transition: width .22s ease;
+    box-shadow: 2px 0 16px rgba(0,0,0,.18);
+  }
+  .shell-nav.collapsed { width: var(--nav-rail); }
+  .shell-nav.wb3-large { width: max(var(--nav-w), 320px); }
+
+  /* ── Poignée de redimensionnement (3 points, desktop only) ── */
+  .shell-nav-grip {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 8px;
+    cursor: col-resize; z-index: 20;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .shell-nav-grip::before {
+    content: '⋮'; color: rgba(255,255,255,0);
+    font-size: 15px; line-height: 1; transition: color .15s;
+  }
+  .shell-nav-grip:hover::before,
+  body.shell-resizing .shell-nav-grip::before { color: rgba(255,255,255,.5); }
+  body.shell-resizing { cursor: col-resize; user-select: none; }
+  body.shell-resizing .shell-nav,
+  body.shell-resizing .shell-body { transition: none !important; }
+  @media (max-width: 767px) { .shell-nav-grip { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .shell-nav-grip::before { transition: none; } }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 15px 13px 14px; flex-shrink: 0;
+    border-bottom: 1px solid rgba(255,255,255,.09);
+    cursor: default;
+  }
+  .nav-logo .n-icon { font-size: 22px; flex-shrink: 0; }
+  .nav-logo img.n-icon { width: 28px; height: 28px; object-fit: contain; display: block; }
+  .nav-logo .n-text {
+    font-weight: 700; font-size: 14.5px; letter-spacing: .3px;
+    white-space: nowrap; overflow: hidden; color: #fff;
+    transition: opacity .18s, max-width .22s; max-width: 200px;
+  }
+  .shell-nav.collapsed .nav-logo .n-text { opacity: 0; max-width: 0; }
+
+  .nav-items { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 7px 0; }
+  .nav-items::-webkit-scrollbar { width: 3px; }
+  .nav-items::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); }
+
+  .nav-sep { height: 1px; background: rgba(255,255,255,.08); margin: 5px 10px; }
+
+  .shell-nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 13px; color: rgba(255,255,255,.65);
+    font-size: 13px; font-weight: 500;
+    border-radius: 8px; margin: 1px 5px;
+    transition: background .14s, color .14s;
+    position: relative; white-space: nowrap; cursor: pointer;
+  }
+  .shell-nav-item:hover { background: rgba(255,255,255,.09); color: rgba(255,255,255,.95); }
+  .shell-nav-item.active { background: color-mix(in srgb, var(--nav-acc) 13%, transparent); color: #fff; font-weight: 600; }
+  .shell-nav-item.active::before {
+    content: ''; position: absolute; left: 0; top: 6px; bottom: 6px;
+    width: 3px; border-radius: 0 2px 2px 0; background: var(--nav-acc);
+  }
+  .shell-nav-item .n-icon { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex-shrink: 0; }
+  .shell-nav-item .n-icon svg { width: 18px; height: 18px; display: block; }
+  .shell-nav-item .n-label {
+    overflow: hidden; transition: opacity .18s, max-width .22s; max-width: 200px;
+  }
+  .shell-nav.collapsed .shell-nav-item .n-label { opacity: 0; max-width: 0; }
+
+  .shell-nav.collapsed .shell-nav-item:hover::after {
+    content: attr(data-label);
+    position: absolute; left: calc(var(--nav-rail) + 6px); top: 50%;
+    transform: translateY(-50%);
+    background: var(--color-primary-soft, #1a3a55); color: #fff;
+    padding: 5px 10px; border-radius: 6px;
+    font-size: 12.5px; white-space: nowrap;
+    box-shadow: 0 2px 10px rgba(0,0,0,.35);
+    pointer-events: none; z-index: 400;
+  }
+
+  .nav-hamburger {
+    margin-left: auto; flex-shrink: 0;
+    background: none; border: none; color: rgba(255,255,255,.45);
+    cursor: pointer; font-size: 17px; padding: 2px 6px;
+    border-radius: 5px; line-height: 1;
+    transition: color .14s, background .14s;
+  }
+  .nav-hamburger:hover { color: rgba(255,255,255,.9); background: rgba(255,255,255,.08); }
+  /* En mode réduit : cacher l'icône, centrer le hamburger seul */
+  .shell-nav.collapsed .nav-logo { gap: 0; justify-content: center; padding: 12px 5px; }
+  .shell-nav.collapsed .nav-logo .n-icon { display: none; }
+  .shell-nav.collapsed .nav-hamburger { margin-left: 0; }
+
+  /* ── Shell body ───────────────────────────────────────────────── */
+  .shell-body {
+    margin-left: var(--nav-w); height: 100vh;
+    display: flex; flex-direction: column;
+    transition: margin-left .22s ease; overflow: hidden;
+  }
+  .shell-body.nav-collapsed { margin-left: var(--nav-rail); }
+  .shell-body.nav-large { margin-left: max(var(--nav-w), 320px); }
+  @media (prefers-reduced-motion: reduce) {
+    .shell-nav, .shell-body { transition: none; }
+  }
+
+  /* ── Toolbar ──────────────────────────────────────────────────── */
+  .shell-toolbar {
+    height: var(--tb-h); flex-shrink: 0;
+    background: var(--color-bg-elevated); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .shell-breadcrumb {
+    font-weight: 600; font-size: 13.5px; color: var(--ink);
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 260px;
+  }
+  .tb-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+  .tb-spacer { flex: 1; }
+  .tb-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 11px; background: none;
+    border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 12.5px; color: var(--ink);
+    cursor: pointer; white-space: nowrap;
+    transition: border-color .14s, background .14s;
+  }
+  .tb-btn:hover { border-color: var(--p); background: #faf5f0; }
+  .tb-btn.active { background: var(--p); color: #fff; border-color: var(--p); }
+  .tb-user {
+    font-size: 12px; color: var(--muted);
+    max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Badge de rôle — toujours visible (jamais tronqué). */
+  .tb-role {
+    font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+    padding: 2px 9px; border-radius: 999px; letter-spacing: .2px;
+    background: #eef1f4; color: #44515f; border: 1px solid #dde3ea;
+  }
+  .tb-role[data-role="admin"]        { background: #fbeaec; color: #9a2230; border-color: #f2c9cf; }
+  .tb-role[data-role="maitre_chais"] { background: #efe7fb; color: #5b3aa0; border-color: #ddccf3; }
+  .tb-role[data-role="oenologue"]    { background: #e7f0fb; color: #2c5aa0; border-color: #ccdef3; }
+  .tb-role[data-role="caviste"]      { background: #e8f5ee; color: #2f7d50; border-color: #cce9d7; }
+
+  /* ── Content area ─────────────────────────────────────────────── */
+  .shell-content { flex: 1; overflow: hidden; display: flex; position: relative; }
+
+  /* ── Panes ────────────────────────────────────────────────────── */
+  .shell-pane {
+    flex: 1; overflow: hidden;
+    display: flex; flex-direction: column; position: relative;
+    border: 2px solid transparent; transition: border-color .14s;
+  }
+  .shell-content.split .shell-pane.active-pane { border-color: var(--nav-acc); }
+
+  .shell-pane iframe { flex: 1; border: none; width: 100%; display: block; }
+
+  /* ── Pane header (visible only in split) ───────────────────────── */
+  .pane-header {
+    display: none; align-items: center; gap: 6px;
+    background: #f0ece5; border-bottom: 1px solid var(--border);
+    padding: 4px 8px; height: var(--ph-h); flex-shrink: 0;
+  }
+  .shell-content.split .pane-header { display: flex; }
+
+  .pane-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0; transition: background .14s;
+  }
+  .shell-pane.active-pane .pane-dot { background: var(--nav-acc); }
+
+  .pane-picker {
+    flex: 1; font-family: inherit; font-size: 12.5px;
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 2px 6px; background: var(--color-bg-elevated); color: var(--ink); cursor: pointer;
+  }
+  .pane-close {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 13px; padding: 2px 5px;
+    border-radius: 4px; line-height: 1;
+    transition: color .14s, background .14s;
+  }
+  .pane-close:hover { color: var(--p); background: rgba(0,0,0,.06); }
+
+  /* ── Right pane hidden by default ──────────────────────────────── */
+  #pane-right { display: none; }
+  .shell-content.split #pane-right { display: flex; }
+
+  /* ── Divider ──────────────────────────────────────────────────── */
+  .shell-divider {
+    width: 5px; cursor: col-resize; flex-shrink: 0;
+    background: var(--border); position: relative;
+    transition: background .14s; display: none;
+  }
+  .shell-content.split .shell-divider { display: block; }
+  .shell-divider:hover { background: var(--p); }
+  .shell-divider::after {
+    content: '⋮'; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(0,0,0,.25); font-size: 14px; pointer-events: none;
+  }
+
+  /* ── Per-pane loading overlay ──────────────────────────────────── */
+  .pane-loading {
+    position: absolute; inset: 0; z-index: 5;
+    background: rgba(247,243,238,.85);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: var(--muted);
+    pointer-events: none; opacity: 0; transition: opacity .2s;
+  }
+  .pane-loading.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ────────────────────────────────────────────────── -->
+<nav class="shell-nav" id="shell-nav">
+  <div class="nav-logo">
+    <img decoding="async" class="n-icon" src="img/icon-wineblender-192.png" alt="WineBlender" />
+    <span class="n-text">WineBlender 3</span>
+    <button class="nav-hamburger" id="nav-toggle" onclick="cycleNavState()" title="Barre : normale — clic → large ( [ )">☰</button>
+  </div>
+  <div class="nav-items" id="nav-items"></div>
+  <div class="shell-nav-grip" id="shell-nav-grip"
+       title="Glisser pour redimensionner · double-clic pour réinitialiser"
+       aria-hidden="true"></div>
+</nav>
+
+<!-- ── Main body ──────────────────────────────────────────────── -->
+<div class="shell-body" id="shell-body">
+
+  <!-- Toolbar -->
+  <div class="shell-toolbar">
+    <span class="shell-breadcrumb" id="shell-breadcrumb">Chargement…</span>
+    <div class="tb-sep"></div>
+    <div class="tb-spacer"></div>
+    <button class="tb-btn" id="btn-split" onclick="toggleSplit()" title="Afficher deux modules côte à côte">
+      ⊞ Vue partagée
+    </button>
+    <div class="tb-sep"></div>
+    <span class="tb-role" id="shell-role" style="display:none"></span>
+    <span class="tb-user" id="shell-user"></span>
+    <button class="tb-btn" onclick="shellLogout()">↪ Déconnexion</button>
+  </div>
+
+  <!-- Content -->
+  <div class="shell-content" id="shell-content">
+
+    <!-- Left pane -->
+    <div class="shell-pane active-pane" id="pane-left">
+      <div class="pane-header" id="ph-left">
+        <div class="pane-dot"></div>
+        <select class="pane-picker" id="picker-left"
+                onchange="navigateFromPicker('left', this.value)"
+                onclick="setActivePaneById('left')"></select>
+        <button class="pane-close" onclick="closeSplit(event)" title="Fermer vue partagée">✕</button>
+      </div>
+      <iframe id="frame-left" src="" title="Volet principal"></iframe>
+      <div class="pane-loading" id="load-left">Chargement…</div>
+    </div>
+
+    <!-- Draggable divider -->
+    <div class="shell-divider" id="shell-divider"></div>
+
+    <!-- Right pane -->
+    <div class="shell-pane" id="pane-right">
+      <div class="pane-header" id="ph-right">
+        <div class="pane-dot"></div>
+        <select class="pane-picker" id="picker-right"
+                onchange="navigateFromPicker('right', this.value)"
+                onclick="setActivePaneById('right')"></select>
+        <button class="pane-close" onclick="closeSplit(event)" title="Fermer vue partagée">✕</button>
+      </div>
+      <iframe id="frame-right" src="" title="Volet secondaire"></iframe>
+      <div class="pane-loading" id="load-right">Chargement…</div>
+    </div>
+
+  </div><!-- /.shell-content -->
+</div><!-- /.shell-body -->
+
+<script src="lib/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script>
+'use strict';
+
+// Icônes SVG cohérentes (mêmes tracés que nav.js / WB3Icons)
+const _NIC = (inner) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+const NICON = {
+  dashboard:      _NIC('<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>'),
+  tank:           _NIC('<ellipse cx="12" cy="5" rx="6" ry="2.2"/><path d="M6 5v13c0 1.3 2.7 2.3 6 2.3s6-1 6-2.3V5"/><path d="M6 11.5c0 1.3 2.7 2.3 6 2.3s6-1 6-2.3"/>'),
+  wine:           _NIC('<path d="M8 22h8"/><path d="M12 15v7"/><path d="M7 3h10l-.6 6.1a4.4 4.4 0 0 1-8.8 0z"/>'),
+  grape:          _NIC('<path d="M22 5V2l-5.9 5.9"/><circle cx="16.6" cy="15.9" r="2.6"/><circle cx="8.1" cy="7.4" r="2.6"/><circle cx="12.3" cy="11.7" r="2.6"/><circle cx="13.9" cy="5.9" r="2.6"/><circle cx="18.2" cy="10.1" r="2.6"/><circle cx="6.6" cy="13.2" r="2.6"/><circle cx="10.8" cy="17.4" r="2.6"/><circle cx="5" cy="19" r="2.6"/>'),
+  calendar:       _NIC('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'),
+  clipboardCheck: _NIC('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>'),
+  flask:          _NIC('<path d="M9 3h6"/><path d="M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2.3h12.4A1.5 1.5 0 0 0 19.5 19L14 9.5V3"/><path d="M7.5 15h9"/>'),
+  microscope:     _NIC('<path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 0 0 0-14"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h4v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v3"/>'),
+  blend:          _NIC('<circle cx="9" cy="9" r="7"/><circle cx="15" cy="15" r="7"/>'),
+  report:         _NIC('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M8 18v-3M12 18v-6M16 18v-2"/>'),
+  settings:       _NIC('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>'),
+};
+const NAV_ITEMS = [
+  { href: 'dashboard.html',  icon: '📊', iconHTML: NICON.dashboard,      label: 'Tableau de bord' },
+  { href: 'cuverie.html',    icon: '🛢', iconHTML: NICON.tank,           label: 'Cuverie' },
+  { href: 'lots.html',       icon: '🍷', iconHTML: NICON.wine,           label: 'Lots' },
+  { href: 'apports.html',    icon: '🍇', iconHTML: NICON.grape,          label: 'Apports' },
+  { href: 'planning.html',   icon: '📅', iconHTML: NICON.calendar,       label: 'Planning' },
+  { href: 'operations.html', icon: '⚙️', iconHTML: NICON.clipboardCheck, label: 'Opérations' },
+  { href: 'produits.html',   icon: '🧪', iconHTML: NICON.flask,          label: 'Produits' },
+  { href: 'analyses.html',   icon: '🔬', iconHTML: NICON.microscope,     label: 'Analyses' },
+  { href: 'assemblage.html', icon: '🧪', iconHTML: NICON.blend,          label: 'Assemblage' },
+  { href: 'rapports.html',   icon: '📋', iconHTML: NICON.report,         label: 'Rapports' },
+  null, // separator
+  { href: 'parametres.html', icon: '🔧', iconHTML: NICON.settings,       label: 'Paramètres' },
+];
+
+// Child pages → their nav parent
+const PARENT_MAP = {
+  'lot-detail.html':       'lots.html',
+  'contenant-detail.html': 'cuverie.html',
+  'tracabilite.html':      'lots.html',
+};
+
+// Label overrides for detail pages not in NAV_ITEMS
+const LABEL_OVERRIDES = {
+  'lot-detail.html':       '🍷 Fiche lot',
+  'contenant-detail.html': '🏺 Fiche cuve',
+  'tracabilite.html':      '🌳 Traçabilité',
+};
+
+// ── State ────────────────────────────────────────────────────────
+let splitMode    = false;
+let activePaneId = 'left';
+// État sidebar W3 : 'rail' | 'normal' | 'large' (migration depuis l'ancien flag).
+let navState = localStorage.getItem('wb3_nav_state');
+if (navState !== 'rail' && navState !== 'normal' && navState !== 'large') {
+  navState = (localStorage.getItem('wb3_nav_collapsed') === '1') ? 'rail' : 'normal';
+}
+let navCollapsed = (navState === 'rail');
+const currentPages = { left: null, right: null };
+
+// ── URL helpers ──────────────────────────────────────────────────
+function embedUrl(href) {
+  try {
+    const url = new URL(href, window.location.href);
+    url.searchParams.set('embedded', '1');
+    return url.href;
+  } catch {
+    return href + (href.includes('?') ? '&' : '?') + 'embedded=1';
+  }
+}
+
+// ── Label helpers ────────────────────────────────────────────────
+function getLabelForHref(href) {
+  const base   = (href || '').split('?')[0].split('/').pop();
+  if (LABEL_OVERRIDES[base]) return LABEL_OVERRIDES[base];
+  const mapped = PARENT_MAP[base] || base;
+  const item   = NAV_ITEMS.filter(Boolean).find(i => i.href === mapped);
+  const suffix = PARENT_MAP[base] ? ' ↗' : '';
+  return item ? (item.icon + ' ' + item.label + suffix) : (base || '—');
+}
+
+// ── Nav active state ─────────────────────────────────────────────
+function updateNavActive() {
+  const href   = currentPages[activePaneId] || '';
+  const base   = href.split('?')[0].split('/').pop();
+  const mapped = PARENT_MAP[base] || base;
+  document.querySelectorAll('.shell-nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.href === mapped);
+  });
+}
+
+function updatePanePicker(paneId, href) {
+  const sel = document.getElementById('picker-' + paneId);
+  if (!sel) return;
+  const base   = (href || '').split('?')[0].split('/').pop();
+  const mapped = PARENT_MAP[base] || base;
+  if ([...sel.options].some(o => o.value === mapped)) sel.value = mapped;
+}
+
+// ── API publique pour les iframes embarquées ──────────────────────
+// Accessible via window.parent.WB3Shell depuis un iframe ?embedded=1
+window.WB3Shell = {
+  navigate: function(href, paneId) { navigate(href, paneId); },
+  setTheme: function(key) {
+    if (key) {
+      document.documentElement.setAttribute('data-theme', key);
+      localStorage.setItem('wb3_theme', key);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.removeItem('wb3_theme');
+    }
+    // Propager aux autres iframes ouvertes
+    ['left', 'right'].forEach(function(p) {
+      try {
+        var frame = document.getElementById('frame-' + p);
+        var doc = frame && frame.contentDocument;
+        if (doc && doc.documentElement) {
+          if (key) doc.documentElement.setAttribute('data-theme', key);
+          else     doc.documentElement.removeAttribute('data-theme');
+        }
+      } catch(e) {}
+    });
+  },
+};
+
+// ── Navigate ─────────────────────────────────────────────────────
+function navigate(href, paneId) {
+  if (paneId == null) paneId = splitMode ? activePaneId : 'left';
+  currentPages[paneId] = href;
+  const frame = document.getElementById('frame-' + paneId);
+  showLoading(paneId, true);
+  frame.src = embedUrl(href);
+  updateNavActive();
+  updatePanePicker(paneId, href);
+  if (paneId === activePaneId || !splitMode) {
+    document.getElementById('shell-breadcrumb').textContent = getLabelForHref(href);
+  }
+}
+
+function showLoading(paneId, on) {
+  const el = document.getElementById('load-' + paneId);
+  if (el) el.classList.toggle('show', on);
+}
+
+// ── Active pane (determines which pane gets nav clicks) ──────────
+function setActivePaneById(paneId) {
+  activePaneId = paneId;
+  document.getElementById('pane-left').classList.toggle('active-pane',  paneId === 'left');
+  document.getElementById('pane-right').classList.toggle('active-pane', paneId === 'right');
+  updateNavActive();
+  const page = currentPages[paneId];
+  if (page) document.getElementById('shell-breadcrumb').textContent = getLabelForHref(page);
+}
+
+// ── Split view ───────────────────────────────────────────────────
+function toggleSplit() {
+  splitMode = !splitMode;
+  localStorage.setItem('wb3_split', splitMode ? '1' : '0');
+  document.getElementById('shell-content').classList.toggle('split', splitMode);
+  const btn = document.getElementById('btn-split');
+  btn.textContent = splitMode ? '⊟ Vue simple' : '⊞ Vue partagée';
+  btn.classList.toggle('active', splitMode);
+  if (splitMode) {
+    if (!currentPages.right) navigate('operations.html', 'right');
+    setActivePaneById('left');
+  } else {
+    setActivePaneById('left');
+  }
+}
+
+function closeSplit(e) {
+  if (e) e.stopPropagation();
+  if (splitMode) toggleSplit();
+}
+
+function navigateFromPicker(paneId, href) {
+  setActivePaneById(paneId);
+  navigate(href, paneId);
+}
+
+// ── Nav collapse ──────────────────────────────────────────────────
+// ── États sidebar (W3) : rail → normal → large ───────────────────
+function _navGlyph(s) { return s === 'rail' ? '»' : s === 'large' ? '«' : '☰'; }
+function _navTitle(s) {
+  return s === 'rail'  ? 'Barre : icônes — clic → normale ( [ )'
+       : s === 'large' ? 'Barre : large — clic → icônes ( [ )'
+       :                 'Barre : normale — clic → large ( [ )';
+}
+function applyNavState(state, persist) {
+  navState = state; navCollapsed = (state === 'rail');
+  document.getElementById('shell-nav').classList.toggle('collapsed', state === 'rail');
+  document.getElementById('shell-nav').classList.toggle('wb3-large', state === 'large');
+  document.getElementById('shell-body').classList.toggle('nav-collapsed', state === 'rail');
+  document.getElementById('shell-body').classList.toggle('nav-large', state === 'large');
+  const btn = document.getElementById('nav-toggle');
+  if (btn) { btn.textContent = _navGlyph(state); btn.title = _navTitle(state); }
+  try {
+    localStorage.setItem('wb3_nav_state', state);
+    localStorage.setItem('wb3_nav_collapsed', state === 'rail' ? '1' : '0'); // compat
+  } catch (e) {}
+  if (persist) persistShellSidebar();
+}
+function cycleNavState() {
+  const order = ['rail', 'normal', 'large'];
+  applyNavState(order[(order.indexOf(navState) + 1) % 3], true);
+}
+function toggleCollapse() {   // Cmd/Ctrl+B : bascule rail ↔ normal
+  applyNavState(navCollapsed ? 'normal' : 'rail', true);
+}
+
+// ── Build nav items ───────────────────────────────────────────────
+function buildNavItems() {
+  const container = document.getElementById('nav-items');
+  container.innerHTML = '';
+  NAV_ITEMS.forEach(item => {
+    if (!item) {
+      const sep = document.createElement('div');
+      sep.className = 'nav-sep';
+      container.appendChild(sep);
+      return;
+    }
+    const el = document.createElement('div');
+    el.className   = 'shell-nav-item';
+    el.dataset.href  = item.href;
+    el.dataset.label = item.label;
+    el.innerHTML = `<span class="n-icon">${item.iconHTML || item.icon}</span><span class="n-label">${item.label}</span>`;
+    el.addEventListener('click', () => navigate(item.href));
+    container.appendChild(el);
+  });
+}
+
+// ── Build pane page pickers ───────────────────────────────────────
+function buildPanePickers() {
+  ['left', 'right'].forEach(paneId => {
+    const sel = document.getElementById('picker-' + paneId);
+    sel.innerHTML = '';
+    NAV_ITEMS.filter(Boolean).forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.href;
+      opt.textContent = item.icon + ' ' + item.label;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+// ── Draggable divider ─────────────────────────────────────────────
+function initDivider() {
+  const divider = document.getElementById('shell-divider');
+  let dragging = false;
+
+  divider.addEventListener('mousedown', e => {
+    dragging = true;
+    document.getElementById('frame-left').style.pointerEvents  = 'none';
+    document.getElementById('frame-right').style.pointerEvents = 'none';
+    document.body.style.cursor     = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const rect = document.getElementById('shell-content').getBoundingClientRect();
+    const pct  = Math.max(20, Math.min(80, (e.clientX - rect.left) / rect.width * 100));
+    const paneL = document.getElementById('pane-left');
+    paneL.style.flex  = 'none';
+    paneL.style.width = pct + '%';
+    const paneR = document.getElementById('pane-right');
+    paneR.style.flex  = '1';
+    paneR.style.width = '';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.getElementById('frame-left').style.pointerEvents  = '';
+    document.getElementById('frame-right').style.pointerEvents = '';
+    document.body.style.cursor     = '';
+    document.body.style.userSelect = '';
+  });
+}
+
+// ── Redimensionnement de la sidebar (drag du bord droit) ─────────
+//   Persistance : user_preferences (module 'ui_sidebar', par user+tenant)
+//   + cache localStorage `wb3_sidebar_width` (anti-FOUC, comme le thème).
+//   Desktop uniquement ; bornes 180–400 px. Cohérent avec nav.js.
+function readNavWidth() {
+  const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-w'), 10);
+  return (v && v >= 180 && v <= 400) ? v : 220;
+}
+// Persistance combinée largeur (W1) + état (W3) sous la même clé 'ui_sidebar'.
+function persistShellSidebar() {
+  const payload = { width: readNavWidth(), state: navState };
+  try { localStorage.setItem('wb3_sidebar_width', String(payload.width)); } catch (e) {}
+  try { localStorage.setItem('wb3_nav_state', payload.state); } catch (e) {}
+  try {
+    if (window.WB3DB && WB3DB.setUserPref) WB3DB.setUserPref('ui_sidebar', payload).catch(() => {});
+  } catch (e) {}
+}
+function saveNavWidth(w) {
+  w = Math.max(180, Math.min(400, Math.round(w)));
+  document.documentElement.style.setProperty('--nav-w', w + 'px');
+  persistShellSidebar();
+}
+function initSidebarResize() {
+  const grip = document.getElementById('shell-nav-grip');
+  if (!grip) return;
+  let dragging = false, startX = 0, startW = 220;
+  function onMove(e) {
+    if (!dragging) return;
+    let w = startW + (e.clientX - startX);
+    w = Math.max(180, Math.min(400, w));
+    document.documentElement.style.setProperty('--nav-w', w + 'px');
+  }
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('shell-resizing');
+    document.getElementById('frame-left').style.pointerEvents  = '';
+    document.getElementById('frame-right').style.pointerEvents = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    saveNavWidth(readNavWidth());
+  }
+  grip.addEventListener('mousedown', e => {
+    if (window.innerWidth < 768) return;       // mobile : resize désactivé
+    if (e.button !== 0) return;
+    if (navCollapsed) toggleCollapse();        // rail → mode normal AVANT resize
+    dragging = true;
+    startX = e.clientX;
+    startW = readNavWidth();
+    document.body.classList.add('shell-resizing');
+    // Empêche les iframes d'avaler le mousemove (même garde que le divider).
+    document.getElementById('frame-left').style.pointerEvents  = 'none';
+    document.getElementById('frame-right').style.pointerEvents = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  });
+  grip.addEventListener('dblclick', () => {
+    document.documentElement.style.setProperty('--nav-w', '220px');
+    saveNavWidth(220);
+    // Feedback discret (flash du grip). Reflow forcé → rejoue à chaque double-clic.
+    grip.classList.remove('wb3-grip-flash'); void grip.offsetWidth; grip.classList.add('wb3-grip-flash');
+  });
+}
+
+// ── Frame focus → set active pane ────────────────────────────────
+function initFrameFocusDetection() {
+  window.addEventListener('blur', () => {
+    if (!splitMode) return;
+    const focused = document.activeElement;
+    if (focused === document.getElementById('frame-left'))  setActivePaneById('left');
+    if (focused === document.getElementById('frame-right')) setActivePaneById('right');
+  });
+}
+
+// ── Frame load listeners ──────────────────────────────────────────
+function initFrameLoadListeners() {
+  ['left', 'right'].forEach(paneId => {
+    const frame = document.getElementById('frame-' + paneId);
+    frame.addEventListener('load', () => {
+      showLoading(paneId, false);
+      try {
+        const path = frame.contentWindow.location.pathname.split('/').pop();
+        if (path && path !== 'about:blank') {
+          currentPages[paneId] = path;
+          updatePanePicker(paneId, path);
+          if (paneId === activePaneId || !splitMode) {
+            updateNavActive();
+            document.getElementById('shell-breadcrumb').textContent = getLabelForHref(path);
+          }
+        }
+      } catch (e) { /* cross-origin guard — should not happen */ }
+    });
+  });
+}
+
+// ── Auth ──────────────────────────────────────────────────────────
+async function shellLogout() {
+  await WB3Auth.signOut();
+  window.location.href = 'app.html';
+}
+
+WB3Auth.onAuthChange(({ user }) => {
+  if (!user) window.location.href = 'app.html';
+});
+
+// ── Socle 2 : bannière capacités backend ─────────────────────────
+async function checkBackendCapabilitiesUI() {
+  if (!WB3DB.checkBackendCapabilities) return; // db.js antérieur à socle 2
+  let cap;
+  try { cap = await WB3DB.checkBackendCapabilities(); }
+  catch (e) { console.warn('[Shell] checkBackendCapabilities KO', e); return; }
+  if (!cap) return;
+
+  // Tout va bien (ou mode dev) → rien à afficher.
+  if (cap.ok && cap.missingRecommended.length === 0) return;
+  if (window.WB3_DEV_MODE) {
+    console.warn('[Shell] WB3_DEV_MODE actif — capacités manquantes ignorées :', cap);
+    return;
+  }
+
+  const label = k => (cap.labels && cap.labels[k]) || k;
+  const blocking = cap.missingCritical.length > 0;
+  const list = (blocking ? cap.missingCritical : cap.missingRecommended)
+    .map(label).map(s => '• ' + s).join('<br>');
+
+  const bar = document.createElement('div');
+  bar.id = 'wb3-cap-banner';
+  bar.style.cssText = [
+    'position:fixed', 'left:0', 'right:0', 'top:0', 'z-index:99999',
+    'padding:12px 18px', 'font:14px/1.4 system-ui,sans-serif',
+    'box-shadow:0 2px 8px rgba(0,0,0,.25)',
+    blocking ? 'background:#7f1d1d' : 'background:#92400e',
+    'color:#fff',
+  ].join(';');
+  bar.innerHTML =
+    '<strong>' + (blocking
+      ? '⛔ Backend incomplet — certaines actions sont bloquées'
+      : '⚠️ Backend partiel — fonctionnalités dégradées') + '</strong>'
+    + '<div style="margin-top:6px;opacity:.95">Migration(s) manquante(s) :<br>' + list + '</div>'
+    + '<div style="margin-top:6px;opacity:.85;font-size:12px">'
+    + (blocking
+        ? 'Contactez l\'administrateur. Les opérations critiques refuseront de s\'exécuter pour protéger la cohérence des données.'
+        : 'L\'application fonctionne mais certaines vues/champs peuvent manquer.')
+    + ' (schéma : ' + (cap.version || 'inconnu') + ')</div>';
+
+  document.body.appendChild(bar);
+  // Décale le contenu sous la bannière pour ne rien masquer.
+  document.body.style.paddingTop = bar.offsetHeight + 'px';
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+(async function init() {
+  if (!window.WB3DB || !window.WB3Auth) {
+    console.error('[Shell] Modules WB3 manquants');
+    window.location.href = 'app.html';
+    return;
+  }
+
+  try {
+    await WB3Auth.restoreSession();
+  } catch (e) {
+    console.warn('[Shell] restoreSession error', e);
+  }
+
+  const user = WB3DB.getCurrentUser();
+  if (!user) {
+    window.location.href = 'app.html';
+    return;
+  }
+
+  const tenant = WB3DB.getCurrentTenant();
+  const ROLE_LBL = { admin: 'Administrateur', maitre_chais: 'Maître de chais', oenologue: 'Œnologue', caviste: 'Caviste' };
+  document.getElementById('shell-user').textContent =
+    user.email + (tenant ? ' · ' + tenant.nom : '');
+  const roleEl = document.getElementById('shell-role');
+  if (roleEl) {
+    const r = tenant && tenant.role;
+    roleEl.textContent = r ? (ROLE_LBL[r] || r) : '';
+    roleEl.dataset.role = r || '';
+    roleEl.style.display = r ? '' : 'none';
+  }
+
+  // Socle 2 — contrôle de capacités backend (après auth + tenant → pas de
+  // faux positif). Capacité critique manquante → bannière bloquante.
+  checkBackendCapabilitiesUI();
+
+  // Charger le thème depuis Supabase (localStorage est déjà appliqué en head)
+  try {
+    const pref = await WB3DB.getUserPref('apparence');
+    if (pref && typeof pref.theme !== 'undefined') {
+      WB3Shell.setTheme(pref.theme || '');
+    }
+  } catch(e) { /* on reste sur le localStorage */ }
+
+  // Largeur de la sidebar : source durable par utilisateur (le cache
+  // localStorage est déjà appliqué en <head> pour éviter le FOUC).
+  try {
+    const swp = await WB3DB.getUserPref('ui_sidebar');
+    const w = swp && Number(swp.width);
+    if (w && w >= 180 && w <= 400) {
+      document.documentElement.style.setProperty('--nav-w', w + 'px');
+      try { localStorage.setItem('wb3_sidebar_width', String(w)); } catch(e) {}
+    }
+    if (swp && (swp.state === 'rail' || swp.state === 'normal' || swp.state === 'large')) {
+      applyNavState(swp.state, false);   // restaure l'état (W3)
+    }
+  } catch(e) { /* cache / défaut conservé */ }
+
+  applyNavState(navState, false);   // applique rail / normal / large (W3)
+
+  buildNavItems();
+  buildPanePickers();
+  initDivider();
+  initSidebarResize();
+  initFrameFocusDetection();
+  initFrameLoadListeners();
+
+  // Raccourcis sidebar (W3) : « [ » cycle rail→normal→large ; Cmd/Ctrl+B
+  // réduit/agrandit (rail↔normal). Ignorés si la frappe vise un champ de saisie.
+  document.addEventListener('keydown', e => {
+    if (window.innerWidth < 768) return;
+    const t = e.target;
+    if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); toggleCollapse(); }
+    else if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === '[') { e.preventDefault(); cycleNavState(); }
+  });
+
+  // Load initial page (default: dashboard)
+  navigate('dashboard.html', 'left');
+
+  // Restore split mode if was active
+  if (localStorage.getItem('wb3_split') === '1') toggleSplit();
+})();
+</script>
+</body>
+</html>

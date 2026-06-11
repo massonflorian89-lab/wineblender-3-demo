@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Lots — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  /* Bande couleur en haut de chaque carte */
+  .contenant-card-pro { position:relative; overflow:hidden; }
+  .couleur-strip {
+    position:absolute; top:0; left:0; right:0; height:4px;
+  }
+  .couleur-strip.rouge { background:#b00020; }
+  .couleur-strip.blanc { background:#d4c089; }
+  .couleur-strip.rose  { background:#d89dad; }
+  .couleur-strip.gris  { background:#9e9ea0; }
+
+  /* Badges statut */
+  .statut-badge {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:3px 9px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+    white-space:nowrap; flex-shrink:0;
+  }
+  .statut-vendange      { background:#f5ede0; color:#836539; }
+  .statut-mout          { background:#faf3e7; color:#8b6738; }
+  .statut-mout_stabule  { background:#faf7e5; color:#836d2d; }
+  .statut-mout_debourbe { background:#faf0d7; color:#8f641f; }
+  .statut-fa            { background:#fff0ea; color:#bd4800; }
+  .statut-fml           { background:#fff3e7; color:#ac5800; }
+  .statut-vin           { background:#fce9ec; color:#b00020; }
+  .statut-elevage       { background:#e8f0fa; color:#1a4870; }
+  .statut-vin_filtre    { background:#f3e0e3; color:#9a0025; }
+  .statut-pre_mise      { background:#ece8f5; color:#5a3a8a; }
+  .statut-conditionne   { background:#f0ece5; color:#555; }
+  .statut-sorti         { background:#f2f2f2; color:#6d6d6d; }
+  .statut-archive       { background:#f2f2f2; color:#6d6d6d; }
+
+  /* Pagination */
+  .pagination-bar  { display:flex; align-items:center; justify-content:center; gap:var(--space-3); padding:var(--space-4) 0 var(--space-2); }
+  .pagination-info { font-size:var(--text-callout); color:var(--color-ink-tertiary); min-width:180px; text-align:center; }
+
+  /* Drawer cépages */
+  .cepage-select-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:var(--space-1);
+    max-height:220px; overflow-y:auto;
+    border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:var(--space-1);
+  }
+  .cepage-item {
+    display:flex; align-items:center; gap:6px;
+    padding:4px 8px; border-radius:var(--radius-sm);
+    font-size:var(--text-caption); cursor:pointer;
+  }
+  .cepage-item:hover { background:var(--color-bg-subtle); }
+  .cepage-item input[type=checkbox] { flex-shrink:0; }
+  .cepage-pct {
+    width:52px; padding:3px 6px; font-size:var(--text-caption);
+    border:1px solid var(--color-border); border-radius:var(--radius-sm);
+    background:var(--color-bg); text-align:right;
+  }
+
+  /* Filtres colonnes style Excel */
+  .col-filter-btn {
+    display:inline-flex; align-items:center; background:none; border:none; cursor:pointer;
+    padding:2px 3px; border-radius:3px; font-size:10px; color:var(--color-ink-tertiary);
+    transition:color .15s,background .15s; vertical-align:middle; margin-left:3px;
+  }
+  .col-filter-btn:hover  { color:var(--color-ink-secondary); background:var(--color-bg-subtle); }
+  .col-filter-btn.active { color:var(--color-primary); }
+  .col-filter-dropdown {
+    position:fixed; background:var(--color-bg-elevated); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); box-shadow:0 8px 32px rgba(0,0,0,.22);
+    padding:var(--space-2); min-width:230px; max-width:290px; z-index:2000; display:none;
+  }
+  .col-filter-dropdown.open { display:block; }
+  .col-filter-title  { font-weight:600; font-size:var(--text-caption); margin-bottom:var(--space-1); color:var(--color-ink-secondary); }
+  .col-filter-search { width:100%; box-sizing:border-box; margin-bottom:var(--space-1); }
+  .col-filter-values {
+    max-height:200px; overflow-y:auto; border:1px solid var(--color-border);
+    border-radius:var(--radius-sm); margin-bottom:var(--space-1); background:var(--color-bg);
+  }
+  .col-filter-value-item {
+    display:flex; align-items:center; gap:var(--space-2); padding:5px 8px; cursor:pointer;
+    font-size:var(--text-caption); color:var(--color-ink);
+  }
+  .col-filter-value-item:hover { background:var(--color-bg-subtle); }
+  .col-filter-range { display:flex; gap:var(--space-1); align-items:center; margin-bottom:var(--space-1); }
+  .col-filter-range input { flex:1; min-width:0; }
+  .col-filter-footer {
+    display:flex; justify-content:space-between; align-items:center;
+    padding-top:var(--space-1); border-top:1px solid var(--color-border); gap:var(--space-1);
+  }
+
+  /* Drawer contenants affectés */
+  .affect-row {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:6px 0; border-bottom:1px solid var(--color-border);
+  }
+  .affect-row:last-child { border-bottom:none; }
+  .affect-row select { flex:1; }
+  .affect-row input  { width:80px; }
+  .affect-row button { flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1>🍷 Lots</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+
+  <div class="stats-grid" id="stats">
+    <div class="stat-card"><div class="label">Chargement…</div><div class="value">—</div></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="all">📦 Tous <span class="count" data-count="all">0</span></button>
+    <button class="tab" data-tab="vendange_mout">🍇 Vendange <span class="count" data-count="vendange_mout">0</span></button>
+    <button class="tab" data-tab="fermentation">🌡 Ferment. <span class="count" data-count="fermentation">0</span></button>
+    <button class="tab" data-tab="vin">🍷 Vin <span class="count" data-count="vin">0</span></button>
+    <button class="tab" data-tab="elevage">🛢 Élevage <span class="count" data-count="elevage">0</span></button>
+    <button class="tab" data-tab="conditionne">🍾 Conditionné <span class="count" data-count="conditionne">0</span></button>
+    <button class="tab" data-tab="archive">📦 Archivés <span class="count" data-count="archive">0</span></button>
+    <button class="tab" data-tab="epingles">📌 Épinglés <span class="count" data-count="epingles">0</span></button>
+  </div>
+
+  <div class="action-bar">
+    <div class="group" id="view-mode">
+      <button data-view="grid" title="Vue grille">▦ Grille</button>
+      <button class="active" data-view="table" title="Vue tableau">☰ Tableau</button>
+    </div>
+    <div class="group" id="group-mode">
+      <button class="active" data-group="none" title="Liste plate">— Plat</button>
+      <button data-group="couleur" title="Regrouper par couleur">🎨 Couleur</button>
+      <button data-group="statut" title="Regrouper par statut">📊 Statut</button>
+    </div>
+    <div class="group" id="sort-mode">
+      <button class="active" data-sort="nom" title="Tri alphabétique">A→Z</button>
+      <button data-sort="millesime" title="Tri par millésime">📅 Mill.</button>
+      <button data-sort="volume_actuel_hl" title="Tri par volume">📏 Vol.</button>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn btn--secondary btn--sm" id="btn-clear-filters" onclick="clearAllColumnFilters()" style="display:none">✕ Filtres actifs</button>
+    <button class="btn btn--secondary btn--sm" onclick="exportCSV()">📤 CSV</button>
+  </div>
+
+  <div class="filters-bar">
+    <span id="lot-date-filter"></span>
+    <div class="search-input">
+      <input type="text" id="search" placeholder="Rechercher lot, millésime, cépage, note…" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="couleur-chips">
+      <button class="chip active" data-couleur="all">Toutes couleurs</button>
+      <button class="chip" data-couleur="rouge">🔴 Rouge</button>
+      <button class="chip" data-couleur="blanc">⚪ Blanc</button>
+      <button class="chip" data-couleur="rose">🌸 Rosé</button>
+      <button class="chip" data-couleur="gris">🩶 Gris</button>
+    </div>
+  </div>
+
+  <div id="list-header"></div>
+
+  <div id="pinned-section" style="display:none"></div>
+
+  <div id="content">
+    <div class="skel-wrap">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:var(--space-3)">
+        <div class="skel-card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)"><span class="skel" style="width:22px;height:22px;border-radius:50%;flex-shrink:0"></span><span class="skel" style="height:14px;width:55%"></span></div><span class="skel" style="height:11px;width:80%;margin-bottom:var(--space-2)"></span><span class="skel" style="height:11px;width:42%"></span></div>
+        <div class="skel-card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)"><span class="skel" style="width:22px;height:22px;border-radius:50%;flex-shrink:0"></span><span class="skel" style="height:14px;width:68%"></span></div><span class="skel" style="height:11px;width:75%;margin-bottom:var(--space-2)"></span><span class="skel" style="height:11px;width:55%"></span></div>
+        <div class="skel-card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)"><span class="skel" style="width:22px;height:22px;border-radius:50%;flex-shrink:0"></span><span class="skel" style="height:14px;width:48%"></span></div><span class="skel" style="height:11px;width:88%;margin-bottom:var(--space-2)"></span><span class="skel" style="height:11px;width:35%"></span></div>
+        <div class="skel-card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)"><span class="skel" style="width:22px;height:22px;border-radius:50%;flex-shrink:0"></span><span class="skel" style="height:14px;width:60%"></span></div><span class="skel" style="height:11px;width:70%;margin-bottom:var(--space-2)"></span><span class="skel" style="height:11px;width:48%"></span></div>
+        <div class="skel-card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)"><span class="skel" style="width:22px;height:22px;border-radius:50%;flex-shrink:0"></span><span class="skel" style="height:14px;width:72%"></span></div><span class="skel" style="height:11px;width:65%;margin-bottom:var(--space-2)"></span><span class="skel" style="height:11px;width:52%"></span></div>
+        <div class="skel-card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--space-3)"><span class="skel" style="width:22px;height:22px;border-radius:50%;flex-shrink:0"></span><span class="skel" style="height:14px;width:52%"></span></div><span class="skel" style="height:11px;width:82%;margin-bottom:var(--space-2)"></span><span class="skel" style="height:11px;width:38%"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="pagination-bar" id="pagination-bar" style="display:none"></div>
+
+</main>
+
+<button class="fab" onclick="openDrawer()" title="Nouveau lot">+</button>
+
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 id="drawer-title">Nouveau lot</h3>
+    <button class="close-btn" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body">
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Identité</div>
+      <div class="field">
+        <label class="field-label">Nom du lot *</label>
+        <input class="input" type="text" id="f-nom" maxlength="80" placeholder="Ex : Merlot 2024, Grenache Vendange 1…">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Millésime</label>
+          <input class="input" type="number" id="f-millesime" min="1900" max="2100" placeholder="2024">
+        </div>
+        <div class="field">
+          <label class="field-label">Date d'entrée</label>
+          <input class="input" type="date" id="f-date-entree">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Couleur</label>
+        <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+          <label class="toggle"><input type="radio" name="couleur" value="rouge" checked> 🔴 Rouge</label>
+          <label class="toggle"><input type="radio" name="couleur" value="blanc"> ⚪ Blanc</label>
+          <label class="toggle"><input type="radio" name="couleur" value="rose"> 🌸 Rosé</label>
+          <label class="toggle"><input type="radio" name="couleur" value="gris"> 🩶 Gris</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Statut</label>
+        <select class="select" id="f-statut">
+          <option value="vendange">🍇 Vendange</option>
+          <option value="mout">🌊 Moût</option>
+          <option value="mout_stabule">🧊 Moût stabulation</option>
+          <option value="mout_debourbe">🔽 Moût débourbage</option>
+          <option value="fa">🌡 Fermentation alcoolique</option>
+          <option value="fml">🧫 Fermentation malolactique</option>
+          <option value="vin">🍷 Vin</option>
+          <option value="elevage">🛢 Élevage</option>
+          <option value="vin_filtre">🔬 Vin filtré</option>
+          <option value="pre_mise">📦 Pré-mise</option>
+          <option value="conditionne">🍾 Conditionné</option>
+          <option value="sorti">🚪 Sorti</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Volumes (indicatifs)</div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Volume initial (hL)</label>
+          <input class="input" type="number" id="f-vol-initial" min="0" step="0.1" placeholder="850">
+        </div>
+        <div class="field">
+          <label class="field-label">Volume actuel (hL)</label>
+          <input class="input" type="number" id="f-vol-actuel" min="0" step="0.1" placeholder="820">
+        </div>
+      </div>
+      <div class="field-help" style="margin-top:0">Ces volumes sont indicatifs, ils ne contraignent pas le système.</div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Cépages</div>
+      <p class="t-footnote" style="margin:0 0 var(--space-2)">Coche les cépages du lot. Le % est facultatif.</p>
+      <div id="f-cepages-grid" class="cepage-select-grid">
+        <div style="color:var(--color-ink-tertiary);font-size:var(--text-caption);grid-column:1/-1;padding:var(--space-2)">Chargement…</div>
+      </div>
+      <div class="field-help">Gère les cépages dans <a href="parametres.html#cepages" style="color:var(--color-primary)">⚙️ Paramètres → Cépages</a></div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Contenants affectés</div>
+      <p class="t-footnote" style="margin:0 0 var(--space-2)">Indique dans quelles cuves se trouve ce lot. Le volume est approximatif.</p>
+      <div id="f-contenants-list"></div>
+      <button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addContenantRow()">+ Ajouter un contenant</button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Provenance (optionnel)</div>
+      <p class="t-footnote" style="margin:0 0 var(--space-2)">Ce lot est issu d'autres lots ? Indique les sources et les volumes prélevés.</p>
+      <div id="f-parents-list"></div>
+      <button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addParentRow()">+ Ajouter un lot source</button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Caractéristiques (optionnel)</div>
+      <div class="field">
+        <label class="field-label">Type de matière</label>
+        <input class="input" type="text" id="f-type-lot" placeholder="Ex : vin, moût, jus, base mousse…" list="type-lot-list">
+        <datalist id="type-lot-list">
+          <option value="vendange"><option value="moût"><option value="jus">
+          <option value="vin"><option value="base mousse"><option value="liqueur d'expédition">
+        </datalist>
+      </div>
+      <div class="field">
+        <label class="field-label">Appellation</label>
+        <input class="input" type="text" id="f-appellation" placeholder="Ex : AOC Champagne, IGP Pays d'Oc…">
+      </div>
+      <div class="field">
+        <label class="field-label">Destination</label>
+        <input class="input" type="text" id="f-destination" placeholder="Ex : vrac, bouteille, export, BIB…" list="destination-list">
+        <datalist id="destination-list">
+          <option value="vrac"><option value="bouteille"><option value="export">
+          <option value="BIB (Bag-in-Box)"><option value="demi-muids">
+        </datalist>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Notes</div>
+      <div class="field">
+        <textarea class="input" id="f-notes" rows="3" placeholder="Observations libres sur ce lot…" style="resize:vertical"></textarea>
+      </div>
+    </div>
+
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn--danger" id="btn-delete" onclick="deleteCurrent()" style="display:none">Supprimer</button>
+    <div class="actions-right">
+      <button class="btn btn--secondary" onclick="closeDrawer()">Annuler</button>
+      <button class="btn" onclick="saveLot()">Enregistrer</button>
+    </div>
+  </div>
+</aside>
+
+<div id="col-filter-dropdown" class="col-filter-dropdown" onclick="event.stopPropagation()"></div>
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="wb3-vitals.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+<script src="list-date-filter.js"></script>
+<script src="list-pager.js"></script>
+<script src="list-header.js"></script>
+<script src="row-popover.js"></script>
+<script src="pins.js"></script>
+<script src="multiselect-touch.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// Constantes
+// ============================================================
+const STATUT_LABELS = {
+  vendange:'🍇 Vendange', mout:'🌊 Moût', mout_stabule:'🧊 Stabulation',
+  mout_debourbe:'🔽 Débourbage', fa:'🌡 Ferm. alc.', fml:'🧫 Ferm. malo.',
+  vin:'🍷 Vin', elevage:'🛢 Élevage', vin_filtre:'🔬 Filtré',
+  pre_mise:'📦 Pré-mise', conditionne:'🍾 Conditionné', sorti:'🚪 Sorti',
+};
+const STATUT_ORDER = ['vendange','mout','mout_stabule','mout_debourbe','fa','vin','fml','elevage','vin_filtre','pre_mise','conditionne','sorti'];
+const COULEUR_LABELS = { rouge:'Rouge', blanc:'Blanc', rose:'Rosé', gris:'Gris' };
+const COULEUR_ICONS  = { rouge:'🔴', blanc:'⚪', rose:'🌸', gris:'🩶' };
+const LOT_STATUT_SUFFIX = {
+  mout_debourbe:'.DB', mout_stabule:'.DB',
+  fa:'.FA', fml:'.FML', elevage:'.EL', vin_filtre:'.F', pre_mise:'.PM',
+};
+
+const TAB_FILTERS = {
+  all:          () => true,
+  vendange_mout:(l) => ['vendange','mout','mout_stabule','mout_debourbe'].includes(l.statut),
+  fermentation: (l) => ['fa','fml'].includes(l.statut),
+  vin:          (l) => ['vin','vin_filtre','pre_mise'].includes(l.statut),
+  elevage:      (l) => l.statut === 'elevage',
+  conditionne:  (l) => ['conditionne','sorti'].includes(l.statut),
+  archive:      (l) => l.archived === true,
+  epingles:     (l) => _isPinned(l.id),                  // L8 : onglet « Épinglés »
+};
+
+// ============================================================
+// Catalogue colonnes tableau
+// ============================================================
+const STATUT_TEXT = {
+  vendange:'Vendange', mout:'Moût', mout_stabule:'Moût stabulation',
+  mout_debourbe:'Moût débourbage', fa:'Ferm. alcoolique', fml:'Ferm. malolactique',
+  vin:'Vin', elevage:'Élevage', vin_filtre:'Vin filtré', pre_mise:'Pré-mise',
+  conditionne:'Conditionné', sorti:'Sorti',
+};
+const LOTS_COLUMNS = [
+  { key:'nom',              label:'Nom',          numeric:false, sortKey:'nom',              defaultVisible:true },
+  { key:'millesime',        label:'Mill.',         numeric:true,  sortKey:'millesime',        defaultVisible:true },
+  { key:'couleur',          label:'Couleur',       numeric:false, sortKey:null,               defaultVisible:true },
+  { key:'statut',           label:'Statut',        numeric:false, sortKey:null,               defaultVisible:true },
+  { key:'cepages',          label:'Cépages',       numeric:false, sortKey:null,               defaultVisible:true },
+  { key:'volume_actuel_hl', label:'Vol. (hL)',     numeric:true,  sortKey:'volume_actuel_hl', defaultVisible:true },
+  { key:'contenants',       label:'Contenants',    numeric:false, sortKey:null,               defaultVisible:true },
+];
+
+// ============================================================
+// État
+// ============================================================
+let lots               = [];
+let cepages            = [];
+let contenants         = [];
+let activeTab          = 'all';
+// Défaut tableau + persistance localStorage (override par userPref si présente)
+let viewMode           = (() => { try { return localStorage.getItem('wb3_lots_view') || 'table'; } catch(_) { return 'table'; } })();
+let groupMode          = 'none';
+let sortBy             = 'nom';
+let sortAsc            = true;
+let filterCouleur      = 'all';
+let searchQuery        = '';
+let currentPage        = 1;
+let PAGE_SIZE        = 25;       // L3 : défaut 25, réglable 25/50/100 (persisté)
+let _showAll         = false;    // L3 : « Tout afficher »
+let _mode            = 'continuous';   // L4 : continu (Charger plus) | paginé
+let _loaded          = 25;             // L4 : lignes accumulées en mode continu
+let _datePreset      = 'campagne';     // L5 : preset date courant (chip)
+let _dateSetPreset   = function () {};   // L5 : pilote la période
+let _density         = 'confort';      // L10 : 'confort' | 'compact'
+let _pinned          = [];             // L8 : ids épinglés (≤ 5), persistés
+let editingId          = null;
+let currentContenantRows = [];
+let currentParentRows    = [];
+let columnFilters      = {};
+let _dateRange         = {};   // période serveur (filtre liste, sur created_at) — voir list-date-filter.js
+let activeFilterCol    = null;
+
+// ============================================================
+// Toast
+// ============================================================
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+
+// ============================================================
+// Auth & démarrage
+// ============================================================
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+(async function init() {
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient ||
+      typeof window.WB3DB === 'undefined' || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>`;
+    return;
+  }
+
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>`;
+    document.querySelector('.fab').style.display = 'none';
+    return;
+  }
+  const { tenant } = ctx;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+
+  // Filtre période (défaut campagne en cours, sur created_at) — AVANT le 1er fetch.
+  _dateRange = await WB3ListDateFilter.init({
+    module: 'lots', defaultPreset: 'campagne', mount: 'lot-date-filter',
+    onChange: async (r) => { _dateRange = r; _datePreset = r.preset; _loaded = 25; currentPage = 1; await loadLots(); render(); },
+  });
+  _dateSetPreset = _dateRange.setPreset; _datePreset = _dateRange.preset;   // L5
+  PAGE_SIZE = await WB3ListPager.loadSize('lots');   // L3 : taille de page persistée (défaut 25)
+  _mode     = await WB3ListPager.loadMode('lots');   // L4 : mode continu / paginé (persisté)
+  _density  = await WB3ListPager.loadDensity('lots'); _applyDensity();   // L10
+  _pinned   = await WB3Pins.load('lots');   // L8 : lignes épinglées (cloisonné tenant)
+  await loadLots();
+  await applyLotsVuePrefs();
+  subscribeRealtime();
+  setupEventListeners();
+  _initRowPopover();   // L11 : mini-fiche au survol (données déjà chargées)
+  // 9.2A — multi-sélection tactile (tap long) : bandeau + coche/décoche (tactile only).
+  if (window.WB3MultiSelect) WB3MultiSelect.attach('content', { onChange: function () {} });
+  render();
+})();
+
+// L11 — aperçu au survol d'une ligne (aucune requête : données en mémoire).
+function _initRowPopover() {
+  if (!window.WB3RowPopover) return;
+  WB3RowPopover.attach('content', {
+    resolve: id => lots.find(l => String(l.id) === String(id)),
+    fields: l => {
+      const ceps  = (l.lot_cepages || []).map(lc => lc.cepages?.nom + (lc.pourcentage ? ` ${lc.pourcentage}%` : '')).filter(Boolean).join(', ');
+      const conts = (l.lot_contenants || []).map(lc => lc.contenants?.nom).filter(Boolean).join(', ');
+      const vol   = l.volume_actuel_hl ?? l.volume_initial_hl;
+      return { title: l.nom + (l.millesime ? ' · ' + l.millesime : ''), rows: [
+        ['N° lot', l.numero_lot],
+        ['Couleur', COULEUR_LABELS[l.couleur] || l.couleur],
+        ['Statut', STATUT_LABELS[l.statut] || l.statut],
+        ['Volume', vol != null ? fmt(vol) + ' hL' : ''],
+        ['Cépages', ceps],
+        ['Contenants', conts],
+      ] };
+    },
+  });
+}
+
+// ============================================================
+// Chargement
+// ============================================================
+async function loadLots() {
+  try {
+    lots = await WB3DB.queryLots({ date_from: _dateRange.date_from, date_to: _dateRange.date_to });
+  } catch(e) {
+    console.error('[WB3 lots] loadLots:', e);
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Erreur de chargement</div>
+       <div class="desc">${escapeHtml(e.message)}</div></div>`;
+  }
+}
+
+async function loadCepages() {
+  try { cepages = await WB3DB.listTable('cepages', { order: 'couleur' }); }
+  catch(e) { cepages = []; console.warn(e); }
+}
+
+let contenantLotsMap = new Map(); // contenant_id → lots[]
+
+async function loadContenants() {
+  try {
+    const raw = await WB3DB.queryCuverieData();
+    contenants = raw.map(({ lot_contenants: _lc, ...c }) => c);
+    contenantLotsMap = new Map();
+    raw.forEach(c => {
+      const lots = (c.lot_contenants || [])
+        .filter(lc => lc.lots?.id)
+        .map(lc => ({ ...lc.lots, volume_hl: lc.volume_hl }));
+      if (lots.length) contenantLotsMap.set(c.id, lots);
+    });
+  } catch(e) { contenants = []; contenantLotsMap = new Map(); console.warn(e); }
+}
+
+// Rafraîchit un seul lot dans le tableau local (évite le reload complet)
+async function refreshLotLocal(id) {
+  if (!id) { await loadLots(); return; }
+  try {
+    const rows = await WB3DB.queryLots({ id });
+    if (rows.length) {
+      const idx = lots.findIndex(l => l.id === id);
+      if (idx >= 0) lots[idx] = rows[0];
+      else lots.push(rows[0]);
+    }
+  } catch(e) { await loadLots(); }
+}
+
+const _recentlySaved = new Set();
+function _markRecentlySaved(id) {
+  if (!id) return;
+  _recentlySaved.add(id);
+  setTimeout(() => _recentlySaved.delete(id), 500);
+}
+
+function subscribeRealtime() {
+  WB3DB.subscribeTable('lots', async (payload) => {
+    if (payload.eventType === 'DELETE') {
+      lots = lots.filter(l => l.id !== payload.old.id);
+    } else if (!_recentlySaved.has(payload.new.id)) {
+      await refreshLotLocal(payload.new.id);
+    }
+    render();
+  });
+}
+
+// ── Chargement différé des données du drawer ──────────────────
+// cepages et contenants ne sont nécessaires qu'à l'ouverture du drawer.
+let _drawerDataReady = false;
+let _drawerDataPromise = null;
+async function ensureDrawerData() {
+  if (_drawerDataReady) return;
+  if (!_drawerDataPromise) {
+    _drawerDataPromise = Promise.all([loadCepages(), loadContenants()])
+      .then(() => { _drawerDataReady = true; _drawerDataPromise = null; });
+  }
+  return _drawerDataPromise;
+}
+
+// ============================================================
+// Filtrage / tri
+// ============================================================
+function getFiltered() {
+  const btnCF = document.getElementById('btn-clear-filters');
+  if (btnCF) btnCF.style.display = (viewMode === 'table' && hasActiveColumnFilters()) ? '' : 'none';
+
+  return lots
+    .filter(l => TAB_FILTERS[activeTab](l))
+    .filter(l => filterCouleur === 'all' || l.couleur === filterCouleur)
+    .filter(l => {
+      if (!searchQuery) return true;
+      const ceps = (l.lot_cepages || []).map(lc => lc.cepages?.nom || '').join(' ');
+      const hay  = [l.nom, l.millesime, l.notes, ceps].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(searchQuery);
+    })
+    .filter(l => passesColumnFilters(l))
+    .sort((a, b) => {
+      let av = a[sortBy], bv = b[sortBy];
+      if (sortBy === 'statut') {
+        av = STATUT_ORDER.indexOf(av); bv = STATUT_ORDER.indexOf(bv);
+      }
+      if (typeof av === 'string' || typeof bv === 'string') {
+        const c = String(av||'').localeCompare(String(bv||''), 'fr');
+        return sortAsc ? c : -c;
+      }
+      av = Number(av)||0; bv = Number(bv)||0;
+      return sortAsc ? av - bv : bv - av;
+    });
+}
+
+// ============================================================
+// Rendu principal
+// ============================================================
+function render() {
+  renderStats();
+  renderTabCounts();
+  _renderPinned();                    // L8 : section « Épinglés » en tête (sibling persistant)
+  const filtered = getFiltered();
+  const container = document.getElementById('content');
+
+  if (!filtered.length) {
+    document.getElementById('pagination-bar').style.display = 'none';
+    container.innerHTML = !lots.length
+      ? `<div class="empty-state">
+           <div class="icon">🍷</div>
+           <div class="title">Aucun lot pour l'instant</div>
+           <div class="desc">Crée ton premier lot pour commencer la traçabilité.</div>
+           <div class="actions"><button class="btn" onclick="openDrawer()">+ Nouveau lot</button></div>
+         </div>`
+      : `<div class="empty-state">
+           <div class="icon">🔍</div><div class="title">Aucun résultat sur ces filtres</div>
+           <div class="desc">Aucun lot ne correspond aux filtres actifs (affichés en haut).</div>
+           <div class="actions"><button class="btn btn--secondary" onclick="_l5Reset()">↺ Réinitialiser les filtres</button></div>
+         </div>`;
+    _l5Update();
+    return;
+  }
+
+  // L8 : hors onglet « Épinglés », les lignes épinglées sont remontées en tête
+  // → on les retire du flux principal (elles ne consomment pas le quota de page).
+  const mainList = (activeTab === 'epingles') ? filtered : filtered.filter(l => !_isPinned(l.id));
+
+  if (groupMode !== 'none') {
+    document.getElementById('pagination-bar').style.display = 'none';
+    if (viewMode === 'grid') renderGroupedGrid(mainList);
+    else                     renderGroupedTable(mainList);
+  } else {
+    const total = mainList.length;
+    let paged;
+    if (_mode === 'continuous') {
+      paged = mainList.slice(0, _loaded);            // L4 : tranches accumulées
+    } else if (_showAll) {
+      paged = mainList;
+    } else {
+      const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (currentPage > pages) currentPage = pages;
+      paged = mainList.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+    }
+    if (viewMode === 'grid') renderGrid(paged);
+    else                     renderTable(paged);
+    renderPagination(total);
+  }
+  WB3Pins.decorate(container, { isPinned: _isPinned, onToggle: _togglePin });   // L8
+  _l5Update();
+}
+
+// ── L8 — épinglage (lignes en tête, ≤ 5, persistées par tenant) ──
+function _isPinned(id) { return _pinned.includes(String(id)); }
+function _togglePin(id) {
+  id = String(id);
+  const i = _pinned.indexOf(id);
+  if (i >= 0) { _pinned.splice(i, 1); }
+  else {
+    if (_pinned.length >= WB3Pins.MAX) { WB3Pins.toast('Maximum ' + WB3Pins.MAX + ' lignes épinglées (retirez-en une d\'abord)'); return; }
+    _pinned.push(id);
+  }
+  WB3Pins.save('lots', _pinned);
+  render();
+}
+function _pinnedExisting() {
+  // Prune conservateur : si tout l'historique est chargé (période « Tout »),
+  // on retire les ids disparus de la base ; sinon on ignore juste à l'affichage
+  // (l'id peut être hors de la fenêtre de période, donc pas supprimé pour autant).
+  const present = new Set(lots.map(l => String(l.id)));
+  if (_datePreset === 'all') {
+    const kept = _pinned.filter(id => present.has(id));
+    if (kept.length !== _pinned.length) { _pinned = kept; WB3Pins.save('lots', _pinned); }
+  }
+  return _pinned.map(id => lots.find(l => String(l.id) === id)).filter(Boolean);
+}
+function _renderPinned() {
+  const host = document.getElementById('pinned-section');
+  if (!host) return;
+  const items = (activeTab === 'epingles') ? [] : _pinnedExisting();
+  if (!items.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
+  host.style.display = '';
+  host.className = 'pinned-section';
+  host.innerHTML = `<div class="pinned-head">📌 Épinglés <span class="meta">(${items.length})</span></div>
+    <div style="overflow-x:auto"><table class="data-table">
+      <thead><tr>${LOTS_COLUMNS.map(col => renderLotsTableHeader(col)).join('')}<th style="width:36px"></th></tr></thead>
+      <tbody></tbody></table></div>`;
+  const tbody = host.querySelector('tbody');
+  items.forEach(l => tbody.appendChild(makeTableRow(l)));
+  WB3Pins.decorate(host, { isPinned: _isPinned, onToggle: _togglePin });
+}
+
+// ── L5 — bandeau « tableau de bord » (compteur + chips + réinitialiser) ──
+function _l5ColLabel(k) { const c = (typeof LOTS_COLUMNS !== 'undefined' ? LOTS_COLUMNS : []).find(x => x.key === k); return c ? c.label : k; }
+function _l5ColChip(k) {
+  const f = columnFilters[k], lbl = _l5ColLabel(k);
+  if (f && f.type === 'values' && Array.isArray(f.values) && f.values.length)
+    return lbl + ' = ' + f.values.slice(0, 2).join(', ') + (f.values.length > 2 ? '…' : '');
+  return lbl + ' (filtré)';
+}
+function _l5Counter() {
+  const t = getFiltered().length;
+  if (_mode === 'continuous') return Math.min(_loaded, t) + ' / ' + t + ' affichés';
+  const pg = Math.max(1, Math.ceil(t / PAGE_SIZE));
+  return 'Page ' + Math.min(currentPage, pg) + ' / ' + pg + ' · ' + t + ' résultat' + (t > 1 ? 's' : '');
+}
+function _l5Update() {
+  const chips = [];
+  if (_datePreset && _datePreset !== 'all')
+    chips.push({ label: 'Période : ' + WB3ListHeader.presetLabel(_datePreset), onRemove: () => _dateSetPreset('all') });
+  if (searchQuery)
+    chips.push({ label: 'Recherche : ' + searchQuery, onRemove: () => { searchQuery = ''; const s = document.getElementById('search'); if (s) s.value = ''; currentPage = 1; _loaded = 25; render(); } });
+  Object.keys(columnFilters || {}).forEach(k => {
+    const active = (typeof isFilterActive === 'function') ? isFilterActive(k) : !!columnFilters[k];
+    if (active) chips.push({ label: _l5ColChip(k), onRemove: () => { delete columnFilters[k]; currentPage = 1; _loaded = 25; render(); } });
+  });
+  WB3ListHeader.update('list-header', { counter: _l5Counter(), chips, onReset: _l5Reset, density: _density, onToggleDensity: _toggleDensity });
+}
+function _l5Reset() {
+  searchQuery = ''; const s = document.getElementById('search'); if (s) s.value = '';
+  columnFilters = {}; currentPage = 1; _loaded = 25;
+  _dateSetPreset('campagne');
+}
+// L10 — densité d'affichage (confort / compact), persistée par module.
+function _applyDensity() { const c = document.getElementById('content'); if (c) c.classList.toggle('wb3-compact', _density === 'compact'); }
+function _toggleDensity() { _density = _density === 'compact' ? 'confort' : 'compact'; _applyDensity(); WB3ListPager.saveDensity('lots', _density); _l5Update(); }
+
+// ============================================================
+// Groupement
+// ============================================================
+function groupItems(items) {
+  const groups = new Map();
+  if (groupMode === 'couleur') {
+    const ORDER = ['rouge','blanc','rose','gris'];
+    ORDER.forEach(c => groups.set(c, { key: c, label: `${COULEUR_ICONS[c]} ${COULEUR_LABELS[c]}`, items: [] }));
+    items.forEach(l => {
+      const k = l.couleur || 'rouge';
+      if (!groups.has(k)) groups.set(k, { key: k, label: COULEUR_LABELS[k] || k, items: [] });
+      groups.get(k).items.push(l);
+    });
+  } else { // statut
+    STATUT_ORDER.forEach(s => groups.set(s, { key: s, label: STATUT_LABELS[s] || s, items: [] }));
+    items.forEach(l => {
+      const k = l.statut || 'vendange';
+      if (!groups.has(k)) groups.set(k, { key: k, label: STATUT_LABELS[k] || k, items: [] });
+      groups.get(k).items.push(l);
+    });
+  }
+  return Array.from(groups.values()).filter(g => g.items.length > 0);
+}
+
+function renderGroupedGrid(items) {
+  const container = document.getElementById('content');
+  container.innerHTML = '';
+  groupItems(items).forEach(g => {
+    const volTot = g.items.reduce((s, l) => s + (Number(l.volume_actuel_hl||l.volume_initial_hl)||0), 0);
+    const section = document.createElement('div');
+    section.className = 'group-section';
+    section.innerHTML = `
+      <div class="group-header">
+        <h3>${g.label}</h3>
+        <span class="meta"><b>${g.items.length}</b> lot${g.items.length>1?'s':''} · <b>${fmt(volTot)}</b> hL</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="group-content">
+        <div class="cuverie-grid"></div>
+      </div>`;
+    const grid = section.querySelector('.cuverie-grid');
+    g.items.forEach(l => grid.appendChild(renderCard(l)));
+    section.querySelector('.group-header').addEventListener('click', () => {
+      section.classList.toggle('collapsed');
+    });
+    container.appendChild(section);
+  });
+}
+
+function renderLotsTableHeader(col) {
+  const active = isFilterActive(col.key);
+  const filterBtn = `<button class="col-filter-btn${active?' active':''}" title="${active?'Filtre actif':'Filtrer'}" onclick="openFilterDropdown(event,'${col.key}')">▾</button>`;
+  if (!col.sortKey) return `<th${col.numeric?' class="num"':''}>${escapeHtml(col.label)}${filterBtn}</th>`;
+  const isSorted = sortBy === col.sortKey;
+  const cls = ['sortable', ...(col.numeric?['num']:[]), ...(isSorted?['sorted']:[]),(isSorted&&sortAsc?'asc':'')].filter(Boolean).join(' ');
+  return `<th class="${cls}" data-sort="${col.sortKey}">${escapeHtml(col.label)}${filterBtn}</th>`;
+}
+
+function renderGroupedTable(items) {
+  const container = document.getElementById('content');
+  container.innerHTML = `
+    <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead><tr>${LOTS_COLUMNS.map(col => renderLotsTableHeader(col)).join('')}<th style="width:36px"></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>`;
+  const tbody = container.querySelector('tbody');
+  groupItems(items).forEach(g => {
+    const volTot = g.items.reduce((s,l) => s + (Number(l.volume_actuel_hl||l.volume_initial_hl)||0), 0);
+    const hr = document.createElement('tr');
+    hr.className = 'row-group-header';
+    hr.innerHTML = `<td colspan="${LOTS_COLUMNS.length + 1}">▼ ${g.label} <span class="meta">${g.items.length} lot${g.items.length>1?'s':''} · ${fmt(volTot)} hL</span></td>`;
+    hr.addEventListener('click', () => {
+      const nextRows = [];
+      let next = hr.nextElementSibling;
+      while (next && !next.classList.contains('row-group-header')) { nextRows.push(next); next = next.nextElementSibling; }
+      nextRows.forEach(r => r.style.display = r.style.display === 'none' ? '' : 'none');
+    });
+    tbody.appendChild(hr);
+    g.items.forEach(l => tbody.appendChild(makeTableRow(l)));
+  });
+  bindHeaderSort(container);
+}
+
+// ============================================================
+// Vue Grille (liste plate)
+// ============================================================
+function renderGrid(items) {
+  const container = document.getElementById('content');
+  container.innerHTML = '<div class="cuverie-grid" id="lots-grid"></div>';
+  const grid = document.getElementById('lots-grid');
+  items.forEach(l => grid.appendChild(renderCard(l)));
+}
+
+function renderCard(l) {
+  const el = document.createElement('div');
+  el.className = 'contenant-card-pro' + (l.actif ? '' : ' inactive');
+
+  const ceps = (l.lot_cepages || [])
+    .map(lc => lc.cepages?.nom + (lc.pourcentage ? ` ${lc.pourcentage}%` : ''))
+    .join(' · ') || null;
+
+  const conts = (l.lot_contenants || [])
+    .map(lc => lc.contenants?.nom).filter(Boolean).join(', ') || null;
+
+  const vol = l.volume_actuel_hl != null ? l.volume_actuel_hl : l.volume_initial_hl;
+
+  const numLot = l.numero_lot ? (l.numero_lot + (LOT_STATUT_SUFFIX[l.statut] || '')) : null;
+  el.innerHTML = `
+    <div class="couleur-strip ${l.couleur || 'rouge'}"></div>
+    <div class="card-head" style="margin-top:var(--space-1)">
+      <div>
+        <div class="nom">${escapeHtml(l.nom)}</div>
+        <div class="meta">${l.millesime || '—'} · ${COULEUR_ICONS[l.couleur]||''} ${COULEUR_LABELS[l.couleur]||'—'}${numLot ? ` <span style="font-family:monospace;opacity:.6">${escapeHtml(numLot)}</span>` : ''}</div>
+      </div>
+      <span class="statut-badge statut-${l.statut}">${STATUT_LABELS[l.statut]||l.statut}</span>
+    </div>
+    ${ceps ? `<div class="meta" style="margin-top:var(--space-1)">🍇 ${escapeHtml(ceps)}</div>` : ''}
+    <div class="footer-row">
+      ${conts
+        ? `<span class="meta" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🛢 ${escapeHtml(conts)}</span>`
+        : `<span class="meta" style="opacity:.5">Aucun contenant</span>`}
+      <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span class="vol">${vol != null ? fmt(vol)+' hL' : '—'}</span>
+        <button onclick="event.stopPropagation();WB3Nav.navigate('lot-detail.html?id=${l.id}')" title="Fiche détail"
+           style="background:none;border:none;cursor:pointer;font-size:var(--text-footnote);line-height:1;opacity:.6;padding:2px 5px;border-radius:4px;
+                  transition:opacity .15s,background .15s;font-family:inherit"
+           onmouseover="this.style.opacity=1;this.style.background='var(--color-bg-mute)'"
+           onmouseout="this.style.opacity=.6;this.style.background='transparent'">📋</button>
+      </span>
+    </div>`;
+  el.addEventListener('click', () => openDrawer(l.id));
+  return el;
+}
+
+// ============================================================
+// Vue Tableau (liste plate)
+// ============================================================
+function renderTable(items) {
+  const container = document.getElementById('content');
+  container.innerHTML = `
+    <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead><tr>${LOTS_COLUMNS.map(col => renderLotsTableHeader(col)).join('')}<th style="width:36px"></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>`;
+  const tbody = container.querySelector('tbody');
+  items.forEach(l => tbody.appendChild(makeTableRow(l)));
+  bindHeaderSort(container);
+}
+
+function makeTableRow(l) {
+  const ceps  = (l.lot_cepages||[]).map(lc=>lc.cepages?.nom+(lc.pourcentage?` ${lc.pourcentage}%`:'')).join(', ')||'—';
+  const conts = (l.lot_contenants||[]).map(lc=>lc.contenants?.nom).filter(Boolean).join(', ')||'—';
+  const vol   = l.volume_actuel_hl ?? l.volume_initial_hl;
+  const tr = document.createElement('tr');
+  tr.dataset.id = l.id;
+  tr.style.cursor = 'pointer';
+  tr.innerHTML = `
+    <td><b>${escapeHtml(l.nom)}</b></td>
+    <td class="num">${l.millesime||'—'}</td>
+    <td>${COULEUR_ICONS[l.couleur]||''} ${COULEUR_LABELS[l.couleur]||'—'}</td>
+    <td><span class="statut-badge statut-${l.statut}">${STATUT_LABELS[l.statut]||l.statut}</span></td>
+    <td style="font-size:var(--text-caption)">${escapeHtml(ceps)}</td>
+    <td class="num">${vol!=null?fmt(vol):'—'}</td>
+    <td style="font-size:var(--text-caption)">${escapeHtml(conts)}</td>
+    <td style="text-align:center;padding:var(--space-1)">
+      <button onclick="event.stopPropagation();WB3Nav.navigate('lot-detail.html?id=${l.id}')" title="Fiche détail"
+              style="background:none;border:none;cursor:pointer;font-size:var(--text-callout);opacity:.6;transition:opacity .15s;padding:2px 4px"
+              onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.6">📋</button>
+    </td>`;
+  tr.addEventListener('click', () => openDrawer(l.id));
+  return tr;
+}
+
+// ============================================================
+// Filtres colonnes (style Excel)
+// ============================================================
+function getLotsRawValue(key, l) {
+  switch(key) {
+    case 'nom':              return l.nom || '';
+    case 'millesime':        return l.millesime;
+    case 'couleur':          return COULEUR_LABELS[l.couleur] || l.couleur || '';
+    case 'statut':           return STATUT_TEXT[l.statut] || l.statut || '';
+    case 'cepages':          return (l.lot_cepages||[]).map(lc=>lc.cepages?.nom||'').join(', ');
+    case 'volume_actuel_hl': return l.volume_actuel_hl ?? l.volume_initial_hl;
+    case 'contenants':       return (l.lot_contenants||[]).map(lc=>lc.contenants?.nom||'').join(', ');
+    default:                 return '';
+  }
+}
+
+function isNumericLotsCol(key) { return ['millesime','volume_actuel_hl'].includes(key); }
+
+function getLotsUniqueValues(key) {
+  const vals = new Set();
+  lots.forEach(l => {
+    const raw = getLotsRawValue(key, l);
+    if (raw == null) vals.add('');
+    else vals.add(String(raw));
+  });
+  return [...vals].sort((a,b) => (!a&&b)?1:(a&&!b)?-1:a.localeCompare(b,'fr'));
+}
+
+function isFilterActive(key) {
+  const f = columnFilters[key];
+  if (!f) return false;
+  if (f.type === 'values') return Array.isArray(f.values) && f.values.length > 0;
+  if (f.type === 'range')  return (f.min != null && f.min !== '') || (f.max != null && f.max !== '');
+  return false;
+}
+
+function hasActiveColumnFilters() {
+  return Object.keys(columnFilters).some(k => isFilterActive(k));
+}
+
+function passesColumnFilters(l) {
+  for (const [key, filter] of Object.entries(columnFilters)) {
+    if (!isFilterActive(key)) continue;
+    const raw = getLotsRawValue(key, l);
+    if (filter.type === 'values') {
+      const str = raw == null ? '' : String(raw);
+      if (!filter.values.includes(str)) return false;
+    } else if (filter.type === 'range') {
+      const num = Number(raw);
+      if (filter.min != null && filter.min !== '' && num < Number(filter.min)) return false;
+      if (filter.max != null && filter.max !== '' && num > Number(filter.max)) return false;
+    }
+  }
+  return true;
+}
+
+function openFilterDropdown(event, colKey) {
+  event.stopPropagation();
+  if (activeFilterCol === colKey) { closeFilterDropdown(); return; }
+  activeFilterCol = colKey;
+  const dd = document.getElementById('col-filter-dropdown');
+  dd.innerHTML = buildLotsFilterContent(colKey);
+  dd.classList.add('open');
+  const rect = event.currentTarget.getBoundingClientRect();
+  const ddW  = 260;
+  let left = rect.left;
+  if (left + ddW > window.innerWidth - 8) left = window.innerWidth - ddW - 8;
+  if (left < 8) left = 8;
+  dd.style.left = left + 'px';
+  dd.style.top  = (rect.bottom + 4) + 'px';
+}
+
+function closeFilterDropdown() {
+  activeFilterCol = null;
+  document.getElementById('col-filter-dropdown').classList.remove('open');
+}
+
+function buildLotsFilterContent(key) {
+  const col    = LOTS_COLUMNS.find(c => c.key === key);
+  const filter = columnFilters[key] || {};
+
+  if (isNumericLotsCol(key)) {
+    const minV = (filter.type === 'range' && filter.min != null) ? filter.min : '';
+    const maxV = (filter.type === 'range' && filter.max != null) ? filter.max : '';
+    return `
+      <div class="col-filter-title">🔢 ${escapeHtml(col?.label||key)}</div>
+      <div class="col-filter-range">
+        <input class="input" type="number" id="cf-min" placeholder="Min" value="${minV}">
+        <span style="color:var(--color-ink-tertiary);flex-shrink:0">→</span>
+        <input class="input" type="number" id="cf-max" placeholder="Max" value="${maxV}">
+      </div>
+      <div class="col-filter-footer">
+        <button class="btn btn--ghost btn--sm" onclick="clearColumnFilter('${key}')">✕ Effacer</button>
+        <button class="btn btn--sm" onclick="applyRangeFilter('${key}')">Appliquer</button>
+      </div>`;
+  }
+
+  const uniqueVals = getLotsUniqueValues(key);
+  const activeVals = (filter.type === 'values' && Array.isArray(filter.values)) ? filter.values : [];
+  const valItems   = uniqueVals.length === 0
+    ? `<div style="padding:var(--space-2);color:var(--color-ink-tertiary);font-size:var(--text-caption)">Aucune valeur</div>`
+    : uniqueVals.map(v => `
+        <label class="col-filter-value-item">
+          <input type="checkbox" value="${escapeHtml(v)}" ${activeVals.includes(v)?'checked':''}
+            onchange="toggleFilterValue('${key}',this.value,this.checked)">
+          <span>${v===''?'<em style="color:var(--color-ink-tertiary)">vide</em>':escapeHtml(v)}</span>
+        </label>`).join('');
+
+  return `
+    <div class="col-filter-title">🔡 ${escapeHtml(col?.label||key)}</div>
+    <input class="input col-filter-search" type="text" placeholder="Rechercher…"
+      oninput="filterValuesSearch(this.value)">
+    <div class="col-filter-values" id="cf-values-list">${valItems}</div>
+    <div class="col-filter-footer">
+      <button class="btn btn--ghost btn--sm" onclick="clearColumnFilter('${key}')">✕ Effacer</button>
+      <button class="btn btn--ghost btn--sm" onclick="selectAllFilterValues()">Tout décocher</button>
+    </div>`;
+}
+
+function toggleFilterValue(key, value, checked) {
+  if (!columnFilters[key] || columnFilters[key].type !== 'values')
+    columnFilters[key] = { type:'values', values:[] };
+  const vals = columnFilters[key].values;
+  if (checked && !vals.includes(value)) vals.push(value);
+  else if (!checked) columnFilters[key].values = vals.filter(v => v !== value);
+  render();
+}
+
+function applyRangeFilter(key) {
+  const min = document.getElementById('cf-min')?.value.trim();
+  const max = document.getElementById('cf-max')?.value.trim();
+  if (!min && !max) { delete columnFilters[key]; }
+  else columnFilters[key] = { type:'range', min: min!==''?Number(min):null, max: max!==''?Number(max):null };
+  closeFilterDropdown(); render();
+}
+
+function clearColumnFilter(key) {
+  delete columnFilters[key]; closeFilterDropdown(); render();
+}
+
+function clearAllColumnFilters() {
+  columnFilters = {}; render();
+}
+
+function selectAllFilterValues() {
+  const list = document.getElementById('cf-values-list');
+  if (!list || !activeFilterCol) return;
+  list.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = false; });
+  if (columnFilters[activeFilterCol]) columnFilters[activeFilterCol].values = [];
+  render();
+}
+
+function filterValuesSearch(query) {
+  const list = document.getElementById('cf-values-list');
+  if (!list) return;
+  const q = query.toLowerCase();
+  list.querySelectorAll('.col-filter-value-item').forEach(item => {
+    const text = item.querySelector('span')?.textContent.toLowerCase() || '';
+    item.style.display = q===''||text.includes(q) ? '' : 'none';
+  });
+}
+
+function bindHeaderSort(container) {
+  container.querySelectorAll('th.sortable').forEach(th =>
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      if (!k) return;
+      if (sortBy === k) sortAsc = !sortAsc; else { sortBy = k; sortAsc = true; }
+      currentPage = 1; render();
+    })
+  );
+}
+
+// ============================================================
+// Pagination
+// ============================================================
+function renderPagination(total) {
+  WB3ListPager.renderBar(document.getElementById('pagination-bar'), {
+    mode: _mode, total, page: currentPage, pageSize: PAGE_SIZE, loaded: _loaded, showAll: _showAll,
+    onPage: goToPage, onSize: setPageSize, onToggleAll: toggleShowAll,
+    onLoadMore: loadMore, onToggleMode: toggleMode,
+  });
+}
+function loadMore() { const y = window.scrollY; _loaded += WB3ListPager.STEP; render(); window.scrollTo(0, y); }
+function toggleMode() {
+  _mode = _mode === 'continuous' ? 'paginated' : 'continuous';
+  _loaded = WB3ListPager.STEP; currentPage = 1; _showAll = false;
+  WB3ListPager.saveMode('lots', _mode); render();
+}
+function setPageSize(n) { PAGE_SIZE = n; _showAll = false; currentPage = 1; WB3ListPager.saveSize('lots', n); render(); }
+async function toggleShowAll() {
+  if (!_showAll) {
+    const total = getFiltered().length;
+    if (total > WB3ListPager.CONFIRM_OVER &&
+        !(await WB3UI.confirm(`Afficher ${total} lignes peut ralentir l'interface. Continuer ?`, { title:'Tout afficher', okText:'Afficher' }))) return;
+  }
+  _showAll = !_showAll; currentPage = 1; render();
+}
+
+function goToPage(p) {
+  const pages = Math.max(1, Math.ceil(getFiltered().length / PAGE_SIZE));
+  currentPage = Math.max(1, Math.min(p, pages));
+  render();
+  document.getElementById('content')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ============================================================
+// Stats
+// ============================================================
+function renderStats() {
+  const actifs = lots.filter(l => l.actif);
+  const rouge  = actifs.filter(l => l.couleur === 'rouge');
+  const blanc  = actifs.filter(l => l.couleur === 'blanc');
+  const rose   = actifs.filter(l => l.couleur === 'rose');
+  const volTot = actifs.reduce((s,l) => s + (Number(l.volume_actuel_hl||l.volume_initial_hl)||0), 0);
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="label">Lots actifs</div><div class="value">${actifs.length}</div></div>
+    <div class="stat-card"><div class="label">Volume total</div><div class="value">${fmt(volTot)}</div><div class="sub">hL</div></div>
+    <div class="stat-card"><div class="label">🔴 Rouges</div><div class="value">${rouge.length}</div></div>
+    <div class="stat-card"><div class="label">⚪ Blancs</div><div class="value">${blanc.length}</div></div>
+    <div class="stat-card"><div class="label">🌸 Rosés</div><div class="value">${rose.length}</div></div>`;
+}
+
+function renderTabCounts() {
+  Object.keys(TAB_FILTERS).forEach(tab => {
+    const el = document.querySelector(`[data-count="${tab}"]`);
+    if (el) el.textContent = lots.filter(TAB_FILTERS[tab]).length;
+  });
+}
+
+// ============================================================
+// Event listeners
+// ============================================================
+async function applyLotsVuePrefs() {
+  try {
+    const p = await WB3DB.getUserPref('lots_vue');
+    if (p) {
+      if (p.view_mode)  viewMode  = p.view_mode;
+      if (p.group_mode) groupMode = p.group_mode;
+      if (p.sort_by)    sortBy    = p.sort_by;
+      if (typeof p.sort_asc === 'boolean') sortAsc = p.sort_asc;
+    }
+  } catch(e) { console.warn('[WB3 lots] applyLotsVuePrefs:', e); }
+  // Sync UI buttons TOUJOURS (qu'il y ait pref user ou pas) en se basant
+  // sur le viewMode courant (localStorage / pref user / défaut 'table').
+  document.querySelectorAll('#view-mode button[data-view]').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === viewMode));
+  document.querySelectorAll('#group-mode button[data-group]').forEach(b =>
+    b.classList.toggle('active', b.dataset.group === groupMode));
+  document.querySelectorAll('#sort-mode button[data-sort]').forEach(b =>
+    b.classList.toggle('active', b.dataset.sort === sortBy));
+}
+
+function setupEventListeners() {
+  document.querySelectorAll('#tabs .tab').forEach(tab =>
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#tabs .tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeTab = tab.dataset.tab; currentPage = 1; render();
+    })
+  );
+  document.querySelectorAll('#view-mode button[data-view]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#view-mode button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); viewMode = btn.dataset.view;
+      try { localStorage.setItem('wb3_lots_view', viewMode); } catch(_) {}
+      // Sync Supabase : merge avec la pref existante pour ne pas écraser
+      // group_mode / sort_by / sort_asc / show_archived gérés en Paramètres.
+      WB3DB.getUserPref('lots_vue').then(p =>
+        WB3DB.setUserPref('lots_vue', { ...(p || {}), view_mode: viewMode })
+      ).catch(e => console.warn('[WB3 lots] setUserPref:', e));
+      render();
+    })
+  );
+  document.querySelectorAll('#group-mode button[data-group]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#group-mode button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); groupMode = btn.dataset.group; currentPage = 1; render();
+    })
+  );
+  document.querySelectorAll('#sort-mode button[data-sort]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      if (sortBy === btn.dataset.sort) sortAsc = !sortAsc;
+      else {
+        document.querySelectorAll('#sort-mode button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); sortBy = btn.dataset.sort; sortAsc = true;
+      }
+      currentPage = 1; render();
+    })
+  );
+  document.querySelectorAll('#couleur-chips .chip').forEach(chip =>
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#couleur-chips .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active'); filterCouleur = chip.dataset.couleur; currentPage = 1; render();
+    })
+  );
+  document.getElementById('search').addEventListener('input', e => {
+    searchQuery = e.target.value.trim().toLowerCase(); currentPage = 1; render();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeFilterDropdown(); closeDrawer(); }
+  });
+  document.addEventListener('click', () => { if (activeFilterCol) closeFilterDropdown(); });
+}
+
+// ============================================================
+// Drawer
+// ============================================================
+async function openDrawer(id = null) {
+  if (!_drawerDataReady) await ensureDrawerData();
+  editingId = id;
+  document.getElementById('drawer-title').textContent = id ? 'Modifier le lot' : 'Nouveau lot';
+  document.getElementById('btn-delete').style.display = (id && WB3DB.isPrivileged()) ? '' : 'none';
+
+  if (id) {
+    const l = lots.find(x => x.id === id);
+    if (!l) return;
+    document.getElementById('f-nom').value         = l.nom;
+    document.getElementById('f-millesime').value   = l.millesime || '';
+    document.getElementById('f-date-entree').value = l.date_entree || '';
+    document.getElementById('f-statut').value      = l.statut;
+    document.getElementById('f-vol-initial').value = l.volume_initial_hl || '';
+    document.getElementById('f-vol-actuel').value  = l.volume_actuel_hl  || '';
+    // P2-1 : f-vol-actuel n'est pas une vraie saisie quand le lot est
+    // affecté à au moins une cuve — le trigger lot_contenants_sync_volume
+    // (mig 025) écrase la valeur dès la prochaine modif lot_contenants.
+    // Désactiver le champ + tooltip explicite pour ne pas tromper l'opérateur.
+    const _hasContenants = (l.lot_contenants || []).length > 0;
+    const _volActEl = document.getElementById('f-vol-actuel');
+    _volActEl.disabled = _hasContenants;
+    _volActEl.title = _hasContenants
+      ? 'Volume calculé automatiquement à partir des affectations cuve (Σ lot_contenants.volume_hl). Pour le modifier, ajustez les volumes en cuve via Opérations.'
+      : '';
+    _volActEl.style.background = _hasContenants ? 'var(--color-bg-subtle)' : '';
+    document.getElementById('f-notes').value       = l.notes || '';
+    if (document.getElementById('f-type-lot'))    document.getElementById('f-type-lot').value    = l.type_lot    || '';
+    if (document.getElementById('f-appellation')) document.getElementById('f-appellation').value = l.appellation || '';
+    if (document.getElementById('f-destination')) document.getElementById('f-destination').value = l.destination || '';
+    document.querySelector(`input[name="couleur"][value="${l.couleur||'rouge'}"]`).checked = true;
+    const selected = new Map((l.lot_cepages||[]).map(lc => [lc.cepages?.id, lc.pourcentage]));
+    renderCepagesGrid(selected);
+    currentContenantRows = (l.lot_contenants||[]).map(lc => ({
+      lc_id: lc.id, contenant_id: lc.contenants?.id, volume_hl: lc.volume_hl,
+    }));
+    try {
+      const fil = await WB3DB.queryLotFiliation(id);
+      currentParentRows = fil.parents.map(p => ({ parent_id: p.parent_id, volume_hl: p.volume_hl }));
+    } catch(e) { currentParentRows = []; }
+  } else {
+    document.getElementById('f-nom').value         = '';
+    document.getElementById('f-millesime').value   = new Date().getFullYear();
+    document.getElementById('f-date-entree').value = new Date().toISOString().slice(0,10);
+    document.getElementById('f-statut').value      = 'vendange';
+    document.getElementById('f-vol-initial').value = '';
+    document.getElementById('f-vol-actuel').value  = '';
+    // P2-1 : reset disabled à false pour le mode création (sinon état
+    // persistant d'une édition précédente).
+    const _vaEl = document.getElementById('f-vol-actuel');
+    _vaEl.disabled = false;
+    _vaEl.title = '';
+    _vaEl.style.background = '';
+    document.getElementById('f-notes').value       = '';
+    if (document.getElementById('f-type-lot'))    document.getElementById('f-type-lot').value    = '';
+    if (document.getElementById('f-appellation')) document.getElementById('f-appellation').value = '';
+    if (document.getElementById('f-destination')) document.getElementById('f-destination').value = '';
+    document.querySelector('input[name="couleur"][value="rouge"]').checked = true;
+    renderCepagesGrid(new Map());
+    currentContenantRows = [];
+    currentParentRows    = [];
+  }
+  renderContenantsList();
+  renderParentsList();
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  setTimeout(() => document.getElementById('f-nom').focus(), 200);
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+  editingId = null;
+}
+
+function renderCepagesGrid(selectedMap = new Map()) {
+  const grid = document.getElementById('f-cepages-grid');
+  if (!cepages.length) {
+    grid.innerHTML = `<div style="color:var(--color-ink-tertiary);font-size:var(--text-caption);grid-column:1/-1;padding:var(--space-2)">
+      Aucun cépage — <a href="parametres.html" style="color:var(--color-primary)">ajouter dans Paramètres</a></div>`;
+    return;
+  }
+  const sorted = [...cepages].sort((a,b) => a.couleur.localeCompare(b.couleur)||a.nom.localeCompare(b.nom,'fr'));
+  grid.innerHTML = sorted.map(c => {
+    const checked = selectedMap.has(c.id);
+    const pct     = checked ? (selectedMap.get(c.id)||'') : '';
+    return `
+      <label class="cepage-item" data-id="${c.id}">
+        <input type="checkbox" data-cepage-id="${c.id}" ${checked?'checked':''} onchange="onCepageCheck(this)">
+        <span style="flex:1;font-size:var(--text-caption)">${COULEUR_ICONS[c.couleur]} ${escapeHtml(c.nom)}</span>
+        <input type="number" class="cepage-pct" id="pct-${c.id}" min="0" max="100" step="1"
+          value="${pct}" placeholder="%" style="display:${checked?'block':'none'}" title="Pourcentage">
+      </label>`;
+  }).join('');
+}
+
+function onCepageCheck(cb) {
+  const pct = document.getElementById(`pct-${cb.dataset.cepageId}`);
+  if (pct) pct.style.display = cb.checked ? 'block' : 'none';
+}
+
+function getCheckedCepages() {
+  return [...document.querySelectorAll('#f-cepages-grid input[type=checkbox]:checked')].map(cb => ({
+    cepage_id:   cb.dataset.cepageId,
+    pourcentage: parseFloat(document.getElementById(`pct-${cb.dataset.cepageId}`)?.value)||null,
+  }));
+}
+
+function _buildContenantOptions(selectedId) {
+  return contenants.map(c => {
+    const lotsInC = contenantLotsMap.get(c.id) || [];
+    const vol = lotsInC.reduce((s, l) => s + (Number(l.volume_hl) || 0), 0);
+    const cap = c.capacite_hl;
+    const isFull = cap && vol >= cap;
+    if (isFull && c.id !== selectedId) return '';
+
+    let label = c.nom;
+    if (cap) {
+      if (vol > 0 && !isFull) {
+        const dispo = cap - vol;
+        const lotsStr = lotsInC
+          .map(l => l.numero_lot ? (l.numero_lot + (LOT_STATUT_SUFFIX[l.statut] || '')) : l.nom)
+          .join(', ');
+        label += ` — ${fmt(dispo)} hL libre · ${lotsStr}`;
+      } else if (!vol) {
+        label += ` — libre (${fmt(cap)} hL)`;
+      } else {
+        label += ` — PLEIN`;
+      }
+    }
+    return `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
+}
+
+function renderContenantsList() {
+  const list = document.getElementById('f-contenants-list');
+  if (!currentContenantRows.length) { list.innerHTML = ''; return; }
+  list.innerHTML = currentContenantRows.map((row, i) => `
+    <div class="affect-row">
+      <select class="select" onchange="currentContenantRows[${i}].contenant_id=this.value">
+        <option value="">— Choisir une cuve —</option>
+        ${_buildContenantOptions(row.contenant_id)}
+      </select>
+      <input class="input" type="number" min="0" step="0.1" placeholder="Vol. hL"
+        value="${row.volume_hl||''}"
+        onchange="currentContenantRows[${i}].volume_hl=parseFloat(this.value)||null">
+      <button class="btn btn--ghost btn--sm" onclick="removeContenantRow(${i})">✕</button>
+    </div>`).join('');
+}
+
+function addContenantRow() {
+  currentContenantRows.push({ lc_id: null, contenant_id: null, volume_hl: null });
+  renderContenantsList();
+}
+
+function removeContenantRow(i) {
+  currentContenantRows.splice(i, 1);
+  renderContenantsList();
+}
+
+function renderParentsList() {
+  const list = document.getElementById('f-parents-list');
+  if (!currentParentRows.length) { list.innerHTML = ''; return; }
+  const otherLots = lots.filter(l => l.id !== editingId);
+  const LOT_STATUT_SUFFIX_LOCAL = {
+    mout_debourbe:'.DB', mout_stabule:'.DB',
+    fa:'.FA', fml:'.FML', elevage:'.EL', vin_filtre:'.F', pre_mise:'.PM',
+  };
+  list.innerHTML = currentParentRows.map((row, i) => `
+    <div class="affect-row">
+      <select class="select" onchange="currentParentRows[${i}].parent_id=this.value">
+        <option value="">— Choisir un lot source —</option>
+        ${otherLots.map(l => {
+          const num = l.numero_lot ? ` [${escapeHtml(l.numero_lot + (LOT_STATUT_SUFFIX_LOCAL[l.statut]||''))}]` : '';
+          const mill = l.millesime ? ` · ${l.millesime}` : '';
+          return `<option value="${l.id}" ${row.parent_id===l.id?'selected':''}>${escapeHtml(l.nom)}${num}${mill}</option>`;
+        }).join('')}
+      </select>
+      <input class="input" type="number" min="0" step="0.1" placeholder="Vol. hL prélevé"
+        value="${row.volume_hl||''}"
+        onchange="currentParentRows[${i}].volume_hl=parseFloat(this.value)||null">
+      <button class="btn btn--ghost btn--sm" onclick="removeParentRow(${i})">✕</button>
+    </div>`).join('');
+}
+
+function addParentRow() {
+  currentParentRows.push({ parent_id: null, volume_hl: null });
+  renderParentsList();
+}
+
+function removeParentRow(i) {
+  currentParentRows.splice(i, 1);
+  renderParentsList();
+}
+
+// ============================================================
+// Sauvegarde
+// ============================================================
+async function saveLot() {
+  const nom = document.getElementById('f-nom').value.trim();
+  if (!nom) { toast('Le nom est obligatoire', 'error'); return; }
+
+  const millesime  = parseInt(document.getElementById('f-millesime').value, 10);
+  const volInitial = parseFloat(document.getElementById('f-vol-initial').value);
+  const volActuel  = parseFloat(document.getElementById('f-vol-actuel').value);
+
+  const payload = {
+    nom,
+    millesime:         isNaN(millesime)  ? null : millesime,
+    couleur:           document.querySelector('input[name="couleur"]:checked')?.value || 'rouge',
+    statut:            document.getElementById('f-statut').value,
+    volume_initial_hl: isNaN(volInitial) ? null : volInitial,
+    volume_actuel_hl:  isNaN(volActuel)  ? null : volActuel,
+    date_entree:       document.getElementById('f-date-entree').value || null,
+    notes:             document.getElementById('f-notes').value.trim() || null,
+    type_lot:          document.getElementById('f-type-lot')?.value.trim() || null,
+    appellation:       document.getElementById('f-appellation')?.value.trim() || null,
+    destination:       document.getElementById('f-destination')?.value.trim() || null,
+  };
+
+  try {
+    const savedId = await WB3DB.saveLotGraphAtomic(payload, {
+      lotId: editingId,
+      cepages:    getCheckedCepages(),
+      contenants: currentContenantRows,
+    });
+
+    await WB3DB.syncLotFiliation(savedId, currentParentRows).catch(e => console.warn('[filiation]', e));
+
+    toast(editingId ? 'Lot mis à jour' : 'Lot créé', 'success');
+    closeDrawer();
+    _markRecentlySaved(editingId || savedId);
+    await refreshLotLocal(editingId || savedId);
+    render();
+  } catch(e) {
+    console.error(e);
+    if (e.code === '23505' || /duplicate/i.test(e.message))
+      toast('Un lot avec ce nom existe déjà', 'error');
+    else toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+  }
+}
+
+async function deleteCurrent() {
+  if (!editingId) return;
+  const l = lots.find(x => x.id === editingId);
+  if (!l || !(await WB3UI.confirm(`Supprimer le lot "${l.nom}" ?\nCette action est irréversible.`, { title:'Supprimer le lot', okText:'Supprimer', danger:true }))) return;
+  try {
+    await WB3DB.deleteRow('lots', editingId);
+    toast('Lot supprimé', 'success');
+    lots = lots.filter(l => l.id !== editingId);
+    closeDrawer(); render();
+  } catch(e) { toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
+}
+
+// ============================================================
+// Export CSV
+// ============================================================
+function exportCSV() {
+  const items = getFiltered();
+  if (!items.length) { toast('Aucun lot à exporter', 'error'); return; }
+  const headers = ['Nom','Millésime','Couleur','Statut','Cépages','Vol. initial (hL)','Vol. actuel (hL)','Date entrée','Contenants','Notes'];
+  const rows = items.map(l => [
+    l.nom, l.millesime||'', COULEUR_LABELS[l.couleur]||'', STATUT_LABELS[l.statut]||l.statut,
+    (l.lot_cepages||[]).map(lc=>lc.cepages?.nom+(lc.pourcentage?` ${lc.pourcentage}%`:'')).join('|'),
+    l.volume_initial_hl||'', l.volume_actuel_hl||'', l.date_entree||'',
+    (l.lot_contenants||[]).map(lc=>lc.contenants?.nom).filter(Boolean).join('|'),
+    l.notes||'',
+  ]);
+  const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download=`lots-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast(`${items.length} lot${items.length>1?'s':''} exporté${items.length>1?'s':''}`, 'success');
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+function fmt(n) { return Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:1}); }
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

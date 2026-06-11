@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Qualité & Traçabilité — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill, .filter-chip → theme.css (composants partagés) */
+
+  /* ── Barre de résumé ── */
+  .diag-summary {
+    display:flex; gap:var(--space-3); align-items:center; flex-wrap:wrap;
+    background:var(--color-bg-elevated);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-lg);
+    padding:var(--space-4);
+    margin-bottom:var(--space-4);
+    box-shadow:0 1px 4px rgba(0,0,0,.05);
+  }
+  .diag-summary-counts { display:flex; gap:var(--space-3); flex:1; flex-wrap:wrap; }
+  .diag-count-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 14px; border-radius:var(--radius-pill);
+    font-size:var(--text-callout); font-weight:700; cursor:pointer;
+    border:1.5px solid transparent; transition:all .13s;
+  }
+  .diag-count-pill--critique    { background:#fce8e8; color:#c62828; border-color:#f5c6c6; }
+  .diag-count-pill--avertissement { background:#fff3e0; color:#e65100; border-color:#ffcc80; }
+  .diag-count-pill--info        { background:#e3f2fd; color:#1565c0; border-color:#90caf9; }
+  .diag-count-pill.active       { box-shadow:0 0 0 3px rgba(0,0,0,.12); }
+  .diag-count-pill--all         { background:var(--color-bg-subtle); color:var(--color-ink-secondary); border-color:var(--color-border); }
+  .diag-meta {
+    font-size:var(--text-caption); color:var(--color-ink-tertiary);
+    white-space:nowrap;
+  }
+  .btn-refresh {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:7px 14px; border-radius:var(--radius-md);
+    border:1.5px solid var(--color-border);
+    background:var(--color-bg-elevated); color:var(--color-ink-secondary);
+    font-size:var(--text-caption); font-weight:600; font-family:inherit;
+    cursor:pointer; transition:all .13s;
+  }
+  .btn-refresh:hover { border-color:var(--color-primary); color:var(--color-primary); }
+  .btn-refresh.loading { opacity:.6; pointer-events:none; }
+
+  /* ── Filtres ── */
+  .filter-row {
+    display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap;
+    margin-bottom:var(--space-3);
+  }
+  .filter-lbl { font-size:var(--text-caption); color:var(--color-ink-tertiary); font-weight:600; white-space:nowrap; }
+  /* .filter-chip (+:hover +.active) → theme.css (composants partagés) */
+  .filter-sep { color:var(--color-border); font-size:18px; line-height:1; margin:0 var(--space-1); }
+
+  /* ── Carte d'alerte ── */
+  .alertes-list { display:flex; flex-direction:column; gap:var(--space-3); }
+  .alerte-card {
+    display:flex; gap:0;
+    background:var(--color-bg-elevated);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-lg);
+    overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+    transition:box-shadow .15s;
+  }
+  .alerte-card:hover { box-shadow:0 2px 8px rgba(0,0,0,.1); }
+  .alerte-stripe {
+    width:5px; flex-shrink:0;
+  }
+  .alerte-stripe--critique    { background:#c62828; }
+  .alerte-stripe--avertissement { background:#e65100; }
+  .alerte-stripe--info        { background:#1565c0; }
+  .alerte-body {
+    flex:1; padding:var(--space-4);
+    display:flex; flex-direction:column; gap:var(--space-2);
+  }
+  .alerte-header {
+    display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap;
+  }
+  .grav-badge {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:2px 9px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+  }
+  .grav-badge--critique     { background:#fce8e8; color:#c62828; }
+  .grav-badge--avertissement { background:#fff3e0; color:#e65100; }
+  .grav-badge--info         { background:#e3f2fd; color:#1565c0; }
+  .cat-badge {
+    display:inline-flex; align-items:center; gap:3px;
+    padding:2px 8px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600;
+    background:var(--color-bg-subtle); color:var(--color-ink-secondary);
+  }
+  .alerte-message {
+    font-size:var(--text-body); font-weight:600; color:var(--color-ink);
+    line-height:1.4;
+  }
+  .alerte-detail {
+    font-size:var(--text-caption); color:var(--color-ink-secondary);
+    line-height:1.45;
+  }
+  .alerte-footer {
+    display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap;
+    margin-top:var(--space-1);
+  }
+  .entite-chip {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:3px 10px; border-radius:var(--radius-pill);
+    font-size:var(--text-caption); font-weight:600;
+    cursor:pointer; border:1.5px solid var(--color-border);
+    background:var(--color-bg); transition:all .13s;
+  }
+  .entite-chip:hover { border-color:var(--color-primary); color:var(--color-primary); }
+  .entite-chip--lot { border-color:#ce93d8; background:#f9f0ff; color:#6a1b9a; }
+  .entite-chip--contenant { border-color:#90caf9; background:#e8f4fd; color:#1565c0; }
+  .entite-chip--operation { border-color:#ffcc80; background:#fff8e1; color:#e65100; }
+  .entite-chip--analyse { border-color:#a5d6a7; background:#e8f5e9; color:#2e7d32; }
+  .alerte-date { font-size:var(--text-caption); color:var(--color-ink-quaternary); margin-left:auto; white-space:nowrap; }
+  .alerte-lien {
+    display:inline-flex; align-items:center; gap:3px;
+    padding:4px 10px; border-radius:var(--radius-md);
+    border:1.5px solid var(--color-border);
+    background:var(--color-bg); color:var(--color-ink-secondary);
+    font-size:var(--text-caption); font-weight:600; font-family:inherit;
+    cursor:pointer; transition:all .13s; text-decoration:none;
+  }
+  .alerte-lien:hover { border-color:var(--color-primary); color:var(--color-primary); }
+
+  /* ── Section group label ── */
+  .diag-group-label {
+    display:flex; align-items:center; gap:var(--space-2);
+    font-size:var(--text-caption); font-weight:700; text-transform:uppercase;
+    letter-spacing:.5px; color:var(--color-ink-tertiary);
+    padding:var(--space-3) 0 var(--space-2);
+    border-bottom:1px solid var(--color-border);
+    margin-bottom:var(--space-2);
+  }
+  .diag-group-label .gl-count {
+    background:var(--color-bg-subtle); color:var(--color-ink-tertiary);
+    padding:1px 7px; border-radius:var(--radius-pill); font-size:10px;
+  }
+  .diag-group--critique    .diag-group-label { color:#c62828; }
+  .diag-group--avertissement .diag-group-label { color:#e65100; }
+  .diag-group--info        .diag-group-label { color:#1565c0; }
+
+  /* ── Empty state ── */
+  .diag-ok {
+    text-align:center; padding:var(--space-12) var(--space-6);
+    background:var(--color-bg-elevated);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-lg);
+  }
+  .diag-ok .ok-icon { font-size:48px; margin-bottom:var(--space-3); }
+  .diag-ok .ok-title { font-size:var(--text-title-3); font-weight:700; color:var(--color-ink); margin-bottom:var(--space-2); }
+  .diag-ok .ok-sub   { color:var(--color-ink-tertiary); font-size:var(--text-callout); }
+
+  /* ── Description technique (accordéon) ── */
+  .diag-legend {
+    background:var(--color-bg-elevated);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-lg);
+    margin-top:var(--space-6);
+    overflow:hidden;
+  }
+  .diag-legend summary {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:var(--space-3) var(--space-4);
+    font-size:var(--text-callout); font-weight:600; cursor:pointer;
+    list-style:none;
+  }
+  .diag-legend summary::-webkit-details-marker { display:none; }
+  .diag-legend-body {
+    padding:0 var(--space-4) var(--space-4);
+    font-size:var(--text-caption); color:var(--color-ink-secondary);
+    line-height:1.6;
+  }
+  .legend-grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+    gap:var(--space-3); margin-top:var(--space-3);
+  }
+  .legend-item {
+    border:1px solid var(--color-border); border-radius:var(--radius-md);
+    padding:10px 13px;
+  }
+  .legend-item .li-title { font-weight:600; color:var(--color-ink); margin-bottom:var(--space-1); }
+  .legend-item .li-cat   { font-size:9px; text-transform:uppercase; font-weight:700; letter-spacing:.4px; margin-bottom:6px; }
+  .legend-item .li-cat.volumes      { color:#1565c0; }
+  .legend-item .li-cat.tracabilite  { color:#6a1b9a; }
+  .legend-item .li-cat.analyses     { color:#2e7d32; }
+  .legend-item .li-cat.operations   { color:#e65100; }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1 style="font-size:var(--text-callout);font-weight:600;margin:0;color:#fff">🩺 Qualité & Traçabilité</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+  <div id="content">
+    <div class="loading-state"><div class="spinner"></div>Lancement des contrôles…</div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-qualite.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+const CAT_LABELS = {
+  volumes:     '📦 Volumes',
+  tracabilite: '🌳 Traçabilité',
+  analyses:    '🔬 Analyses',
+  operations:  '⚙️ Opérations',
+  produits:    '⚗️ Produits',
+};
+const CAT_ICONS = {
+  volumes:'📦', tracabilite:'🌳', analyses:'🔬', operations:'⚙️', produits:'⚗️',
+};
+const ENTITE_ICONS = { lot:'🍷', contenant:'🏺', operation:'⚙️', analyse:'🔬' };
+const COULEUR_ICONS = { rouge:'🔴', blanc:'⚪', rose:'🌸', gris:'🩶' };
+
+let _lastResult   = null;
+let _gravFilter   = 'all';
+let _catFilter    = 'all';
+let _diagTol      = null;  // wb3_tolerances chargées à l'init (workflow 4)
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
+}
+function logout() { WB3Auth.signOut().then(() => WB3Nav.navigateTop('app.html')); }
+function nav(url) { WB3Nav.navigate(url); }
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+
+// ── Init ─────────────────────────────────────────────────────────
+(async function init() {
+  if (typeof window.WB3DB === 'undefined' || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>';
+    return;
+  }
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>';
+    return;
+  }
+  document.getElementById('tenant-pill').textContent = `🏢 ${ctx.tenant.nom} · ${ctx.tenant.role}`;
+  // Workflow 4 — charger les seuils tenant pour la légende (les valeurs
+  // réelles utilisées par runDiagnostics viennent aussi de là côté db.js).
+  if (WB3DB.getTolerances) {
+    try { _diagTol = await WB3DB.getTolerances(); } catch(_) { _diagTol = null; }
+  }
+  await runAndRender();
+})();
+
+// ── Lancement des contrôles ──────────────────────────────────────
+async function runAndRender() {
+  const btn = document.getElementById('btn-refresh');
+  if (btn) { btn.classList.add('loading'); btn.textContent = '⏳ Contrôle en cours…'; }
+
+  try {
+    const result = await WB3DB.runDiagnostics();
+    _lastResult = result;
+    _gravFilter = 'all';
+    _catFilter  = 'all';
+    renderPage(result);
+  } catch(e) {
+    console.error('[WB3 qualite-traca]', e);
+    document.getElementById('content').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">❌</div>
+        <div class="title">Erreur lors des contrôles</div>
+        <div class="desc">${escapeHtml(e.message)}</div>
+        <div class="actions"><button class="btn" onclick="runAndRender()">Réessayer</button></div>
+      </div>`;
+  }
+}
+
+// ── Rendu principal ──────────────────────────────────────────────
+function renderPage({ alertes, duree_ms }) {
+  const n_crit = alertes.filter(a => a.gravite === 'critique').length;
+  const n_warn = alertes.filter(a => a.gravite === 'avertissement').length;
+  const n_info = alertes.filter(a => a.gravite === 'info').length;
+  const now    = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+
+  const cats = [...new Set(alertes.map(a => a.categorie))].sort();
+
+  document.getElementById('content').innerHTML = `
+    <!-- Résumé -->
+    <div class="diag-summary">
+      <div class="diag-summary-counts">
+        <button id="pill-all"  class="diag-count-pill diag-count-pill--all active"
+                onclick="setGravFilter('all')">
+          ⬤ ${alertes.length} contrôle${alertes.length > 1 ? 's' : ''}
+        </button>
+        <button id="pill-critique" class="diag-count-pill diag-count-pill--critique${n_crit ? '' : ' opacity-40'}"
+                onclick="setGravFilter('critique')" ${n_crit ? '' : 'disabled'}>
+          🔴 ${n_crit} critique${n_crit > 1 ? 's' : ''}
+        </button>
+        <button id="pill-avertissement" class="diag-count-pill diag-count-pill--avertissement${n_warn ? '' : ' opacity-40'}"
+                onclick="setGravFilter('avertissement')" ${n_warn ? '' : 'disabled'}>
+          🟠 ${n_warn} à vérifier
+        </button>
+        <button id="pill-info" class="diag-count-pill diag-count-pill--info${n_info ? '' : ' opacity-40'}"
+                onclick="setGravFilter('info')" ${n_info ? '' : 'disabled'}>
+          🔵 ${n_info} info${n_info > 1 ? 's' : ''}
+        </button>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--space-3);flex-shrink:0">
+        <span class="diag-meta">Contrôlé à ${now} · ${duree_ms} ms</span>
+        <button id="btn-refresh" class="btn-refresh" onclick="runAndRender()">🔄 Relancer</button>
+      </div>
+    </div>
+
+    <!-- Filtres catégorie -->
+    <div class="filter-row">
+      <span class="filter-lbl">Catégorie :</span>
+      <button id="fc-all" class="filter-chip active" onclick="setCatFilter('all')">Tout</button>
+      ${cats.map(c => `<button id="fc-${c}" class="filter-chip" onclick="setCatFilter('${c}')">${CAT_LABELS[c] || c}</button>`).join('')}
+    </div>
+
+    <!-- Zone des alertes -->
+    <div id="alertes-zone"></div>
+
+    <!-- Légende des contrôles -->
+    <details class="diag-legend">
+      <summary>ℹ️ Détail des 10 contrôles effectués</summary>
+      <div class="diag-legend-body">
+        <div class="legend-grid">
+          <div class="legend-item">
+            <div class="li-cat volumes">Volumes</div>
+            <div class="li-title">Volume lot négatif</div>
+            Lot dont le volume actuel est inférieur à 0. Signe d'un mouvement de sortie non compensé.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat volumes">Volumes</div>
+            <div class="li-title">Cohérence lot / cuves</div>
+            Volume déclaré sur le lot différent de la somme des contenants. Tolérance : 0,5 hL.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat volumes">Volumes</div>
+            <div class="li-title">Capacité cuve dépassée</div>
+            Somme des volumes stockés dans une cuve supérieure à sa capacité enregistrée.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat tracabilite">Traçabilité</div>
+            <div class="li-title">Mouvement sans opération</div>
+            Mouvement physique enregistré sans être rattaché à une opération.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat tracabilite">Traçabilité</div>
+            <div class="li-title">Opération sans mouvement</div>
+            Soutirage, assemblage ou filtration marqué réalisé sans mouvement physique journalisé.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat tracabilite">Traçabilité</div>
+            <div class="li-title">Lot sans origine</div>
+            Lot au stade vin (ou supérieur) sans apport vendange ni filiation d'assemblage.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat operations">Opérations</div>
+            <div class="li-title">Opération planifiée passée</div>
+            Opération encore en statut brouillon dont la date est dépassée.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat operations">Opérations</div>
+            <div class="li-title">Annulée avec effets résiduels</div>
+            Opération annulée qui possède encore des mouvements physiques actifs.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat analyses">Analyses</div>
+            <div class="li-title">Analyse orpheline</div>
+            Analyse non rattachée à un lot ni à une cuve.
+          </div>
+          <div class="legend-item">
+            <div class="li-cat analyses">Analyses</div>
+            <div class="li-title">Valeur analytique extrême</div>
+            ${_legendSeuils()}
+          </div>
+        </div>
+        <div style="margin-top:var(--space-3);font-size:var(--text-caption);color:var(--color-ink-tertiary)">
+          Seuils paramétrables dans
+          <a href="parametres.html?section=qualite" onclick="event.preventDefault();nav('parametres.html?section=qualite')"
+             style="color:var(--color-primary);cursor:pointer">Paramètres → ⚗️ Qualité</a>.
+        </div>
+      </div>
+    </details>
+  `;
+
+  renderFilteredAlertes();
+}
+
+// ── Rendu des alertes (filtré) ───────────────────────────────────
+function renderFilteredAlertes() {
+  const zone = document.getElementById('alertes-zone');
+  if (!zone || !_lastResult) return;
+
+  const filtered = _lastResult.alertes.filter(a => {
+    if (_gravFilter !== 'all' && a.gravite !== _gravFilter) return false;
+    if (_catFilter  !== 'all' && a.categorie !== _catFilter) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    zone.innerHTML = renderEmptyState();
+    return;
+  }
+
+  // Grouper par gravité
+  const groups = [
+    { key: 'critique',      label: '🔴 Critiques', items: filtered.filter(a => a.gravite === 'critique') },
+    { key: 'avertissement', label: '🟠 À vérifier', items: filtered.filter(a => a.gravite === 'avertissement') },
+    { key: 'info',          label: '🔵 Informations', items: filtered.filter(a => a.gravite === 'info') },
+  ].filter(g => g.items.length > 0);
+
+  zone.innerHTML = groups.map(g => `
+    <div class="diag-group diag-group--${g.key}" style="margin-bottom:var(--space-5)">
+      <div class="diag-group-label">
+        ${g.label}
+        <span class="gl-count">${g.items.length}</span>
+      </div>
+      <div class="alertes-list">
+        ${g.items.map(renderAlerteCard).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// Légende dynamique des seuils analytiques (workflow 4).
+// Affiche les valeurs réellement configurées (wb3_tolerances) ou les
+// défauts si non chargés.
+function _legendSeuils() {
+  const T = WB3Qualite.normalize(_diagTol);  // valeurs complètes (défauts comblés)
+  const src = _diagTol ? '' : ' <span style="color:var(--color-warning,#e65100)">(défauts — seuils non chargés)</span>';
+  return `pH &lt; ${T.ph_min} ou &gt; ${T.ph_max} · TAV &lt; ${T.tav_min} ou &gt; ${T.tav_max} · `
+       + `AV &gt; ${T.av_max} g/L · SO₂ libre &gt; ${T.so2_libre_max} mg/L · T° &gt; ${T.temp_max} °C${src}`;
+}
+
+function renderEmptyState() {
+  const total = _lastResult?.alertes.length ?? 0;
+  if (total === 0) {
+    return `<div class="diag-ok">
+      <div class="ok-icon">✅</div>
+      <div class="ok-title">Aucune anomalie détectée</div>
+      <div class="ok-sub">Tous les contrôles sont passés sans alerte. Bon travail !</div>
+    </div>`;
+  }
+  return `<div class="diag-ok">
+    <div class="ok-icon">🔍</div>
+    <div class="ok-title">Aucune alerte pour ce filtre</div>
+    <div class="ok-sub">Essayez d'autres filtres pour voir les ${total} anomalie${total>1?'s':''}.</div>
+  </div>`;
+}
+
+function renderAlerteCard(a) {
+  const gravLabel = a.gravite === 'critique' ? 'Critique'
+    : a.gravite === 'avertissement' ? 'À vérifier' : 'Info';
+
+  const entiteHtml = a.entite
+    ? `<button class="entite-chip entite-chip--${a.entite.type}" onclick="${a.lien ? `nav('${a.lien}')` : ''}"
+        title="Voir ${a.entite.type}">
+        ${ENTITE_ICONS[a.entite.type] || '📌'} ${escapeHtml(a.entite.nom)}
+       </button>`
+    : '';
+
+  const lienHtml = a.lien
+    ? `<button class="alerte-lien" onclick="nav('${escapeHtml(a.lien)}')">→ Voir le détail</button>`
+    : '';
+
+  return `
+    <div class="alerte-card">
+      <div class="alerte-stripe alerte-stripe--${a.gravite}"></div>
+      <div class="alerte-body">
+        <div class="alerte-header">
+          <span class="grav-badge grav-badge--${a.gravite}">${gravLabel}</span>
+          <span class="cat-badge">${CAT_LABELS[a.categorie] || a.categorie}</span>
+        </div>
+        <div class="alerte-message">${escapeHtml(a.message)}</div>
+        ${a.detail ? `<div class="alerte-detail">${escapeHtml(a.detail)}</div>` : ''}
+        <div class="alerte-footer">
+          ${entiteHtml}
+          ${lienHtml}
+          <span class="alerte-date">${fmtDate(a.detecte_le)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Filtres ──────────────────────────────────────────────────────
+function setGravFilter(grav) {
+  _gravFilter = grav;
+  ['all','critique','avertissement','info'].forEach(g => {
+    const el = document.getElementById(`pill-${g}`);
+    if (el) el.classList.toggle('active', g === grav);
+  });
+  renderFilteredAlertes();
+}
+
+function setCatFilter(cat) {
+  _catFilter = cat;
+  document.querySelectorAll('.filter-chip').forEach(btn => btn.classList.remove('active'));
+  const el = document.getElementById(`fc-${cat}`);
+  if (el) el.classList.add('active');
+  renderFilteredAlertes();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,2540 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Fiche lot — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  /* ── Hero ── */
+  .lot-hero {
+    position:relative; overflow:hidden;
+    background:var(--color-bg-elevated);
+    border-radius:var(--radius-lg);
+    box-shadow:0 1px 4px rgba(0,0,0,.06);
+    padding:var(--space-6);
+    margin-bottom:var(--space-5);
+  }
+  .hero-strip {
+    position:absolute; top:0; left:0; right:0; height:5px;
+  }
+  .hero-strip.rouge { background:#b00020; }
+  .hero-strip.blanc { background:#d4c089; }
+  .hero-strip.rose  { background:#d89dad; }
+  .hero-strip.gris  { background:#9e9ea0; }
+
+  .hero-top { display:flex; align-items:flex-start; gap:var(--space-5); flex-wrap:wrap; }
+  .hero-identity { flex:1; min-width:180px; }
+  .hero-nom  { font-size:var(--text-title-1); font-weight:700; color:var(--color-ink); margin-bottom:var(--space-1); }
+  .hero-meta { font-size:var(--text-callout); color:var(--color-ink-tertiary); margin-bottom:var(--space-3); }
+  .hero-badges { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+
+  .hero-volumes {
+    display:flex; gap:var(--space-6); flex-wrap:wrap;
+    align-items:center;
+  }
+  .hero-vol-item { text-align:center; min-width:80px; }
+  .hero-vol-val  { font-size:var(--text-title-2); font-weight:700; color:var(--color-primary); }
+  .hero-vol-lbl  { font-size:var(--text-caption); color:var(--color-ink-tertiary); text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
+  .hero-vol-val.gain { color:var(--color-success); }
+  .hero-vol-val.perte { color:var(--color-warning); }
+
+  /* Statut badges (mêmes que lots.html) */
+  .statut-badge {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:3px 9px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+    white-space:nowrap;
+  }
+  .statut-vendange      { background:#f5ede0; color:#836539; }
+  .statut-mout          { background:#faf3e7; color:#8b6738; }
+  .statut-mout_stabule  { background:#faf7e5; color:#836d2d; }
+  .statut-mout_debourbe { background:#faf0d7; color:#8f641f; }
+  .statut-fa            { background:#fff0ea; color:#bd4800; }
+  .statut-fml           { background:#fff3e7; color:#ac5800; }
+  .statut-vin           { background:#fce9ec; color:#b00020; }
+  .statut-elevage       { background:#e8f0fa; color:#1a4870; }
+  .statut-vin_filtre    { background:#f3e0e3; color:#9a0025; }
+  .statut-pre_mise      { background:#ece8f5; color:#5a3a8a; }
+  .statut-conditionne   { background:#f0ece5; color:#555; }
+  .statut-sorti         { background:#f2f2f2; color:#6d6d6d; }
+  .statut-archive       { background:#f2f2f2; color:#6d6d6d; }
+
+  /* ── KPIs mini ── */
+  .kpi-row {
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
+    gap:var(--space-3); margin-bottom:var(--space-5);
+  }
+  .kpi-mini {
+    background:var(--color-bg-elevated);
+    border-radius:var(--radius-md);
+    padding:var(--space-4) var(--space-5);
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+    display:flex; align-items:center; gap:var(--space-3);
+  }
+  .kpi-mini .icon { font-size:var(--text-title-1); flex-shrink:0; }
+  .kpi-mini .val  { font-size:var(--text-title-2); font-weight:700; color:var(--color-primary); }
+  .kpi-mini .lbl  { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+
+  /* ── Sections ── */
+  .detail-section {
+    background:var(--color-bg-elevated);
+    border-radius:var(--radius-lg);
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+    margin-bottom:var(--space-5);
+    overflow:hidden;
+  }
+  .section-head {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:var(--space-3) var(--space-5);
+    border-bottom:1px solid var(--color-border);
+  }
+  .section-head h2 {
+    flex:1; margin:0;
+    font-size:var(--text-callout); font-weight:600;
+    color:var(--color-ink-secondary);
+    text-transform:uppercase; letter-spacing:.5px;
+  }
+  .section-count {
+    background:var(--color-bg-mute); color:var(--color-ink-tertiary);
+    padding:2px 8px; border-radius:var(--radius-pill);
+    font-size:var(--text-caption); font-weight:600;
+  }
+  .section-body { padding:var(--space-4) var(--space-5); }
+
+  /* ── Cépages ── */
+  .cepage-chips { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+  .cepage-chip {
+    background:var(--color-bg-mute); border-radius:var(--radius-pill);
+    padding:4px 12px; font-size:var(--text-footnote); color:var(--color-ink-secondary);
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .cepage-chip .pct { color:var(--color-ink-tertiary); font-size:var(--text-caption); }
+
+  /* ── Contenants ── */
+  .cont-chips { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+  .cont-chip {
+    background:var(--color-info-soft);
+    border:1px solid rgba(25,118,210,.15);
+    border-radius:var(--radius-md);
+    padding:6px 12px; font-size:var(--text-footnote); color:var(--color-info);
+    display:inline-flex; align-items:center; gap:6px;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  a.cont-chip:hover {
+    border-color:var(--color-info);
+    box-shadow:0 2px 8px rgba(25,118,210,.15);
+  }
+
+  /* ── Table apports ── */
+  .apports-table { width:100%; border-collapse:collapse; font-size:var(--text-callout); }
+  .apports-table th, .apports-table td {
+    text-align:left; padding:8px 10px; border-bottom:1px solid var(--color-border);
+  }
+  .apports-table th {
+    font-size:var(--text-caption); text-transform:uppercase; letter-spacing:.4px;
+    color:var(--color-ink-tertiary); font-weight:600; background:var(--color-bg-subtle);
+  }
+  .apports-table tbody tr:last-child td { border-bottom:none; }
+  .apports-table tbody tr:hover td { background:var(--color-bg-subtle); }
+  .num { text-align:right; }
+
+  /* ── Timeline opérations ── */
+  .timeline {
+    display:flex; flex-direction:column; gap:var(--space-3);
+    padding:var(--space-4) var(--space-5);
+  }
+  .tl-item { display:flex; gap:var(--space-3); }
+  .tl-spine {
+    display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:32px;
+  }
+  .tl-dot {
+    width:32px; height:32px; border-radius:50%;
+    background:var(--color-primary); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:var(--text-callout); flex-shrink:0;
+    box-shadow:0 2px 8px rgba(26,72,112,.3);
+  }
+  .tl-line { flex:1; width:2px; background:var(--color-border); margin-top:var(--space-1); min-height:16px; }
+  .tl-item:last-child .tl-line { display:none; }
+
+  .tl-card {
+    flex:1; background:var(--color-bg);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-md);
+    padding:var(--space-3) var(--space-4);
+    margin-bottom:var(--space-1);
+    min-width:0;
+  }
+  .tl-card-head {
+    display:flex; align-items:center; gap:var(--space-2);
+    flex-wrap:wrap; margin-bottom:var(--space-2);
+  }
+  .tl-date { font-size:var(--text-caption); color:var(--color-ink-tertiary); font-weight:600; white-space:nowrap; }
+  .tl-type { font-size:var(--text-callout); font-weight:600; color:var(--color-ink); }
+  .tl-vol  { font-size:var(--text-caption); color:var(--color-ink-tertiary); margin-left:auto; white-space:nowrap; }
+
+  .role-badge {
+    display:inline-flex; align-items:center;
+    padding:2px 8px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+    white-space:nowrap;
+  }
+  .role-source      { background:#fff0ea; color:#bd4800; }
+  .role-destination { background:var(--color-success-soft); color:var(--color-success); }
+  .role-traite      { background:var(--color-info-soft); color:var(--color-info); }
+  .op-stat-realise  { background:var(--color-success-soft); color:var(--color-success); }
+  .op-stat-planifie { background:var(--color-warning-soft); color:var(--color-warning); }
+  .op-stat-annule   { background:#f2f2f2; color:#6d6d6d; }
+
+  .tl-details { display:flex; flex-direction:column; gap:var(--space-2); }
+  .tl-detail-line {
+    font-size:var(--text-footnote); color:var(--color-ink-secondary);
+    display:flex; align-items:baseline; gap:var(--space-2); flex-wrap:wrap;
+  }
+  .tl-detail-lbl {
+    color:var(--color-ink-tertiary); flex-shrink:0; width:86px;
+    font-size:var(--text-caption); text-transform:uppercase; letter-spacing:.3px;
+  }
+  .chips-inline { display:flex; gap:var(--space-1); flex-wrap:wrap; }
+  .chip-prod {
+    background:var(--color-bg-mute); border-radius:var(--radius-pill);
+    padding:2px 8px; font-size:var(--text-caption);
+  }
+  .chip-cont {
+    background:var(--color-info-soft); color:var(--color-info);
+    border-radius:var(--radius-pill); padding:2px 8px; font-size:var(--text-caption);
+  }
+  .chip-lot {
+    background:var(--color-bg-mute); border-radius:var(--radius-pill);
+    padding:2px 8px; font-size:var(--text-caption);
+  }
+  .tl-notes {
+    font-size:var(--text-footnote); color:var(--color-ink-tertiary);
+    margin-top:var(--space-2); padding-top:var(--space-2);
+    border-top:1px solid var(--color-border); font-style:italic;
+  }
+
+  /* ── Généalogie arbre ── */
+  .genea-tree-wrap {
+    display:flex; align-items:flex-start; gap:var(--space-4);
+    flex-wrap:wrap; padding:var(--space-2) 0 var(--space-1);
+  }
+  .genea-tree-col { display:flex; flex-direction:column; gap:var(--space-2); min-width:0; }
+  .genea-tree-label {
+    font-size:10px; text-transform:uppercase; letter-spacing:.5px;
+    font-weight:600; color:var(--color-ink-tertiary); margin-bottom:var(--space-1);
+    text-align:center;
+  }
+  .genea-tree-arrow {
+    font-size:var(--text-title-1); color:var(--color-ink-tertiary); flex-shrink:0;
+    display:flex; align-items:center; padding-top:34px;
+  }
+  .genea-tree-node {
+    display:flex; flex-direction:column; gap:3px; padding:10px 13px;
+    border-radius:var(--radius-md); border:1.5px solid var(--color-border);
+    background:var(--color-bg-elevated); cursor:pointer;
+    transition:all .15s; min-width:130px; text-align:left; font-family:inherit;
+    max-width:210px;
+  }
+  .genea-tree-node--parent:hover { border-color:#7b1fa2; box-shadow:0 2px 8px rgba(123,31,162,.15); }
+  .genea-tree-node--child:hover  { border-color:#2e7d32; box-shadow:0 2px 8px rgba(46,125,50,.15); }
+  .genea-node-name { font-weight:600; font-size:var(--text-callout); color:var(--color-ink); }
+  .genea-node-sub  { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .genea-node-vol  { font-size:var(--text-caption); color:var(--color-primary); font-weight:600; }
+  .genea-node-tag  {
+    display:inline-block; font-size:9px; padding:1px 5px;
+    border-radius:3px; font-weight:500; margin-top:2px; align-self:flex-start;
+  }
+  .genea-tag-auto   { background:#e3f2fd; color:#1565c0; }
+  .genea-tag-manual { background:#f3e5f5; color:#6a1b9a; }
+  .genea-tag-ops    { background:var(--color-bg-subtle); color:var(--color-ink-tertiary); }
+  .genea-current-node {
+    display:flex; flex-direction:column; align-items:center; gap:var(--space-1);
+    background:var(--color-primary); color:#fff; padding:12px 18px;
+    border-radius:var(--radius-md); font-weight:600; font-size:var(--text-callout);
+    min-width:140px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.12);
+  }
+  .genea-current-sub { font-size:10px; opacity:.75; font-weight:400; }
+
+  /* ── Stepper état lot ── */
+  .statut-stepper {
+    background:var(--color-bg-elevated); border-radius:var(--radius-lg);
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+    padding:var(--space-4) var(--space-5); margin-bottom:var(--space-5);
+  }
+  .stepper-track {
+    display:flex; align-items:flex-start; overflow-x:auto;
+    padding-bottom:var(--space-1); scrollbar-width:thin; gap:0;
+  }
+  .step-node {
+    display:flex; flex-direction:column; align-items:center;
+    flex-shrink:0; min-width:66px;
+  }
+  .step-dot {
+    width:30px; height:30px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:var(--text-footnote); border:2px solid; transition:all .2s;
+  }
+  .step-dot.done    { background:var(--color-success); border-color:var(--color-success); color:#fff; }
+  .step-dot.current { background:var(--color-primary); border-color:var(--color-primary); color:#fff; box-shadow:0 0 0 5px rgba(26,72,112,.12); }
+  .step-dot.future  { background:var(--color-bg-mute); border-color:var(--color-border); color:var(--color-ink-tertiary); }
+  .step-label {
+    font-size:9px; text-align:center; margin-top:5px; line-height:1.3;
+    max-width:62px; text-transform:uppercase; letter-spacing:.3px; word-break:break-word;
+  }
+  .step-label.done    { color:var(--color-success); font-weight:600; }
+  .step-label.current { color:var(--color-primary); font-weight:700; }
+  .step-label.future  { color:var(--color-ink-quaternary); }
+  .step-connector {
+    flex:1; height:2px; min-width:12px; align-self:flex-start;
+    margin-top:14px; flex-shrink:1;
+  }
+  .step-connector.done    { background:var(--color-success); }
+  .step-connector.current { background:linear-gradient(90deg,var(--color-success) 50%,var(--color-border) 50%); }
+  .step-connector.future  { background:var(--color-border); }
+
+  .stepper-actions {
+    margin-top:var(--space-3); padding-top:var(--space-3);
+    border-top:1px solid var(--color-border);
+    display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap;
+  }
+  .stepper-next-lbl {
+    font-size:var(--text-caption); color:var(--color-ink-tertiary);
+    font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+    white-space:nowrap; flex-shrink:0;
+  }
+  .next-state-btn {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:6px 14px; border-radius:var(--radius-md);
+    border:1.5px solid var(--color-primary); background:transparent;
+    color:var(--color-primary); font-size:var(--text-callout);
+    font-family:inherit; font-weight:600; cursor:pointer; transition:all .14s;
+  }
+  .next-state-btn:hover { background:var(--color-primary); color:#fff; }
+
+  /* ── Analyse modal ── */
+  .an-backdrop {
+    position:fixed;inset:0;background:rgba(0,0,0,.45);
+    z-index:200;display:flex;align-items:center;justify-content:center;
+    padding:var(--space-4);opacity:0;pointer-events:none;transition:opacity .18s;
+  }
+  .an-backdrop.open { opacity:1; pointer-events:auto; }
+  .an-modal {
+    background:var(--color-bg-elevated);border-radius:var(--radius-lg);
+    box-shadow:0 12px 48px rgba(0,0,0,.22);
+    width:100%;max-width:620px;max-height:90vh;
+    display:flex;flex-direction:column;
+    transform:translateY(10px);transition:transform .18s;
+  }
+  .an-backdrop.open .an-modal { transform:none; }
+  .an-modal-head {
+    padding:var(--space-4) var(--space-5);
+    border-bottom:1px solid var(--color-border);
+    display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  }
+  .an-modal-body { overflow-y:auto;padding:var(--space-4) var(--space-5);flex:1; }
+  .an-modal-foot {
+    padding:var(--space-3) var(--space-5);
+    border-top:1px solid var(--color-border);
+    display:flex;gap:var(--space-2);justify-content:flex-end;flex-shrink:0;
+  }
+  .an-section { margin-bottom:var(--space-4); }
+  .an-section-title {
+    font-size:9px;font-weight:700;color:var(--color-ink-tertiary);
+    text-transform:uppercase;letter-spacing:.5px;
+    margin-bottom:var(--space-2);padding-bottom:var(--space-1);
+    border-bottom:1px solid var(--color-border);
+  }
+  .an-grid { display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3); }
+  .an-grid.c3 { grid-template-columns:1fr 1fr 1fr; }
+  .an-field { display:flex;flex-direction:column;gap:3px; }
+  .an-field label { font-size:10px;font-weight:600;color:var(--color-ink-tertiary);text-transform:uppercase;letter-spacing:.4px; }
+  .an-field .u { font-size:9px;opacity:.7;font-weight:400;text-transform:none; }
+  @media(max-width:480px) { .an-grid,.an-grid.c3 { grid-template-columns:1fr 1fr; } }
+
+  /* ── Responsive ── */
+  @media(max-width:600px) {
+    .hero-volumes { gap:var(--space-4); }
+    .timeline     { padding:var(--space-3); }
+    .section-body { padding:var(--space-3); }
+    .tl-detail-lbl { width:70px; }
+  }
+
+  /* ── Blocs de section (séparateurs de niveau supérieur) ── */
+  .bloc-label {
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.8px; color:var(--color-ink-tertiary);
+    padding:var(--space-2) 0; border-bottom:1px solid var(--color-border);
+    margin-bottom:var(--space-4); margin-top:var(--space-7);
+    display:flex; align-items:center; gap:var(--space-2);
+  }
+  .bloc-label:first-of-type { margin-top:0; }
+
+  /* ── Variantes de points timeline (mouvement) ── */
+  .tl-dot--apport     { background:#2e7d32; }
+  .tl-dot--entree     { background:var(--color-success); }
+  .tl-dot--sortie     { background:#c62828; }
+  .tl-dot--transfert  { background:var(--color-info); }
+  .tl-dot--sortie-def { background:#6a1b9a; }
+  .tl-card--annule    { opacity:.55; border-style:dashed; }
+
+  /* ══ Dossier de lot imprimable (Phase 6) ══ */
+  #dossier-print { display:none; }
+  #dossier-print .dp-title { font-size:20px; font-weight:700; margin:0 0 2px; }
+  #dossier-print .dp-sub { font-size:12px; color:#555; margin:0 0 14px; }
+  #dossier-print h2.dp-h { font-size:var(--text-callout); font-weight:700; margin:18px 0 8px;
+       border-bottom:1.5px solid #333; padding-bottom:3px; }
+  #dossier-print table { width:100%; border-collapse:collapse; font-size:var(--text-caption); margin-bottom:6px; }
+  #dossier-print th, #dossier-print td { border:1px solid #bbb; padding:4px 6px;
+       text-align:left; vertical-align:top; }
+  #dossier-print th { background:#eee; font-weight:600; }
+  #dossier-print .dp-id-grid { display:grid; grid-template-columns:repeat(2,1fr);
+       gap:4px 24px; font-size:12px; margin-bottom:6px; }
+  #dossier-print .dp-id-grid b { display:inline-block; min-width:130px; color:#555; font-weight:600; }
+  #dossier-print .dp-sign { display:flex; gap:var(--space-10); margin-top:30px; }
+  #dossier-print .dp-sign div { flex:1; border-top:1px solid #333; padding-top:var(--space-1);
+       font-size:var(--text-caption); color:#555; }
+  #dossier-print .dp-foot { margin-top:var(--space-6); font-size:10px; color:#777;
+       border-top:1px solid #ccc; padding-top:6px; }
+  @media print {
+    body > * { display:none !important; }
+    body > #dossier-print { display:block !important;
+       position:static; color:#000; background:#fff;
+       font-family:-apple-system,"Segoe UI",Roboto,sans-serif; padding:0; margin:0; }
+    .dp-block { page-break-inside:avoid; }
+    @page { margin:14mm; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <a href="lots.html" class="home">🍷 Lots</a>
+    <span class="sep">/</span>
+    <h1 id="page-title" style="font-size:var(--text-callout);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0">Chargement…</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+  <div id="content">
+    <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="wb3-vitals.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// État courant (pour actions)
+// ============================================================
+let currentLot = null;
+let _analyseThresholds = { libre_bas: 15, libre_haut: 30, av_alert: 0.9 };
+
+// ============================================================
+// Constantes
+// ============================================================
+const STATUT_LABELS = {
+  vendange:'🍇 Vendange', mout:'🌊 Moût', mout_stabule:'🧊 Stabulation',
+  mout_debourbe:'🔽 Débourbage', fa:'🌡 Ferm. alc.', fml:'🧫 Ferm. malo.',
+  vin:'🍷 Vin', elevage:'🛢 Élevage', vin_filtre:'🔬 Filtré',
+  pre_mise:'📦 Pré-mise', conditionne:'🍾 Conditionné', sorti:'🚪 Sorti',
+};
+const COULEUR_LABELS = { rouge:'Rouge', blanc:'Blanc', rose:'Rosé', gris:'Gris' };
+const COULEUR_ICONS  = { rouge:'🔴', blanc:'⚪', rose:'🌸', gris:'🩶' };
+const LOT_STATUT_SUFFIX = {
+  mout_debourbe:'.DB', mout_stabule:'.DB',
+  fa:'.FA', fml:'.FML', elevage:'.EL', vin_filtre:'.F', pre_mise:'.PM',
+};
+
+const STATUT_MAIN_PATH = [
+  { key:'vendange',    icon:'🍇', label:'Vendange' },
+  { key:'mout',        icon:'🌊', label:'Moût' },
+  { key:'fa',          icon:'🌡', label:'Ferm. alc.' },
+  { key:'fml',         icon:'🧫', label:'Ferm. malo.' },
+  { key:'vin',         icon:'🍷', label:'Vin' },
+  { key:'elevage',     icon:'🛢', label:'Élevage' },
+  { key:'pre_mise',    icon:'📦', label:'Pré-mise' },
+  { key:'conditionne', icon:'🍾', label:'Conditionné' },
+  { key:'sorti',       icon:'🚪', label:'Sorti' },
+];
+const STATUT_MAIN_IDX = {
+  vendange:0, mout:1, mout_stabule:1, mout_debourbe:1,
+  fa:2, fml:3, vin:4, vin_filtre:4, elevage:5, pre_mise:6, conditionne:7, sorti:8,
+};
+const STATUT_TRANSITIONS = {
+  vendange:    ['mout'],
+  mout:        ['mout_stabule','mout_debourbe','fa'],
+  mout_stabule:['mout_debourbe','fa'],
+  mout_debourbe:['fa'],
+  fa:          ['fml','vin'],
+  fml:         ['vin'],
+  vin:         ['vin_filtre','elevage','pre_mise'],
+  elevage:     ['vin_filtre','pre_mise'],
+  vin_filtre:  ['pre_mise'],
+  pre_mise:    ['conditionne'],
+  conditionne: ['sorti'],
+  sorti:       [],
+};
+
+const OP_ICONS = {
+  soutirage:'🔄', assemblage:'🧬', sulfitage:'🧪', collage:'🍂', filtration:'🔬',
+  levurage:'🦠', enzymage:'⚗️', chaptalisation:'🍯', acidification:'⬆️',
+  desacidification:'⬇️', malo:'🧫', mise_en_bouteille:'🍾', autre:'⚙️',
+  // Ajustements de cave
+  complement_de_plein:'💧', ouillage:'🪣', ajustement_volume:'⚖️',
+  correction_jauge:'📏', perte_technique:'📉', correction_administrative:'📋',
+};
+const CAT_ICONS = {
+  so2:'🧪', levure:'🦠', enzyme:'⚗️', colle:'🧹', tanin:'🍂',
+  acidifiant:'⬆️', desacidifiant:'⬇️', nutriment:'💊',
+  correcteur_alcool:'🔢', filtre:'🔬', autre:'📦',
+};
+
+// ============================================================
+// Utilitaires
+// ============================================================
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmt(n) {
+  if (n == null || n === '') return '—';
+  const num = parseFloat(n);
+  if (isNaN(num)) return '—';
+  return num % 1 === 0 ? String(num) : num.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', {
+    day:'numeric', month:'long', year:'numeric'
+  });
+}
+
+function groupByKey(arr, key) {
+  const map = {};
+  (arr || []).forEach(item => {
+    const k = item[key];
+    if (!map[k]) map[k] = [];
+    map[k].push(item);
+  });
+  return map;
+}
+
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+// ============================================================
+// Init
+// ============================================================
+(async function init() {
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient ||
+      typeof window.WB3DB === 'undefined' || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>`;
+    return;
+  }
+
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>`;
+    return;
+  }
+  const { tenant } = ctx;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+
+  const params = new URLSearchParams(window.location.search);
+  const lotId  = params.get('id');
+  if (!lotId) {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><div class="title">Lot introuvable</div>
+       <div class="desc">Aucun identifiant de lot dans l'URL.</div>
+       <div class="actions"><a href="lots.html" class="btn">← Lots</a></div></div>`;
+    return;
+  }
+
+  await loadAndRender(lotId);
+})();
+
+// ============================================================
+// Chargement & rendu
+// ============================================================
+async function loadAndRender(lotId) {
+  try {
+    const [{ lot, apports, opLots, prodByOp, contByOp, othersByOp }, filiation, cuveHistory, analyses, analysePrefsRaw, mouvements, ajustements] = await Promise.all([
+      WB3DB.getLotDetail(lotId),
+      WB3DB.queryLotFiliation(lotId).catch(() => ({ parents: [], children: [] })),
+      WB3DB.queryLotContenantHistory(lotId).catch(() => []),
+      WB3DB.queryAnalyses({ lot_id: lotId, ascending: true }).catch(() => []),
+      WB3DB.getUserPref('analyses').catch(() => ({})),
+      WB3DB.getLotMouvements(lotId).catch(() => []),
+      WB3DB.getAjustements({ lot_id: lotId }).catch(() => []),
+    ]);
+    if (analysePrefsRaw?.so2_thresholds) {
+      _analyseThresholds = { ..._analyseThresholds, ...analysePrefsRaw.so2_thresholds };
+    }
+    // Workflow 4 — enrichir les seuils avec wb3_tolerances (mig 056+058)
+    if (WB3DB.getTolerances) {
+      try {
+        const tol = await WB3DB.getTolerances();
+        if (tol) {
+          if (tol.av_max      != null) _analyseThresholds.av_alert   = Number(tol.av_max);
+          if (tol.ph_min      != null) _analyseThresholds.ph_min     = Number(tol.ph_min);
+          if (tol.ph_max      != null) _analyseThresholds.ph_max     = Number(tol.ph_max);
+          if (tol.tav_min     != null) _analyseThresholds.tav_min    = Number(tol.tav_min);
+          if (tol.tav_max     != null) _analyseThresholds.tav_max    = Number(tol.tav_max);
+          if (tol.temp_max    != null) _analyseThresholds.temp_max   = Number(tol.temp_max);
+          if (tol.so2_libre_max != null) _analyseThresholds.libre_haut = Number(tol.so2_libre_max);
+        }
+      } catch(_) {}
+    }
+
+    document.getElementById('page-title').textContent = lot.nom;
+    document.title = `${lot.nom} — WineBlender 3`;
+
+    opLots.sort((a, b) =>
+      new Date(b.operations.date_operation) - new Date(a.operations.date_operation)
+    );
+
+    // Phase 3 — snapshot des analyses parents (au moment de l'assemblage).
+    // Calculé uniquement pour les lots issus d'un assemblage (filiation
+    // source_type='assemblage'). Affiché en italique gris dans la section
+    // Analyses pour la traçabilité « d'où viennent ces valeurs ».
+    const parentsSnapshot = await _fetchParentsSnapshot(filiation.parents || []);
+
+    renderPage(lot, apports, opLots, prodByOp, contByOp, othersByOp, filiation, cuveHistory, analyses, mouvements, ajustements, parentsSnapshot);
+
+  } catch(e) {
+    console.error('[WB3 lot-detail]', e);
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Erreur de chargement</div>
+       <div class="desc">${escapeHtml(e.message)}</div>
+       <div class="actions"><a href="lots.html" class="btn">← Lots</a></div></div>`;
+  }
+}
+
+// ============================================================
+// Dossier de lot imprimable (Phase 6) — print CSS natif
+// ============================================================
+let _dossierCtx = null;
+
+const _DP_STATUT = { realise:'Réalisé', planifie:'Planifié', annule:'Annulé' };
+
+function buildDossier() {
+  const c = _dossierCtx;
+  if (!c || !c.lot) { toast('Données du lot non chargées', 'error'); return; }
+  const { lot, sortedOps, prodByOp, contByOp, analyses, filiation } = c;
+
+  const tenant = (WB3DB.getCurrentTenant && WB3DB.getCurrentTenant()?.nom) || '';
+  const editLe = new Date().toLocaleString('fr-FR', { dateStyle:'long', timeStyle:'short' });
+
+  const ceps = (lot.lot_cepages || [])
+    .filter(x => x.cepages || x.cepage_libre)
+    .sort((a,b) => (b.pourcentage||0) - (a.pourcentage||0))
+    .map(x => `${escapeHtml(x.cepages?.nom || x.cepage_libre || '?')}${x.pourcentage!=null?` ${fmt(x.pourcentage)} %`:''}`)
+    .join(', ') || '—';
+  const conts = (lot.lot_contenants || [])
+    .filter(lc => lc.contenants)
+    .map(lc => `${escapeHtml(lc.contenants.nom)}${lc.volume_hl!=null?` (${fmt(lc.volume_hl)} hL)`:''}`)
+    .join(', ') || '—';
+
+  const fil = filiation || { parents:[], children:[] };
+  const filP = (fil.parents  || []).filter(p => p.lot);
+  const filC = (fil.children || []).filter(x => x.lot);
+
+  // ── Opérations : dédupe par op.id, ordre chronologique ──
+  const opMap = new Map();
+  (sortedOps || []).forEach(ol => {
+    const op = ol.operations; if (!op) return;
+    let e = opMap.get(op.id);
+    if (!e) { e = { op, roles:new Set() }; opMap.set(op.id, e); }
+    if (ol.role) e.roles.add(ol.role);
+  });
+  const ops = [...opMap.values()].sort((a,b) =>
+    (a.op.date_operation||'') < (b.op.date_operation||'') ? -1 : 1);
+
+  const opRows = ops.length ? ops.map(({op, roles}) => {
+    const prods = (prodByOp[op.id] || []).map(p => {
+      const pc = p.produits_lots?.produits_catalogue;
+      const nl = p.produits_lots?.numero_lot;
+      return pc ? `${escapeHtml(pc.nom)}${p.quantite!=null?` ${fmt(p.quantite)} ${escapeHtml(p.unite||'')}`:''}${nl?` (lot ${escapeHtml(nl)})`:''}` : '';
+    }).filter(Boolean).join(' ; ') || '—';
+    const cnts = (contByOp[op.id] || []).map(x => x.contenants?.nom).filter(Boolean)
+      .map(escapeHtml).join(', ') || '—';
+    const role = [...roles].map(r => ({source:'Source',destination:'Destination',traite:'Traité'}[r]||r)).join(', ') || '—';
+    return `<tr>
+      <td style="white-space:nowrap">${fmtDate(op.date_operation)}</td>
+      <td>${escapeHtml((op.type_operation||'').replace(/_/g,' '))}</td>
+      <td>${role}</td>
+      <td>${cnts}</td>
+      <td>${prods}</td>
+      <td style="text-align:right;white-space:nowrap">${op.volume_hl!=null?fmt(op.volume_hl):'—'}</td>
+      <td>${escapeHtml(op.operateur||'—')}</td>
+      <td>${escapeHtml(op.reference||'—')}</td>
+      <td>${_DP_STATUT[op.statut]||escapeHtml(op.statut||'')}</td>
+      <td>${escapeHtml(op.notes||'')}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="10" style="text-align:center;color:#777">Aucune opération</td></tr>`;
+
+  // ── Analyses ──
+  const anls = [...(analyses||[])].sort((a,b) =>
+    new Date(a.date_analyse) - new Date(b.date_analyse));
+  const T = _analyseThresholds;
+  // alertFn par paramètre pour le dossier
+  const _dAlertColor = (k, v) => {
+    if (v == null) return null;
+    if (k==='so2_libre')        return v > (T.libre_haut||120) ? '#c00' : null;
+    if (k==='acidite_volatile') return v > (T.av_alert||1.5)   ? '#c00' : null;
+    if (k==='ph')               return (T.ph_min!=null && v<T.ph_min)||(T.ph_max!=null&&v>T.ph_max) ? '#c00' : null;
+    if (k==='tav')              return (T.tav_min!=null&&v<T.tav_min)||(T.tav_max!=null&&v>T.tav_max) ? '#c00' : null;
+    if (k==='temperature')      return T.temp_max!=null&&v>T.temp_max ? '#c00' : null;
+    return null;
+  };
+  const anlRows = anls.length ? anls.map(a => {
+    const c = (k,v) => { const col=_dAlertColor(k,v); return col?`style="text-align:right;color:${col};font-weight:700"`:'style="text-align:right"'; };
+    const v = (k,v2) => { const col=_dAlertColor(k,v2); return v2!=null?`${fmt(v2)}${col?' ⚠':''}` : '—'; };
+    return `<tr>
+      <td style="white-space:nowrap">${fmtDate(a.date_analyse)}</td>
+      <td ${c('so2_libre',a.so2_libre)}>${v('so2_libre',a.so2_libre)}</td>
+      <td style="text-align:right">${a.so2_total!=null?fmt(a.so2_total):'—'}</td>
+      <td ${c('tav',a.tav)}>${v('tav',a.tav)}</td>
+      <td ${c('acidite_volatile',a.acidite_volatile)}>${v('acidite_volatile',a.acidite_volatile)}</td>
+      <td ${c('ph',a.ph)}>${v('ph',a.ph)}</td>
+      <td ${c('temperature',a.temperature)}>${v('temperature',a.temperature)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7" style="text-align:center;color:#777">Aucune analyse</td></tr>`;
+
+  // ── Bilan qualité (workflow 4 — Phase C) ──
+  // Alertes actives sur la dernière analyse, retard analyse
+  const lastAnl = anls.length ? anls[anls.length-1] : null;
+  const qualAlerts = [];
+  if (lastAnl) {
+    [['so2_libre','SO₂ libre'],['acidite_volatile','AV'],['ph','pH'],['tav','TAV'],['temperature','T°']].forEach(([k,lbl]) => {
+      if (_dAlertColor(k, lastAnl[k])) qualAlerts.push(`${lbl} : ${fmt(lastAnl[k])}`);
+    });
+  }
+  const daysSinceAnal = lastAnl
+    ? Math.round((Date.now() - new Date(lastAnl.date_analyse+'T00:00:00'))/86400000) : null;
+  const analEnRetard  = daysSinceAnal == null || daysSinceAnal > (T.analyse_retard_jours || 30);
+  const qualStatut    = qualAlerts.length > 0 ? '🔴 Alerte analytique'
+    : analEnRetard ? '🟡 Analyse en retard'
+    : '🟢 OK';
+  const qualBlock = `
+    <div class="dp-block">
+      <h2 class="dp-h">Bilan qualité — ${qualStatut}</h2>
+      <table><tbody>
+        <tr><td style="min-width:160px"><b>Statut qualité</b></td><td>${qualStatut}</td></tr>
+        <tr><td><b>Dernière analyse</b></td>
+          <td>${lastAnl ? fmtDate(lastAnl.date_analyse) + ` (il y a ${daysSinceAnal} j)` : 'Aucune'}</td></tr>
+        <tr><td><b>Alertes analytiques</b></td>
+          <td>${qualAlerts.length ? qualAlerts.map(a => `⚠ ${escapeHtml(a)}`).join(' · ') : '✓ Aucune'}</td></tr>
+        <tr><td><b>Retard analyse</b></td>
+          <td>${analEnRetard ? `⚠ ${daysSinceAnal == null ? 'Aucune analyse' : `${daysSinceAnal} jours (seuil ${T.analyse_retard_jours||30} j)`}` : '✓ À jour'}</td></tr>
+      </tbody></table>
+    </div>`;
+
+  // ── Filiation ──
+  const filRow = (f, dir) => {
+    const l = f.lot;
+    return `<tr>
+      <td>${dir}</td>
+      <td>${escapeHtml(l.nom||'')}</td>
+      <td style="font-family:monospace">${escapeHtml(l.numero_lot||'—')}</td>
+      <td style="text-align:right">${f.volume_hl!=null?fmt(f.volume_hl):'—'}</td>
+      <td>${escapeHtml(f.source_type||'manuel')}</td>
+    </tr>`;
+  };
+  const filRows = (filP.length || filC.length)
+    ? filP.map(p => filRow(p,'← Source')).join('') + filC.map(x => filRow(x,'→ Issu')).join('')
+    : `<tr><td colspan="5" style="text-align:center;color:#777">Aucune filiation</td></tr>`;
+
+  const html = `
+    <div class="dp-block">
+      <div class="dp-title">Dossier de lot — ${escapeHtml(lot.nom||'')}</div>
+      <div class="dp-sub">${escapeHtml(tenant)} · Document de traçabilité · Édité le ${escapeHtml(editLe)}</div>
+      <div class="dp-id-grid">
+        <div><b>N° de lot</b> ${escapeHtml((lot.numero_lot||'—') + (LOT_STATUT_SUFFIX[lot.statut]||''))}</div>
+        <div><b>Millésime</b> ${lot.millesime||'—'}</div>
+        <div><b>Couleur</b> ${COULEUR_ICONS[lot.couleur]||''} ${escapeHtml(lot.couleur||'—')}</div>
+        <div><b>Statut</b> ${escapeHtml(lot.statut||'—')}</div>
+        <div><b>Volume initial</b> ${lot.volume_initial_hl!=null?fmt(lot.volume_initial_hl)+' hL':'—'}</div>
+        <div><b>Volume actuel</b> ${lot.volume_actuel_hl!=null?fmt(lot.volume_actuel_hl)+' hL':'—'}</div>
+        <div><b>Appellation</b> ${escapeHtml(lot.appellation||'—')}</div>
+        <div><b>Type</b> ${escapeHtml(lot.type_lot||'—')}</div>
+      </div>
+      <div class="dp-id-grid">
+        <div><b>Cépages</b> ${ceps}</div>
+        <div><b>Contenants actuels</b> ${conts}</div>
+      </div>
+      ${lot.notes ? `<div style="font-size:var(--text-caption);margin-top:var(--space-1)"><b style="color:#555">Notes :</b> ${escapeHtml(lot.notes)}</div>` : ''}
+    </div>
+
+    <div class="dp-block">
+      <h2 class="dp-h">Historique des opérations (${ops.length})</h2>
+      <table><thead><tr>
+        <th>Date</th><th>Type</th><th>Rôle</th><th>Contenants</th><th>Produits / doses</th>
+        <th>Vol. hL</th><th>Opérateur</th><th>Réf.</th><th>Statut</th><th>Notes</th>
+      </tr></thead><tbody>${opRows}</tbody></table>
+    </div>
+
+    ${qualBlock}
+
+    <div class="dp-block">
+      <h2 class="dp-h">Analyses (${anls.length})</h2>
+      <table><thead><tr>
+        <th>Date</th><th>SO₂ libre (mg/L)</th><th>SO₂ total (mg/L)</th>
+        <th>TAV (%vol)</th><th>AV (g/L)</th><th>pH</th><th>T° (°C)</th>
+      </tr></thead><tbody>${anlRows}</tbody></table>
+    </div>
+
+    <div class="dp-block">
+      <h2 class="dp-h">Filiation</h2>
+      <table><thead><tr>
+        <th>Sens</th><th>Lot</th><th>N° lot</th><th>Volume hL</th><th>Origine</th>
+      </tr></thead><tbody>${filRows}</tbody></table>
+    </div>
+
+    <div class="dp-block">
+      <h2 class="dp-h">Validation</h2>
+      <div class="dp-sign">
+        <div>Caviste / Opérateur<br><br>&nbsp;</div>
+        <div>Œnologue / Responsable<br><br>&nbsp;</div>
+        <div>Date &amp; cachet<br><br>&nbsp;</div>
+      </div>
+      <div class="dp-foot">
+        Document généré par WineBlender 3 le ${escapeHtml(editLe)} —
+        traçabilité conforme : opérations réalisées verrouillées, journal de mouvements immuable.
+        Lot ID ${escapeHtml(lot.id)}.
+      </div>
+    </div>`;
+
+  let el = document.getElementById('dossier-print');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'dossier-print';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = html;
+  window.print();
+}
+
+// ============================================================
+// Rendu de la page
+// ============================================================
+function renderPage(lot, apports, sortedOps, prodByOp, contByOp, othersByOp, filiation = { parents: [], children: [] }, cuveHistory = [], analyses = [], mouvements = [], ajustements = [], parentsSnapshot = null) {
+  currentLot = lot;
+  _dossierCtx = { lot, sortedOps, prodByOp, contByOp, analyses, filiation };
+  const vol_init = lot.volume_initial_hl;
+  const vol_act  = lot.volume_actuel_hl;
+
+  const ceps = (lot.lot_cepages || [])
+    .sort((a, b) => (b.pourcentage || 0) - (a.pourcentage || 0));
+  const conts = (lot.lot_contenants || [])
+    .filter(lc => lc.contenants)
+    .map(lc => ({ id: lc.contenants.id, nom: lc.contenants.nom, vol: lc.volume_hl, cap: lc.contenants.capacite_hl }));
+
+  const nbProduits = Object.values(prodByOp).reduce((s, arr) => s + arr.length, 0);
+
+  const evolution = (vol_init != null && vol_act != null)
+    ? vol_act - vol_init : null;
+
+  // ── Filiation explicite (table lot_filiation) ──────────────
+  const filParents  = (filiation.parents  || []).filter(p => p.lot);
+  const filChildren = (filiation.children || []).filter(c => c.lot);
+
+  // ── Généalogie via opérations (déduite des rôles) ──────────
+  const opsParentIds  = new Set(filParents.map(p => p.parent_id));
+  const opsChildIds   = new Set(filChildren.map(c => c.lot_id));
+  const gParents  = new Map();
+  const gChildren = new Map();
+  sortedOps.forEach(ol => {
+    const opId = ol.operations.id;
+    if (ol.role === 'destination') {
+      (othersByOp[opId] || []).filter(o2 => o2.role === 'source' && o2.lots)
+        .forEach(o2 => { if (!gParents.has(o2.lots.id) && !opsParentIds.has(o2.lots.id)) gParents.set(o2.lots.id, o2.lots); });
+    }
+    if (ol.role === 'source') {
+      (othersByOp[opId] || []).filter(o2 => o2.role === 'destination' && o2.lots)
+        .forEach(o2 => { if (!gChildren.has(o2.lots.id) && !opsChildIds.has(o2.lots.id)) gChildren.set(o2.lots.id, o2.lots); });
+    }
+  });
+
+  const geneaTotal = filParents.length + filChildren.length + gParents.size + gChildren.size;
+
+  function _treeNode(l, cls, volHl, tag) {
+    return `<button class="genea-tree-node ${cls}" onclick="WB3Nav.navigate('lot-detail.html?id=${l.id}')">
+      <span class="genea-node-name">${COULEUR_ICONS[l.couleur]||'🍷'} ${escapeHtml(l.nom)}</span>
+      ${l.numero_lot ? `<span class="genea-node-sub" style="font-family:monospace">${escapeHtml(l.numero_lot)}</span>` : ''}
+      ${l.millesime ? `<span class="genea-node-sub">📅 ${l.millesime}</span>` : ''}
+      ${volHl != null ? `<span class="genea-node-vol">${fmt(volHl)} hL</span>` : ''}
+      ${tag ? `<span class="genea-node-tag ${tag.cls}">${escapeHtml(tag.lbl)}${tag.sub ? ` · ${escapeHtml(tag.sub)}` : ''}</span>` : ''}
+    </button>`;
+  }
+
+  // Badge de filiation : distingue manuel, assemblage (avec date/réf op), et opération déduite.
+  function _filTag(f) {
+    if (!f.source_type || f.source_type === 'manual') {
+      return { cls: 'genea-tag-manual', lbl: 'Manuel' };
+    }
+    const op  = f.operations;
+    let   sub = '';
+    if (op) {
+      if (op.date_operation) sub = fmtDate(op.date_operation);
+      if (op.reference)      sub = (sub ? sub + ' · ' : '') + op.reference;
+    }
+    return { cls: 'genea-tag-auto', lbl: 'Assemblage', sub };
+  }
+
+  const hasParents  = filParents.length > 0 || gParents.size > 0;
+  const hasChildren = filChildren.length > 0 || gChildren.size > 0;
+
+  const geneaHtml = geneaTotal === 0 ? '' : `
+  <div class="detail-section">
+    <div class="section-head">
+      <h2>🧬 Généalogie</h2>
+      <span class="section-count">${geneaTotal} lot${geneaTotal > 1 ? 's' : ''} lié${geneaTotal > 1 ? 's' : ''}</span>
+      <a class="btn btn--secondary btn--sm" href="tracabilite.html?id=${lot.id}" style="margin-left:auto" title="Arbre de traçabilité complet">🌳 Arbre</a>
+    </div>
+    <div class="section-body">
+      <div class="genea-tree-wrap">
+        ${hasParents ? `
+        <div class="genea-tree-col">
+          <div class="genea-tree-label">← Sources (${filParents.length + gParents.size})</div>
+          ${filParents.map(p => _treeNode(p.lot, 'genea-tree-node--parent', p.volume_hl, _filTag(p))).join('')}
+          ${[...gParents.values()].map(l => _treeNode(l, 'genea-tree-node--parent', null, {cls:'genea-tag-ops',lbl:'Opération'})).join('')}
+        </div>
+        <div class="genea-tree-arrow">→</div>` : ''}
+
+        <div class="genea-tree-col">
+          <div class="genea-tree-label" style="color:var(--color-primary)">Ce lot</div>
+          <div class="genea-current-node">
+            <span>${COULEUR_ICONS[lot.couleur]||'🍷'} ${escapeHtml(lot.nom)}</span>
+            ${lot.numero_lot ? `<span class="genea-current-sub" style="font-family:monospace">${escapeHtml(lot.numero_lot)}</span>` : ''}
+            ${lot.millesime ? `<span class="genea-current-sub">📅 ${lot.millesime}</span>` : ''}
+            ${lot.volume_actuel_hl != null ? `<span class="genea-current-sub">${fmt(lot.volume_actuel_hl)} hL</span>` : ''}
+          </div>
+        </div>
+
+        ${hasChildren ? `
+        <div class="genea-tree-arrow">→</div>
+        <div class="genea-tree-col">
+          <div class="genea-tree-label">→ Dérivés (${filChildren.length + gChildren.size})</div>
+          ${filChildren.map(c => _treeNode(c.lot, 'genea-tree-node--child', c.volume_hl, _filTag(c))).join('')}
+          ${[...gChildren.values()].map(l => _treeNode(l, 'genea-tree-node--child', null, {cls:'genea-tag-ops',lbl:'Opération'})).join('')}
+        </div>` : ''}
+      </div>
+    </div>
+  </div>`;
+
+  // ── Données dérivées pour la timeline ─────────────────────
+  const latestAnalyse = analyses.length > 0
+    ? [...analyses].sort((a, b) => new Date(b.date_analyse) - new Date(a.date_analyse))[0]
+    : null;
+  const mvtOpIds = new Set((mouvements || []).map(m => m.operation_id).filter(Boolean));
+  const lifelineCount = apports.length + mouvements.length + sortedOps.filter(ol => !mvtOpIds.has(ol.operations.id)).length + analyses.length;
+  const overCap = conts.some(c => c.cap != null && c.vol != null && c.vol > c.cap);
+
+  // Chips contenants avec badge sur-capacité individuel
+  const contsHtml = conts.map(c => {
+    const isOver = c.cap != null && c.cap > 0 && c.vol != null && c.vol > c.cap;
+    const badge = isOver ? `<span style="background:#d32f2f22;color:#d32f2f;padding:1px 6px;border-radius:999px;font-size:9px;font-weight:700;margin-left:var(--space-1)">⚠️ Sur-cap.</span>` : '';
+    return `<a href="contenant-detail.html?id=${c.id}" class="cont-chip" style="text-decoration:none">🛢 ${escapeHtml(c.nom)}${c.vol != null ? ` · <b>${fmt(c.vol)} hL</b>` : ''}${badge}</a>`;
+  }).join('');
+
+  document.getElementById('content').innerHTML = `
+
+    <!-- Barre d'actions -->
+    <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5);flex-wrap:wrap">
+      <a href="lots.html" class="btn btn--secondary btn--sm">← Retour aux lots</a>
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm no-print" onclick="buildDossier()" title="Générer le dossier de lot imprimable (PDF via Enregistrer en PDF du navigateur)">🖨 Dossier de lot</button>
+      <button class="btn btn--secondary btn--sm" onclick="WB3Nav.navigate('analyses.html?lot_id=${lot.id}')">🧪 Nouvelle analyse</button>
+      <button class="btn btn--primary btn--sm" onclick="newOp()">+ Nouvelle opération</button>
+      <span style="font-size:var(--text-caption);color:var(--color-ink-quaternary);font-family:var(--font-mono)">${escapeHtml(lot.id)}</span>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- BLOC 1 · ÉTAT ACTUEL                               -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="bloc-label">📊 État actuel</div>
+
+    <!-- Hero -->
+    <div class="lot-hero">
+      <div class="hero-strip ${lot.couleur || 'rouge'}"></div>
+      <div class="hero-top">
+        <div class="hero-identity">
+          <div class="hero-nom">${escapeHtml(lot.nom)}</div>
+          <div class="hero-meta">
+            ${lot.millesime ? `📅 Millésime ${lot.millesime}` : ''}
+            ${lot.millesime && lot.couleur ? ' · ' : ''}
+            ${lot.couleur ? `${COULEUR_ICONS[lot.couleur]} ${COULEUR_LABELS[lot.couleur]}` : ''}
+            ${lot.date_entree ? ` · Entrée le ${fmtDate(lot.date_entree)}` : ''}
+            ${lot.numero_lot ? ` · <span style="font-family:monospace;font-size:.9em;opacity:.75">${escapeHtml(lot.numero_lot + (LOT_STATUT_SUFFIX[lot.statut]||''))}</span>` : ''}
+          </div>
+          <div class="hero-badges">
+            <span class="statut-badge statut-${lot.statut}">${STATUT_LABELS[lot.statut] || lot.statut}</span>
+            ${lot.actif === false ? `<span class="statut-badge statut-archive">Inactif</span>` : ''}
+            ${latestAnalyse?.so2_libre != null ? (() => {
+              const v = latestAnalyse.so2_libre;
+              const col = v < _analyseThresholds.libre_bas ? '#d32f2f' : v < _analyseThresholds.libre_haut ? '#f57c00' : '#2e7d32';
+              return `<span style="background:${col}22;color:${col};padding:2px 10px;border-radius:999px;font-size:var(--text-caption);font-weight:700">SO₂ libre ${fmt(v)} mg/L</span>`;
+            })() : ''}
+            ${overCap ? `<span style="background:#d32f2f22;color:#d32f2f;padding:2px 10px;border-radius:999px;font-size:var(--text-caption);font-weight:700">⚠️ Sur-capacité</span>` : ''}
+          </div>
+        </div>
+        ${(vol_init != null || vol_act != null) ? `
+        <div class="hero-volumes">
+          ${vol_init != null ? `<div class="hero-vol-item">
+            <div class="hero-vol-val">${fmt(vol_init)} hL</div>
+            <div class="hero-vol-lbl">Volume initial</div>
+          </div>` : ''}
+          ${vol_act != null ? `<div class="hero-vol-item">
+            <div class="hero-vol-val">${fmt(vol_act)} hL</div>
+            <div class="hero-vol-lbl">Volume actuel</div>
+          </div>` : ''}
+          ${evolution != null ? `<div class="hero-vol-item">
+            <div class="hero-vol-val ${evolution >= 0 ? 'gain' : 'perte'}">${evolution >= 0 ? '+' : ''}${fmt(evolution)} hL</div>
+            <div class="hero-vol-lbl">Évolution</div>
+          </div>` : ''}
+          ${latestAnalyse ? `<div class="hero-vol-item">
+            <div class="hero-vol-val" style="font-size:var(--text-callout)">${fmtDate(latestAnalyse.date_analyse)}</div>
+            <div class="hero-vol-lbl">Dernière analyse</div>
+          </div>` : ''}
+        </div>` : ''}
+      </div>
+      ${(lot.type_lot || lot.appellation || lot.destination) ? `
+      <div style="margin-top:var(--space-3);display:flex;flex-wrap:wrap;gap:var(--space-2)">
+        ${lot.type_lot    ? `<span style="background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:var(--radius-pill);padding:2px 10px;font-size:var(--text-caption)">🧪 ${escapeHtml(lot.type_lot)}</span>` : ''}
+        ${lot.appellation ? `<span style="background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:var(--radius-pill);padding:2px 10px;font-size:var(--text-caption)">📜 ${escapeHtml(lot.appellation)}</span>` : ''}
+        ${lot.destination ? `<span style="background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:var(--radius-pill);padding:2px 10px;font-size:var(--text-caption)">📦 ${escapeHtml(lot.destination)}</span>` : ''}
+      </div>` : ''}
+      ${lot.notes ? `
+      <div style="margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--color-border);
+                  font-size:var(--text-callout);color:var(--color-ink-secondary);font-style:italic">
+        ${escapeHtml(lot.notes)}
+      </div>` : ''}
+    </div>
+
+    <!-- Stepper état -->
+    ${renderStatutStepper(lot)}
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi-mini">
+        <span class="icon">🍇</span>
+        <div><div class="val">${apports.length}</div><div class="lbl">Apport${apports.length > 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">⚙️</span>
+        <div><div class="val">${sortedOps.length}</div><div class="lbl">Opération${sortedOps.length > 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">🧪</span>
+        <div><div class="val">${nbProduits}</div><div class="lbl">Produit${nbProduits > 1 ? 's' : ''} utilisé${nbProduits > 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">🛢</span>
+        <div><div class="val">${conts.length}</div><div class="lbl">Contenant${conts.length > 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">📈</span>
+        <div><div class="val">${analyses.length}</div><div class="lbl">Analyse${analyses.length > 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">📍</span>
+        <div><div class="val">${mouvements.length}</div><div class="lbl">Mouvement${mouvements.length > 1 ? 's' : ''}</div></div>
+      </div>
+    </div>
+
+    <!-- Contenants actuels -->
+    <div class="detail-section">
+      <div class="section-head"><h2>🛢 Contenants actuels</h2><span class="section-count">${conts.length}</span></div>
+      <div class="section-body">
+        ${conts.length
+          ? `<div class="cont-chips">${contsHtml}</div>`
+          : `<p class="t-secondary" style="margin:0">Aucun contenant affecté à ce lot.</p>`}
+      </div>
+    </div>
+
+    <!-- Dernière analyse (snapshot compact) -->
+    ${latestAnalyse ? `
+    <div class="detail-section">
+      <div class="section-head">
+        <h2>📈 Analyse récente</h2>
+        <span class="section-count">${fmtDate(latestAnalyse.date_analyse)}</span>
+        <a href="#section-preuves" class="btn btn--secondary btn--sm" style="margin-left:auto">Voir tout ↓</a>
+      </div>
+      <div class="section-body">${renderLatestAnalysis(latestAnalyse)}</div>
+    </div>` : ''}
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- BLOC 2 · LIGNE DE VIE                              -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="bloc-label">📅 Ligne de vie</div>
+    <div class="detail-section">
+      <div class="section-head">
+        <h2>Chronologie du lot</h2>
+        <span class="section-count">${lifelineCount} événement${lifelineCount > 1 ? 's' : ''}</span>
+      </div>
+      ${renderLifelineTimeline(mouvements, sortedOps, apports, prodByOp, contByOp, othersByOp, analyses)}
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- BLOC 3 · COMPOSITION                               -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="bloc-label">🧬 Composition</div>
+
+    ${geneaHtml}
+
+    ${ceps.length ? `
+    <div class="detail-section">
+      <div class="section-head"><h2>🍇 Cépages</h2><span class="section-count">${ceps.length}</span></div>
+      <div class="section-body">
+        <div class="cepage-chips">
+          ${ceps.map(lc => `
+            <span class="cepage-chip">
+              ${escapeHtml(lc.cepages?.nom || '?')}
+              ${lc.pourcentage ? `<span class="pct">${lc.pourcentage} %</span>` : ''}
+            </span>`).join('')}
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- Apports rattachés -->
+    <div class="detail-section">
+      <div class="section-head"><h2>🍇 Apports rattachés</h2><span class="section-count">${apports.length}</span></div>
+      ${apports.length ? `
+      <div style="overflow-x:auto">
+        <table class="apports-table">
+          <thead><tr>
+            <th>Date</th><th>N°</th><th>Apporteur</th><th>Provenance / Cépage</th>
+            <th class="num">Poids (kg)</th><th class="num">Volume (hL)</th><th class="num">Degré</th><th>Statut</th>
+          </tr></thead>
+          <tbody>
+            ${apports.map(a => `<tr>
+              <td style="white-space:nowrap">${fmtDate(a.date_apport)}</td>
+              <td>${escapeHtml(a.numero || '—')}</td>
+              <td>${escapeHtml(a.apporteur || '—')}</td>
+              <td>${escapeHtml(a.provenance || a.cepage_libre || '—')}</td>
+              <td class="num">${a.poids_kg   != null ? fmt(a.poids_kg)   : '—'}</td>
+              <td class="num">${a.volume_hl  != null ? fmt(a.volume_hl)  : '—'}</td>
+              <td class="num">${a.degre_probable != null ? fmt(a.degre_probable) + '°' : '—'}</td>
+              <td>${a.statut === 'annule'
+                ? '<span style="color:var(--color-danger)">✕ Annulé</span>'
+                : '<span style="color:var(--color-success)">✓ Reçu</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`
+      : `<div class="section-body"><p class="t-secondary" style="margin:0">Aucun apport lié à ce lot.</p></div>`}
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- BLOC 4 · PREUVES & TRAÇABILITÉ                     -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div id="section-preuves" class="bloc-label">📋 Preuves &amp; traçabilité</div>
+
+    <!-- Analyses œnologiques complètes -->
+    ${renderAnalysesSection(analyses, parentsSnapshot)}
+
+    <!-- Produits œnologiques utilisés -->
+    ${renderProduitsSection(prodByOp, sortedOps, lot, contByOp)}
+
+    <!-- Journal des mouvements physiques -->
+    ${renderBilanVolumetrique(lot, mouvements, apports, ajustements)}
+    ${renderJournalMouvements(mouvements)}
+
+    <!-- Ajustements de cave -->
+    ${renderAjustementsSection(ajustements)}
+
+    <!-- Opérations détaillées -->
+    <div class="detail-section">
+      <div class="section-head"><h2>📋 Opérations détaillées</h2><span class="section-count">${sortedOps.length}</span></div>
+      ${sortedOps.length
+        ? `<div class="timeline">
+             ${sortedOps.map((ol, i) => renderOpCard(ol, prodByOp, contByOp, othersByOp, i === sortedOps.length - 1)).join('')}
+           </div>`
+        : `<div class="section-body"><p class="t-secondary" style="margin:0">Aucune opération enregistrée pour ce lot.</p></div>`}
+    </div>
+  `;
+}
+
+// ============================================================
+// Synthèse produits œnologiques (lot)
+// ============================================================
+function _doseCalc(quantite, _unite, concentration, volHl) {
+  if (concentration == null || quantite == null || quantite === 0) return { gActif: null, mgL: null };
+  const gActif = quantite * concentration; // concentration = g actif / unite_stock
+  const mgL = (volHl && volHl > 0) ? (gActif / (volHl * 100)) * 1000 : null;
+  return { gActif, mgL };
+}
+
+function renderProduitsSection(prodByOp, sortedOps, lot, contByOp) {
+  const usages = [];
+  sortedOps.forEach(ol => {
+    const opId = ol.operations.id;
+    const prods = prodByOp[opId] || [];
+    if (!prods.length) return;
+    const volOl   = ol.volume_hl;
+    const volOp   = ol.operations.volume_hl;
+    const volConts = (contByOp[opId] || []).filter(c => c.role === 'implique')
+                      .reduce((s, c) => s + (Number(c.volume_hl) || 0), 0);
+    const volHl = volOl || (volConts > 0 ? volConts : null) || volOp || lot.volume_actuel_hl;
+    prods.forEach(p => {
+      const pl = p.produits_lots;
+      const pc = pl?.produits_catalogue;
+      if (!pc) return;
+      usages.push({ opId, date: ol.operations.date_operation, type_op: ol.operations.type_operation, pc, pl, quantite: p.quantite, unite: p.unite, volHl });
+    });
+  });
+  if (!usages.length) return '';
+
+  const byProd = new Map();
+  usages.forEach(u => {
+    const cid = u.pc.id;
+    if (!byProd.has(cid)) byProd.set(cid, { pc: u.pc, usages: [] });
+    byProd.get(cid).usages.push(u);
+  });
+
+  const thStyle = 'text-align:left;padding:5px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border);white-space:nowrap';
+  const thR = thStyle + ';text-align:right';
+
+  const blocks = [...byProd.values()].map(({ pc, usages: pu }) => {
+    const totalQty = pu.reduce((s, u) => s + (u.quantite || 0), 0);
+    const { gActif: totalGActif } = _doseCalc(totalQty, pc.unite_stock, pc.concentration, null);
+
+    const detailRows = pu.map(u => {
+      const typeLabel = (u.type_op || '').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+      const { gActif, mgL } = _doseCalc(u.quantite, u.unite, pc.concentration, u.volHl);
+      const now = new Date();
+      const dluo = u.pl?.dluo ? new Date(u.pl.dluo) : null;
+      const dluoExpired = dluo && dluo < now;
+      const dluoStr = dluo
+        ? `<span style="color:${dluoExpired ? 'var(--color-danger)' : 'var(--color-ink-tertiary)'};font-size:.85em" title="DLUO">${dluoExpired ? '⚠️ ' : ''}DLUO ${dluo.toLocaleDateString('fr-FR', { month:'short', year:'numeric' })}</span>`
+        : '';
+      return `<tr style="border-top:1px solid var(--color-border-light,#f0f0f0)">
+        <td style="padding:5px 10px;font-size:var(--text-caption);color:var(--color-ink-tertiary);white-space:nowrap">${fmtDate(u.date)}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption)">${typeLabel}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);font-family:monospace">${u.pl?.numero_lot ? escapeHtml(u.pl.numero_lot) : '—'} ${dluoStr}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);text-align:right;white-space:nowrap;color:var(--color-ink-tertiary)">${u.volHl != null ? `${fmt(u.volHl)} hL` : '—'}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);text-align:right;white-space:nowrap">${u.quantite != null ? `${fmt(u.quantite)} ${u.unite||''}` : '—'}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);text-align:right;white-space:nowrap">${gActif != null ? (gActif>=1000?`${fmt(gActif/1000)} kg`:`${fmt(gActif)} g`) : '—'}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);text-align:right;white-space:nowrap;${mgL!=null&&pc.dose_max!=null&&mgL>pc.dose_max?'color:var(--color-danger);font-weight:600':''}">${mgL != null ? `${fmt(mgL)} mg/L` : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    const totalActifStr = totalGActif != null ? (totalGActif >= 1000 ? `${fmt(totalGActif/1000)} kg actif` : `${fmt(totalGActif)} g actif`) : null;
+    const doseMaxAlert = pc.dose_max != null ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary);opacity:.7">max ${pc.dose_max} mg/L</span>` : '';
+    const mgLValues = pu.map(u => _doseCalc(u.quantite, u.unite, pc.concentration, u.volHl).mgL).filter(v => v != null);
+    const maxMgL = mgLValues.length ? Math.max(...mgLValues) : null;
+    const doseBadge = maxMgL != null && pc.dose_max != null
+      ? maxMgL > pc.dose_max
+        ? `<span style="background:#d32f2f22;color:#d32f2f;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700">⚠️ Dose max dépassée</span>`
+        : maxMgL > 0.9 * pc.dose_max
+          ? `<span style="background:#f57c0022;color:#f57c00;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700">⚠️ Proche du max</span>`
+          : ''
+      : '';
+
+    return `
+    <div style="background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border);flex-wrap:wrap">
+        <span style="font-weight:600;font-size:var(--text-callout)">${CAT_ICONS[pc.categorie]||'📦'} ${escapeHtml(pc.nom)}</span>
+        ${pc.categorie ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary);background:var(--color-bg-subtle);padding:1px 8px;border-radius:var(--radius-pill)">${escapeHtml(pc.categorie)}</span>` : ''}
+        <span style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">${pu.length} utilisation${pu.length>1?'s':''}</span>
+        ${totalActifStr ? `<span style="font-size:var(--text-caption);color:var(--color-ink-secondary);font-weight:600">${totalActifStr}</span>` : ''}
+        ${doseMaxAlert}
+        ${doseBadge}
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--color-bg-subtle)">
+            <th style="${thStyle}">Date</th>
+            <th style="${thStyle}">Opération</th>
+            <th style="${thStyle}">Lot produit</th>
+            <th style="${thR}">Vol. traité</th>
+            <th style="${thR}">Quantité</th>
+            <th style="${thR}">M. active</th>
+            <th style="${thR}">Dose</th>
+          </tr></thead>
+          <tbody>${detailRows}</tbody>
+          ${pu.length > 1 ? `<tfoot><tr style="border-top:2px solid var(--color-border);background:var(--color-bg-subtle)">
+            <td colspan="4" style="padding:6px 10px;font-size:var(--text-caption);font-weight:600;color:var(--color-ink-secondary)">Total</td>
+            <td style="padding:6px 10px;text-align:right;font-size:var(--text-caption);font-weight:600;white-space:nowrap">${fmt(totalQty)} ${pc.unite_stock||''}</td>
+            <td style="padding:6px 10px;text-align:right;font-size:var(--text-caption);font-weight:600;white-space:nowrap">${totalActifStr || '—'}</td>
+            <td></td>
+          </tr></tfoot>` : ''}
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="detail-section">
+    <div class="section-head"><h2>🧪 Produits œnologiques utilisés</h2><span class="section-count">${usages.length} utilisation${usages.length>1?'s':''}</span></div>
+    <div class="section-body" style="display:flex;flex-direction:column;gap:var(--space-3)">${blocks}</div>
+  </div>`;
+}
+
+// ============================================================
+// Parcours cuves
+// ============================================================
+function renderCuveHistory(history) {
+  if (!history.length) return '';
+
+  const EVT = {
+    entree:   { icon:'🟢', label:'Entrée',    cls:'color:var(--color-success)' },
+    sortie:   { icon:'🔴', label:'Sortie',    cls:'color:var(--color-danger)'  },
+    backfill: { icon:'🔵', label:'Affectation initiale', cls:'color:var(--color-info)' },
+  };
+
+  // Groupe par cuve pour résumer le séjour
+  const rows = history.map(h => {
+    const e = EVT[h.type_evt] || { icon:'⚪', label: h.type_evt, cls:'' };
+    const date = h.date_evt
+      ? new Date(h.date_evt).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' })
+      : '—';
+    const nom   = escapeHtml(h.contenant_nom_snap || '?');
+    const cid   = h.contenant_id;
+    const cuveLink = cid
+      ? `<button class="nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${cid}')">${nom}</button>`
+      : `<span style="font-weight:600;font-size:var(--text-callout)">${nom}</span>`;
+    const vol = h.volume_hl != null ? `${fmt(h.volume_hl)} hL` : '—';
+    return `
+      <tr>
+        <td style="white-space:nowrap;font-size:var(--text-caption);color:var(--color-ink-tertiary);padding:7px 10px">${date}</td>
+        <td style="padding:7px 10px">
+          <span style="${e.cls};font-size:var(--text-footnote)">${e.icon}</span>
+          <span style="font-size:var(--text-caption);color:var(--color-ink-secondary);margin-left:var(--space-1)">${e.label}</span>
+        </td>
+        <td style="padding:7px 10px;font-size:var(--text-callout)">${cuveLink}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:var(--text-caption);color:var(--color-ink-secondary);white-space:nowrap">${vol}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+  <div class="detail-section">
+    <div class="section-head">
+      <h2>📍 Parcours cuves</h2>
+      <span class="section-count">${history.length} événement${history.length > 1 ? 's' : ''}</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-callout)">
+        <thead>
+          <tr style="background:var(--color-bg-subtle)">
+            <th style="text-align:left;padding:6px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border)">Date</th>
+            <th style="text-align:left;padding:6px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border)">Événement</th>
+            <th style="text-align:left;padding:6px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border)">Cuve</th>
+            <th style="text-align:right;padding:6px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border)">Volume</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Timeline unifiée « Ligne de vie »
+// ============================================================
+function renderLifelineTimeline(mouvements, sortedOps, apports, prodByOp, contByOp, othersByOp, analyses = []) {
+  const mvtOpIds = new Set((mouvements || []).map(m => m.operation_id).filter(Boolean));
+
+  const opMap = {};
+  (sortedOps || []).forEach(ol => { opMap[ol.operations.id] = { ol, op: ol.operations }; });
+
+  const events = [];
+
+  (apports || []).forEach(a => events.push({ type: 'apport', date: a.date_apport, data: a }));
+  (analyses || []).forEach(a => events.push({ type: 'analyse', date: a.date_analyse, data: a }));
+
+  (mouvements || []).forEach(m => events.push({
+    type: 'mouvement', date: m.date_mouvement, data: m,
+    opCtx: m.operation_id ? opMap[m.operation_id] : null,
+  }));
+
+  (sortedOps || []).forEach(ol => {
+    if (!mvtOpIds.has(ol.operations.id))
+      events.push({ type: 'operation', date: ol.operations.date_operation, data: { ol, op: ol.operations } });
+  });
+
+  events.sort((a, b) => {
+    const da = a.date ? new Date(a.date) : new Date(0);
+    const db = b.date ? new Date(b.date) : new Date(0);
+    return da - db;
+  });
+
+  if (!events.length) return '<div class="section-body"><p class="t-secondary" style="margin:0">Aucun événement enregistré pour ce lot.</p></div>';
+
+  const SENS_META = {
+    entree:            { icon: '🟢', lbl: 'Entrée en cuve',     cls: 'tl-dot--entree' },
+    sortie:            { icon: '🔴', lbl: 'Sortie de cuve',      cls: 'tl-dot--sortie' },
+    transfert:         { icon: '🔄', lbl: 'Transfert',           cls: 'tl-dot--transfert' },
+    sortie_definitive: { icon: '🚪', lbl: 'Sortie définitive',   cls: 'tl-dot--sortie-def' },
+  };
+
+  function _contenantLink(id, nom) {
+    if (!nom) return null;
+    return id
+      ? `<button class="nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${id}')">🛢 ${escapeHtml(nom)}</button>`
+      : `<span>🛢 ${escapeHtml(nom)}</span>`;
+  }
+
+  const items = events.map((ev, i) => {
+    const isLast = i === events.length - 1;
+    if (ev.type === 'apport') {
+      const a = ev.data;
+      const annule = a.statut === 'annule';
+      const detail = [
+        a.apporteur ? `👤 ${escapeHtml(a.apporteur)}` : '',
+        a.provenance || a.cepage_libre ? `📍 ${escapeHtml(a.provenance || a.cepage_libre)}` : '',
+        a.millesime ? `📅 ${a.millesime}` : '',
+        a.volume_hl != null ? `${fmt(a.volume_hl)} hL` : '',
+        a.poids_kg  != null ? `${fmt(a.poids_kg)} kg`  : '',
+      ].filter(Boolean).join(' · ');
+      return `<div class="tl-item">
+        <div class="tl-spine"><div class="tl-dot tl-dot--apport">🍇</div>${!isLast ? '<div class="tl-line"></div>' : ''}</div>
+        <div class="tl-card${annule ? ' tl-card--annule' : ''}">
+          <div class="tl-card-head">
+            <span class="tl-date">${fmtDate(a.date_apport)}</span>
+            <span class="tl-type">Apport reçu${a.numero ? ` · #${escapeHtml(a.numero)}` : ''}</span>
+            ${annule ? `<span class="role-badge op-stat-annule">✕ Annulé</span>` : `<span class="role-badge op-stat-realise">✓ Reçu</span>`}
+          </div>
+          ${detail ? `<div class="tl-details"><div class="tl-detail-line"><span class="tl-detail-lbl">Détails</span>${detail}</div></div>` : ''}
+        </div>
+      </div>`;
+    }
+
+    if (ev.type === 'mouvement') {
+      const m = ev.data;
+      const sm = SENS_META[m.sens] || { icon: '⚪', lbl: m.sens || '—', cls: '' };
+      const opTypeLabel = m.type_operation ? m.type_operation.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()) : '';
+      const srcId  = m.contenant_source?.id  || m.contenant_source_id;
+      const srcNom = m.contenant_source?.nom;
+      const dstId  = m.contenant_dest?.id   || m.contenant_dest_id;
+      const dstNom = m.contenant_dest?.nom;
+      const srcLnk = _contenantLink(srcId, srcNom);
+      const dstLnk = _contenantLink(dstId, dstNom);
+      const ctx = ev.opCtx;
+      const opInfo = ctx ? [
+        ctx.op.reference ? `#${escapeHtml(ctx.op.reference)}` : '',
+        ctx.op.operateur ? `👤 ${escapeHtml(ctx.op.operateur)}` : '',
+        ctx.op.statut !== 'realise' ? `<span class="role-badge op-stat-${ctx.op.statut}">${{realise:'✓ Réalisé',planifie:'⏳ Planifié',annule:'✕ Annulé'}[ctx.op.statut]||ctx.op.statut}</span>` : '',
+      ].filter(Boolean).join(' · ') : '';
+      const mvtLine = (srcLnk && dstLnk) ? `${srcLnk} → ${dstLnk}` : srcLnk || dstLnk || '';
+      return `<div class="tl-item">
+        <div class="tl-spine"><div class="tl-dot ${sm.cls}">${sm.icon}</div>${!isLast ? '<div class="tl-line"></div>' : ''}</div>
+        <div class="tl-card">
+          <div class="tl-card-head">
+            <span class="tl-date">${fmtDate(m.date_mouvement)}</span>
+            <span class="tl-type">${sm.lbl}</span>
+            ${opTypeLabel ? `<span class="role-badge role-traite">${opTypeLabel}</span>` : ''}
+            ${m.volume_hl != null ? `<span class="tl-vol">📏 ${fmt(m.volume_hl)} hL</span>` : ''}
+          </div>
+          ${mvtLine || opInfo ? `<div class="tl-details">
+            ${mvtLine ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Contenants</span><div class="chips-inline">${mvtLine}</div></div>` : ''}
+            ${opInfo  ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Opération</span>${opInfo}</div>` : ''}
+          </div>` : ''}
+        </div>
+      </div>`;
+    }
+
+    if (ev.type === 'operation') {
+      const { ol, op } = ev.data;
+      const icon = OP_ICONS[op.type_operation] || '⚙️';
+      const typeLabel = op.type_operation.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+      const roleClass = { source:'role-source', destination:'role-destination', traite:'role-traite' }[ol.role] || 'role-traite';
+      const roleLabel = { source:'← Source', destination:'→ Destination', traite:'Traité' }[ol.role] || ol.role;
+      const statCls = `op-stat-${op.statut}`;
+      const statLbl = { realise:'✓ Réalisé', planifie:'⏳ Planifié', annule:'✕ Annulé' }[op.statut] || op.statut;
+      const volStr = (ol.volume_hl != null ? ol.volume_hl : op.volume_hl) != null
+        ? `📏 ${fmt(ol.volume_hl != null ? ol.volume_hl : op.volume_hl)} hL` : '';
+      const prods = (prodByOp[op.id] || []).map(p => {
+        const pc = p.produits_lots?.produits_catalogue;
+        return pc ? `<span class="chip-prod">${CAT_ICONS[pc.categorie]||'📦'} ${escapeHtml(pc.nom)}${p.quantite != null ? ` · ${fmt(p.quantite)} ${p.unite||''}` : ''}</span>` : '';
+      }).filter(Boolean).join('');
+      const contsHtml = (contByOp[op.id] || []).map(c => {
+        const n = c.contenants?.nom; const cid = c.contenants?.id;
+        if (!n) return '';
+        return cid ? `<button class="chip-cont nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${cid}')">🛢 ${escapeHtml(n)}</button>` : `<span class="chip-cont">🛢 ${escapeHtml(n)}</span>`;
+      }).filter(Boolean).join('');
+      const othersHtml = (othersByOp[op.id] || []).map(ol2 => {
+        const l = ol2.lots; if (!l) return '';
+        return `<button class="chip-lot nav-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${l.id}')">🍷 ${escapeHtml(l.nom)}</button>`;
+      }).filter(Boolean).join('');
+      const extras = [
+        op.reference ? `#${escapeHtml(op.reference)}` : '',
+        op.operateur ? `👤 ${escapeHtml(op.operateur)}` : '',
+      ].filter(Boolean).join(' · ');
+      return `<div class="tl-item" id="op-${op.id}">
+        <div class="tl-spine"><div class="tl-dot">${icon}</div>${!isLast ? '<div class="tl-line"></div>' : ''}</div>
+        <div class="tl-card">
+          <div class="tl-card-head">
+            <span class="tl-date">${fmtDate(op.date_operation)}</span>
+            <span class="tl-type">${typeLabel}</span>
+            <span class="role-badge ${roleClass}">${roleLabel}</span>
+            <span class="role-badge ${statCls}">${statLbl}</span>
+            ${volStr ? `<span class="tl-vol">${volStr}</span>` : ''}
+          </div>
+          <div class="tl-details">
+            ${extras    ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Info</span>${extras}</div>` : ''}
+            ${prods     ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Produits</span><div class="chips-inline">${prods}</div></div>` : ''}
+            ${contsHtml ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Contenants</span><div class="chips-inline">${contsHtml}</div></div>` : ''}
+            ${othersHtml? `<div class="tl-detail-line"><span class="tl-detail-lbl">Autres lots</span><div class="chips-inline">${othersHtml}</div></div>` : ''}
+          </div>
+          ${(op.notes || ol.notes) ? `<div class="tl-notes">${escapeHtml(op.notes || ol.notes)}</div>` : ''}
+        </div>
+      </div>`;
+    }
+
+    if (ev.type === 'analyse') {
+      const a = ev.data;
+      const keyParams = [
+        a.so2_libre        != null ? `SO₂ libre ${fmt(a.so2_libre)} mg/L`         : '',
+        a.so2_total        != null ? `SO₂ total ${fmt(a.so2_total)} mg/L`         : '',
+        a.tav              != null ? `TAV ${fmt(a.tav)} %vol`                     : '',
+        a.acidite_volatile != null ? `AV ${fmt(a.acidite_volatile)} g/L`          : '',
+        a.ph               != null ? `pH ${fmt(a.ph)}`                            : '',
+      ].filter(Boolean).join(' · ');
+      const so2Color = a.so2_libre != null
+        ? (a.so2_libre < _analyseThresholds.libre_bas ? '#d32f2f'
+           : a.so2_libre < _analyseThresholds.libre_haut ? '#f57c00'
+           : '#2e7d32')
+        : null;
+      return `<div class="tl-item">
+        <div class="tl-spine"><div class="tl-dot" style="background:#e3f2fd;font-size:var(--text-callout)">🧪</div>${!isLast ? '<div class="tl-line"></div>' : ''}</div>
+        <div class="tl-card">
+          <div class="tl-card-head">
+            <span class="tl-date">${fmtDate(a.date_analyse)}</span>
+            <span class="tl-type">Analyse œnologique</span>
+            ${so2Color ? `<span style="background:${so2Color}22;color:${so2Color};padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700">SO₂ ${fmt(a.so2_libre)} mg/L</span>` : ''}
+          </div>
+          ${keyParams ? `<div class="tl-details"><div class="tl-detail-line"><span class="tl-detail-lbl">Valeurs</span>${keyParams}</div></div>` : ''}
+          ${a.notes ? `<div class="tl-notes">${escapeHtml(a.notes)}</div>` : ''}
+        </div>
+      </div>`;
+    }
+
+    return '';
+  }).filter(Boolean).join('');
+
+  return `<div class="timeline">${items}</div>`;
+}
+
+// ============================================================
+// P2-2 — Bilan volumétrique (cohérence apports/mouvements/ajustements
+// vs lot.volume_actuel_hl).
+// ------------------------------------------------------------
+// Le volume actuel d'un lot est maintenu par le trigger
+// lot_contenants_sync_volume (mig 025) = Σ lot_contenants.volume_hl.
+// Cette section recalcule indépendamment ce volume via les flux
+// historiques pour révéler tout écart (signe de bypass du chemin durci
+// ou bug de double-comptage). En présence d'écart, l'opérateur peut
+// rechercher la cause via la timeline ci-dessous.
+// ============================================================
+function renderBilanVolumetrique(lot, mouvements, apports, ajustements) {
+  if (!lot) return '';
+
+  // Apports actifs uniquement (annulés = exclus du bilan)
+  const apportsValides = (apports || []).filter(a => a.statut !== 'annule');
+  const sumApports = apportsValides.reduce((s, a) => s + (Number(a.volume_hl) || 0), 0);
+
+  // Mouvements : entrées = sens 'entree' (assemblage destination).
+  // Sorties = 'sortie' (assemblage source) + 'sortie_definitive'
+  // (mise en bouteille / sortie lot). 'transfert' = neutre pour ce lot
+  // (sortie d'une cuve + entrée d'une autre, même lot → volume inchangé).
+  let sumEntrees = 0, sumSorties = 0;
+  (mouvements || []).forEach(m => {
+    const v = Number(m.volume_hl) || 0;
+    if (m.sens === 'entree')                                  sumEntrees += v;
+    else if (m.sens === 'sortie' || m.sens === 'sortie_definitive') sumSorties += v;
+    // 'transfert' ignoré (neutre)
+  });
+
+  // Ajustements (peuvent être + ou −)
+  const sumAjust = (ajustements || []).reduce((s, a) => s + (Number(a.delta_hl) || 0), 0);
+
+  const calcule = sumApports + sumEntrees - sumSorties + sumAjust;
+  const actuel  = Number(lot.volume_actuel_hl) || 0;
+  const ecart   = actuel - calcule;
+  const ecartAbs = Math.abs(ecart);
+
+  const ok = ecartAbs <= 0.01;
+  const color    = ok ? 'var(--color-success)' : 'var(--color-danger)';
+  const bgColor  = ok ? 'rgba(46,125,50,.08)'  : 'rgba(211,47,47,.10)';
+  const borderColor = ok ? 'var(--color-success)' : 'var(--color-danger)';
+  const icon = ok ? '✅' : '⚠️';
+  const label = ok ? 'Bilan cohérent' : 'Écart détecté';
+
+  const ecartTxt = ecart === 0
+    ? '0 hL'
+    : (ecart > 0 ? '+' : '') + fmt(ecart) + ' hL';
+
+  // Ligne de détail repliable : seulement utile en cas d'écart, mais
+  // toujours utile pour les power-users. On l'affiche compacte.
+  const detail = [
+    apportsValides.length ? `📥 Apports : ${fmt(sumApports)} hL (${apportsValides.length})` : '',
+    sumEntrees ? `🟢 Entrées (assemblage) : ${fmt(sumEntrees)} hL` : '',
+    sumSorties ? `🔴 Sorties : ${fmt(sumSorties)} hL` : '',
+    sumAjust   ? `⚖️ Ajustements : ${sumAjust>0?'+':''}${fmt(sumAjust)} hL (${(ajustements||[]).length})` : '',
+  ].filter(Boolean).join(' · ') || 'Aucun flux historisé';
+
+  return `
+  <div class="detail-section" style="border-left:3px solid ${borderColor};background:${bgColor}">
+    <div class="section-head">
+      <h2 style="display:flex;align-items:center;gap:var(--space-2)">
+        <span style="font-size:1.2em">${icon}</span>
+        <span>Bilan volumétrique — ${escapeHtml(label)}</span>
+      </h2>
+      <span class="section-count" style="background:${color};color:#fff">${ecartTxt}</span>
+    </div>
+    <div class="section-body" style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:monospace;font-size:var(--text-callout);font-weight:600">
+        ${fmt(sumApports)} hL <span style="color:var(--color-ink-tertiary);font-weight:400">apports</span>
+        ${sumEntrees ? ` + ${fmt(sumEntrees)} hL <span style="color:var(--color-ink-tertiary);font-weight:400">entrées</span>` : ''}
+        ${sumSorties ? ` − ${fmt(sumSorties)} hL <span style="color:var(--color-ink-tertiary);font-weight:400">sorties</span>` : ''}
+        ${sumAjust   ? ` ${sumAjust>0?'+':'−'} ${fmt(Math.abs(sumAjust))} hL <span style="color:var(--color-ink-tertiary);font-weight:400">ajust.</span>` : ''}
+        = <span style="color:${color}">${fmt(calcule)} hL calculé</span>
+        <span style="color:var(--color-ink-tertiary);font-weight:400"> · volume actuel base : ${fmt(actuel)} hL</span>
+      </div>
+      <div style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">${detail}</div>
+      ${ok ? '' : `<div style="font-size:var(--text-caption);color:${color};font-weight:600">
+        Écart non négligeable (> 0,01 hL). Causes possibles : opération supprimée sans corrective, apport
+        annulé avant Sprint cohérence, INSERT direct sur lot_contenants. Consulter le journal ci-dessous pour identifier.
+      </div>`}
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Journal des mouvements physiques (table brute)
+// ============================================================
+function renderJournalMouvements(mouvements) {
+  if (!mouvements || !mouvements.length) return '';
+
+  const SENS_META = {
+    entree:            { icon: '🟢', lbl: 'Entrée' },
+    sortie:            { icon: '🔴', lbl: 'Sortie' },
+    transfert:         { icon: '🔄', lbl: 'Transfert' },
+    sortie_definitive: { icon: '🚪', lbl: 'Sortie définitive' },
+  };
+  const thS = 'text-align:left;padding:6px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border)';
+
+  const rows = [...mouvements].sort((a, b) =>
+    (a.date_mouvement || '') < (b.date_mouvement || '') ? -1 : 1
+  ).map(m => {
+    const sm = SENS_META[m.sens] || { icon: '⚪', lbl: m.sens || '—' };
+    const typeLabel = m.type_operation ? m.type_operation.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()) : '—';
+    const srcId  = m.contenant_source?.id  || m.contenant_source_id;
+    const srcNom = m.contenant_source?.nom;
+    const dstId  = m.contenant_dest?.id   || m.contenant_dest_id;
+    const dstNom = m.contenant_dest?.nom;
+    const srcHtml = srcNom ? (srcId ? `<button class="nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${srcId}')">🛢 ${escapeHtml(srcNom)}</button>` : `🛢 ${escapeHtml(srcNom)}`) : '—';
+    const dstHtml = dstNom ? (dstId ? `<button class="nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${dstId}')">🛢 ${escapeHtml(dstNom)}</button>` : `🛢 ${escapeHtml(dstNom)}`) : '—';
+    const dateStr = m.date_mouvement
+      ? new Date(m.date_mouvement + (m.date_mouvement.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' })
+      : '—';
+    return `<tr>
+      <td style="white-space:nowrap;font-size:var(--text-caption);color:var(--color-ink-tertiary);padding:7px 10px">${dateStr}</td>
+      <td style="padding:7px 10px">${sm.icon} <span style="font-size:var(--text-caption);color:var(--color-ink-secondary)">${sm.lbl}</span></td>
+      <td style="padding:7px 10px;font-size:var(--text-caption)">${typeLabel}</td>
+      <td style="padding:7px 10px">${srcHtml}</td>
+      <td style="padding:7px 10px">${dstHtml}</td>
+      <td style="padding:7px 10px;text-align:right;font-size:var(--text-caption);color:var(--color-ink-secondary);white-space:nowrap">${m.volume_hl != null ? `${fmt(m.volume_hl)} hL` : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="detail-section">
+    <div class="section-head">
+      <h2>📍 Journal des mouvements</h2>
+      <span class="section-count">${mouvements.length} mouvement${mouvements.length > 1 ? 's' : ''}</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-callout)">
+        <thead><tr style="background:var(--color-bg-subtle)">
+          <th style="${thS}">Date</th>
+          <th style="${thS}">Sens</th>
+          <th style="${thS}">Type</th>
+          <th style="${thS}">Source</th>
+          <th style="${thS}">Destination</th>
+          <th style="${thS};text-align:right">Volume</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Ajustements de cave
+// ============================================================
+function renderAjustementsSection(ajustements) {
+  if (!ajustements || !ajustements.length) return '';
+
+  const AJUST_ICONS = {
+    complement_de_plein:'💧', ouillage:'🪣', ajustement_volume:'⚖️',
+    correction_jauge:'📏', perte_technique:'📉', correction_administrative:'📋',
+  };
+  const AJUST_LABELS = {
+    complement_de_plein:'Complément de plein', ouillage:'Ouillage',
+    ajustement_volume:'Ajustement volume', correction_jauge:'Correction de jauge',
+    perte_technique:'Perte technique', correction_administrative:'Correction admin.',
+  };
+  const thS = 'text-align:left;padding:6px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border)';
+
+  const rows = [...ajustements].sort((a, b) =>
+    (a.date_operation || '') < (b.date_operation || '') ? -1 : 1
+  ).map(a => {
+    const dateStr = a.date_operation
+      ? new Date(a.date_operation + 'T00:00:00').toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' })
+      : '—';
+    const icon  = AJUST_ICONS[a.type_operation] || '⚙️';
+    const lbl   = AJUST_LABELS[a.type_operation] || a.type_operation;
+    const contNom = a.contenant?.nom;
+    const contId  = a.contenant?.id;
+    const contHtml = contNom
+      ? (contId ? `<button class="nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${contId}')">🛢 ${escapeHtml(contNom)}</button>` : `🛢 ${escapeHtml(contNom)}`)
+      : '<span style="color:var(--color-ink-tertiary)">—</span>';
+    const delta = Number(a.delta_hl);
+    const pct   = a.delta_pct != null ? Number(a.delta_pct) : null;
+    const sign  = delta >= 0 ? '+' : '';
+    const deltaColor = delta > 0 ? 'color:#2e7d32' : delta < 0 ? 'color:#c62828' : '';
+    const absPct = pct != null ? Math.abs(pct) : null;
+    let seuilBadge = '';
+    if (absPct != null) {
+      if (absPct > 5)        seuilBadge = `<span style="background:#fce8e8;color:#c62828;border:1px solid #f5b4b4;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700">>${'5'}%</span>`;
+      else if (absPct > 2)   seuilBadge = `<span style="background:#fff3e0;color:#c62828;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700">${Math.abs(pct).toFixed(1)}%</span>`;
+      else if (absPct > 0.5) seuilBadge = `<span style="background:#fff8e1;color:#e65100;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700">${Math.abs(pct).toFixed(1)}%</span>`;
+    }
+    const operateur = a.operateur ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">👤 ${escapeHtml(a.operateur)}</span>` : '';
+    return `<tr>
+      <td style="white-space:nowrap;font-size:var(--text-caption);color:var(--color-ink-tertiary);padding:7px 10px">${dateStr}</td>
+      <td style="padding:7px 10px;font-size:var(--text-callout)">${icon} <span style="font-size:var(--text-caption)">${escapeHtml(lbl)}</span></td>
+      <td style="padding:7px 10px">${contHtml}</td>
+      <td style="padding:7px 10px;text-align:right;font-family:monospace;font-size:var(--text-caption);white-space:nowrap">
+        ${fmt(a.volume_avant_hl)} → ${fmt(a.volume_apres_hl)} hL
+      </td>
+      <td style="padding:7px 10px;text-align:right;font-family:monospace;font-size:var(--text-caption);white-space:nowrap;${deltaColor}">
+        ${sign}${fmt(delta)} hL ${seuilBadge}
+      </td>
+      <td style="padding:7px 10px;font-size:var(--text-caption);color:var(--color-ink-secondary);max-width:200px">
+        ${a.motif ? escapeHtml(a.motif) : '<span style="opacity:.4">—</span>'}
+        ${operateur}
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="detail-section">
+    <div class="section-head">
+      <h2>⚖️ Ajustements de cave</h2>
+      <span class="section-count">${ajustements.length} ajustement${ajustements.length > 1 ? 's' : ''}</span>
+      <a class="btn btn--secondary btn--sm" style="margin-left:auto" href="qualite-traca.html" title="Diagnostics volumes">🩺 Vérif. volumes</a>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-callout)">
+        <thead><tr style="background:var(--color-bg-subtle)">
+          <th style="${thS}">Date</th>
+          <th style="${thS}">Type</th>
+          <th style="${thS}">Cuve</th>
+          <th style="${thS};text-align:right">Avant → Après</th>
+          <th style="${thS};text-align:right">Δ</th>
+          <th style="${thS}">Motif / Opérateur</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Carte opération (timeline)
+// ============================================================
+function renderOpCard(ol, prodByOp, contByOp, othersByOp, isLast) {
+  const op   = ol.operations;
+  const opId = op.id;
+
+  const icon      = OP_ICONS[op.type_operation] || '⚙️';
+  const typeLabel = op.type_operation.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  const roleClass = { source:'role-source', destination:'role-destination', traite:'role-traite' }[ol.role] || 'role-traite';
+  const roleLabel = { source:'← Source', destination:'→ Destination', traite:'Traité' }[ol.role] || ol.role;
+
+  const statCls = `op-stat-${op.statut}`;
+  const statLbl = { realise:'✓ Réalisé', planifie:'⏳ Planifié', annule:'✕ Annulé' }[op.statut] || op.statut;
+
+  const prods  = prodByOp[opId]  || [];
+  const conts  = contByOp[opId]  || [];
+  const others = othersByOp[opId]|| [];
+
+  const prodsHtml = prods
+    .map(p => {
+      const pc = p.produits_lots?.produits_catalogue;
+      if (!pc) return '';
+      const qty = p.quantite != null ? `<b>${fmt(p.quantite)} ${p.unite || ''}</b>` : '';
+      const concLabel = pc.concentration_libelle
+        ? `<span style="opacity:.6;font-size:.9em"> (${escapeHtml(pc.concentration_libelle)})</span>` : '';
+      let actifStr = '';
+      if (pc.concentration != null && p.quantite != null) {
+        const gActif = p.quantite * pc.concentration;
+        const label = gActif >= 1000 ? `${fmt(gActif/1000)} kg` : `${fmt(gActif)} g`;
+        actifStr = `<span style="color:var(--color-ink-tertiary);font-size:.88em"> → ${label} actif</span>`;
+      }
+      return `<span class="chip-prod">${CAT_ICONS[pc.categorie]||'📦'} ${escapeHtml(pc.nom)}${concLabel}${qty ? ` · ${qty}${actifStr}` : ''}</span>`;
+    }).filter(Boolean).join('');
+
+  const contsHtml = conts
+    .map(c => {
+      const n = c.contenants?.nom;
+      const cid = c.contenants?.id;
+      if (!n) return '';
+      const v = c.volume_hl != null ? ` · <b>${fmt(c.volume_hl)} hL</b>` : '';
+      const roleTag = c.role === 'source' ? `<span style="font-size:.8em;margin-left:3px;opacity:.65">src</span>`
+                    : c.role === 'destination' ? `<span style="font-size:.8em;margin-left:3px;opacity:.65">dst</span>` : '';
+      return cid
+        ? `<button class="chip-cont nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${cid}')">🛢 ${escapeHtml(n)}${v}${roleTag}</button>`
+        : `<span class="chip-cont">🛢 ${escapeHtml(n)}${v}</span>`;
+    }).filter(Boolean).join('');
+
+  const othersHtml = others
+    .map(ol2 => {
+      const l = ol2.lots;
+      if (!l) return '';
+      const arrow = { source:'← ', destination:'→ ', traite:'' }[ol2.role] || '';
+      const num = l.numero_lot ? ` <span style="font-family:monospace;font-size:.85em;opacity:.6">[${escapeHtml(l.numero_lot)}]</span>` : '';
+      const vol = ol2.volume_hl != null ? ` · <b>${fmt(ol2.volume_hl)} hL</b>` : '';
+      const roleChip = ol2.role === 'source'
+        ? `<span style="font-size:.8em;background:#fff8e1;color:#e65100;padding:1px 4px;border-radius:3px;margin-left:3px">src</span>`
+        : ol2.role === 'destination'
+        ? `<span style="font-size:.8em;background:#e8f5e9;color:#2e7d32;padding:1px 4px;border-radius:3px;margin-left:3px">dst</span>` : '';
+      return `<button class="chip-lot nav-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${l.id}')">🍷 ${arrow}${escapeHtml(l.nom)}${num}${vol}${roleChip}</button>`;
+    }).filter(Boolean).join('');
+
+  const volStr = (ol.volume_hl != null ? ol.volume_hl : op.volume_hl) != null
+    ? `📏 ${fmt(ol.volume_hl != null ? ol.volume_hl : op.volume_hl)} hL` : '';
+
+  const extras = [
+    op.reference ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">#${escapeHtml(op.reference)}</span>` : '',
+    op.operateur  ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">👤 ${escapeHtml(op.operateur)}</span>` : '',
+  ].filter(Boolean).join('');
+
+  const notes = op.notes || ol.notes;
+
+  return `
+  <div class="tl-item" id="op-${opId}">
+    <div class="tl-spine">
+      <div class="tl-dot">${icon}</div>
+      ${!isLast ? '<div class="tl-line"></div>' : ''}
+    </div>
+    <div class="tl-card">
+      <div class="tl-card-head">
+        <span class="tl-date">${fmtDate(op.date_operation)}</span>
+        <span class="tl-type">${typeLabel}</span>
+        <span class="role-badge ${roleClass}">${roleLabel}</span>
+        <span class="role-badge ${statCls}">${statLbl}</span>
+        ${volStr ? `<span class="tl-vol">${volStr}</span>` : ''}
+        ${extras}
+      </div>
+      <div class="tl-details">
+        ${prodsHtml  ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Produits</span><div class="chips-inline">${prodsHtml}</div></div>` : ''}
+        ${contsHtml  ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Contenants</span><div class="chips-inline">${contsHtml}</div></div>` : ''}
+        ${othersHtml ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Autres lots</span><div class="chips-inline">${othersHtml}</div></div>` : ''}
+      </div>
+      ${notes ? `<div class="tl-notes">${escapeHtml(notes)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Stepper machine à états
+// ============================================================
+function renderStatutStepper(lot) {
+  const curStatut = lot.statut;
+  const curIdx    = STATUT_MAIN_IDX[curStatut] ?? -1;
+  const nexts     = STATUT_TRANSITIONS[curStatut] || [];
+
+  const track = STATUT_MAIN_PATH.map((step, i) => {
+    const cls = i < curIdx ? 'done' : i === curIdx ? 'current' : 'future';
+    const connCls = i < curIdx ? 'done' : i === curIdx ? 'current' : 'future';
+    const connector = i < STATUT_MAIN_PATH.length - 1
+      ? `<div class="step-connector ${connCls}"></div>` : '';
+    return `<div class="step-node">
+        <div class="step-dot ${cls}">${step.icon}</div>
+        <div class="step-label ${cls}">${step.label}</div>
+      </div>${connector}`;
+  }).join('');
+
+  const actionsHtml = nexts.length ? `
+    <div class="stepper-actions">
+      <span class="stepper-next-lbl">Passer à →</span>
+      ${nexts.map(s => {
+        const step = STATUT_MAIN_PATH.find(p => p.key === s) || { icon:'↗', label: STATUT_LABELS[s] || s };
+        return `<button class="next-state-btn" onclick="advanceLotStatut('${s}')">${step.icon} ${step.label}</button>`;
+      }).join('')}
+    </div>` : '';
+
+  return `<div class="statut-stepper">
+    <div class="stepper-track">${track}</div>
+    ${actionsHtml}
+  </div>`;
+}
+
+async function advanceLotStatut(nextStatut) {
+  if (!currentLot) return;
+  const prev = currentLot.statut;
+  try {
+    await WB3DB.updateRow('lots', currentLot.id, { statut: nextStatut });
+    toast(`Passé en « ${STATUT_LABELS[nextStatut] || nextStatut} »`, 'success');
+    await loadAndRender(currentLot.id);
+  } catch(e) {
+    toast(`Erreur : ${WB3DB.errMsg ? WB3DB.errMsg(e) : e.message}`, 'error');
+  }
+}
+
+// ============================================================
+// Actions
+// ============================================================
+function newOp() {
+  if (!currentLot) return;
+  sessionStorage.setItem('wb3_op_prefill', JSON.stringify({
+    lots: [{ id: currentLot.id, nom: currentLot.nom, couleur: currentLot.couleur }]
+  }));
+  WB3Nav.navigate('operations.html?new=1');
+}
+
+// ============================================================
+// Section analyses œnologiques
+// ============================================================
+// Phase 3 — Snapshot pondéré des analyses parents au moment de l'assemblage.
+// Pour chaque parent assemblage (lot_filiation.source_type='assemblage'),
+// récupère la dernière analyse ≤ date_operation de l'op d'assemblage. Puis
+// calcule la moyenne pondérée par volume_hl du lien filiation sur 5 champs
+// œnologiques clés (SO2 libre, SO2 total, pH, TAV, AV).
+// Retourne null si aucun parent assemblage → la section n'est pas rendue.
+async function _fetchParentsSnapshot(filParents) {
+  const assemblageParents = (filParents || []).filter(p => p.source_type === 'assemblage' && p.lot);
+  if (!assemblageParents.length) return null;
+
+  const results = await Promise.all(assemblageParents.map(async p => {
+    const dateAsm = p.operations?.date_operation;
+    if (!dateAsm) return { p, analyse: null };
+    try {
+      const rows = await WB3DB.queryAnalyses({
+        lot_id: p.parent_id,
+        date_to: dateAsm,
+        ascending: false,    // tri DESC pour avoir le plus récent en premier
+      });
+      return { p, analyse: (rows && rows[0]) || null };
+    } catch (e) {
+      console.warn('[WB3 lot-detail] analyse parent KO :', e);
+      return { p, analyse: null };
+    }
+  }));
+
+  const FIELDS = ['so2_libre', 'so2_total', 'ph', 'tav', 'acidite_volatile'];
+  const weighted = {};
+  FIELDS.forEach(k => {
+    let sum = 0, weight = 0;
+    results.forEach(({ p, analyse }) => {
+      if (analyse && analyse[k] != null && p.volume_hl != null) {
+        sum += Number(analyse[k]) * Number(p.volume_hl);
+        weight += Number(p.volume_hl);
+      }
+    });
+    weighted[k] = weight > 0 ? sum / weight : null;
+  });
+
+  // Garde uniquement les parents qui ont au moins UNE valeur exploitable
+  // (pour l'affichage du détail).
+  const validResults = results.filter(r => r.analyse && FIELDS.some(k => r.analyse[k] != null));
+  if (!validResults.length) return null;
+
+  return { parents: validResults, weighted };
+}
+
+// Phase 3 — Rendu du bandeau « pondéré parents » en italique gris.
+function renderParentsSnapshot(snapshot) {
+  if (!snapshot || !snapshot.parents || !snapshot.parents.length) return '';
+  const FIELDS = [
+    { k:'so2_libre',         l:'SO₂ libre',  u:'mg/L'  },
+    { k:'so2_total',         l:'SO₂ total',  u:'mg/L'  },
+    { k:'ph',                l:'pH',         u:''      },
+    { k:'tav',               l:'TAV',        u:'% vol' },
+    { k:'acidite_volatile',  l:'AV',         u:'g/L'   },
+  ];
+  const cardStyle = 'background:transparent;border:1px dashed var(--color-border);border-radius:var(--radius-sm);padding:6px 10px;text-align:center;font-style:italic;color:var(--color-ink-tertiary)';
+  const cards = FIELDS
+    .filter(f => snapshot.weighted[f.k] != null)
+    .map(f => `
+      <div style="${cardStyle}">
+        <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;opacity:.7;margin-bottom:2px">${escapeHtml(f.l)}</div>
+        <div style="font-size:var(--text-callout);font-weight:600;font-variant-numeric:tabular-nums">${fmt(snapshot.weighted[f.k])}</div>
+        ${f.u ? `<div style="font-size:9px;opacity:.7">${escapeHtml(f.u)}</div>` : ''}
+      </div>`).join('');
+  if (!cards) return '';
+
+  const parentsList = snapshot.parents.map(({ p, analyse }) => {
+    const nom = p.lot?.nom || '?';
+    const vol = p.volume_hl != null ? `${fmt(p.volume_hl)} hL` : '';
+    const dateA = analyse?.date_analyse ? new Date(analyse.date_analyse).toLocaleDateString('fr-FR') : '?';
+    return `<li style="margin:2px 0">${escapeHtml(nom)} <span style="opacity:.7">· ${vol} · analyse du ${escapeHtml(dateA)}</span></li>`;
+  }).join('');
+
+  return `
+    <div style="margin:var(--space-2) 0;padding:10px 12px;background:var(--color-bg-subtle);border-left:3px solid var(--color-border);border-radius:0 var(--radius-sm) var(--radius-sm) 0;font-size:var(--text-footnote)">
+      <div style="font-style:italic;color:var(--color-ink-tertiary);margin-bottom:6px">
+        📋 <b>Snapshot pondéré des parents</b> (au moment de l'assemblage) — valeurs indicatives, à comparer avec les analyses propres ci-dessous.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-bottom:var(--space-2)">${cards}</div>
+      <details style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">
+        <summary style="cursor:pointer">${snapshot.parents.length} parent${snapshot.parents.length>1?'s':''} pris en compte</summary>
+        <ul style="margin:6px 0 0 18px;padding:0">${parentsList}</ul>
+      </details>
+    </div>`;
+}
+
+function renderAnalysesSection(analyses, parentsSnapshot = null) {
+  // Cas particulier : lot d'assemblage sans encore d'analyses propres MAIS
+  // avec snapshot parents → on affiche quand même le bandeau pondéré.
+  if (!analyses || analyses.length === 0) {
+    const snapshotHtml = renderParentsSnapshot(parentsSnapshot);
+    return `
+    <div class="detail-section">
+      <div class="section-head"><h2>📈 Analyses œnologiques</h2><span class="section-count">0</span>
+        <button class="btn btn--primary btn--sm" onclick="openAnalyseModal()" style="margin-left:auto">+ Analyse</button>
+      </div>
+      <div class="section-body">
+        ${snapshotHtml || '<p class="t-secondary" style="margin:0">Aucune analyse enregistrée pour ce lot.</p>'}
+      </div>
+    </div>`;
+  }
+
+  const sorted  = [...analyses].sort((a, b) => new Date(a.date_analyse) - new Date(b.date_analyse));
+  const latest  = [...analyses].sort((a, b) => new Date(b.date_analyse) - new Date(a.date_analyse))[0];
+  const hasSo2  = sorted.some(a => a.so2_libre != null || a.so2_total != null);
+  const hasTav  = sorted.some(a => a.tav != null);
+  const hasAv   = sorted.some(a => a.acidite_volatile != null);
+
+  const alertBadge = (latest.so2_libre != null && latest.so2_libre < _analyseThresholds.libre_haut)
+    ? `<span style="background:#fff0ea;color:#bd4800;padding:2px 8px;border-radius:var(--radius-pill);font-size:10px;font-weight:600;flex-shrink:0">⚠️ SO₂ libre &lt; ${_analyseThresholds.libre_haut} mg/L</span>`
+    : '';
+
+  // FML indicator — basé sur acide malique de la dernière analyse
+  let fmlBadge = '';
+  if (latest.acide_malique != null) {
+    if (latest.acide_malique < 0.3) {
+      fmlBadge = `<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:var(--radius-pill);font-size:10px;font-weight:600;flex-shrink:0">✓ FML complète</span>`;
+    } else if (latest.acide_lactique != null && latest.acide_lactique > 0.2) {
+      fmlBadge = `<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:var(--radius-pill);font-size:10px;font-weight:600;flex-shrink:0">⟳ FML en cours (A.mal. ${fmt(latest.acide_malique)} g/L)</span>`;
+    } else {
+      fmlBadge = `<span style="background:var(--color-bg-subtle);color:var(--color-ink-tertiary);padding:2px 8px;border-radius:var(--radius-pill);font-size:10px;font-weight:600;flex-shrink:0">A. malique ${fmt(latest.acide_malique)} g/L</span>`;
+    }
+  }
+
+  const avAlert = (latest.acidite_volatile != null && latest.acidite_volatile > _analyseThresholds.av_alert)
+    ? `<span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:var(--radius-pill);font-size:10px;font-weight:600;flex-shrink:0">⚠️ AV ${fmt(latest.acidite_volatile)} g/L</span>`
+    : '';
+
+  return `
+  <div class="detail-section">
+    <div class="section-head">
+      <h2>📈 Analyses œnologiques</h2>
+      <span class="section-count">${analyses.length}</span>
+      ${alertBadge}
+      ${fmlBadge}
+      ${avAlert}
+      <button class="btn btn--primary btn--sm" onclick="openAnalyseModal()" style="margin-left:auto">+ Analyse</button>
+    </div>
+    <div class="section-body">
+      ${renderParentsSnapshot(parentsSnapshot)}
+      ${renderLatestAnalysis(latest)}
+      ${hasSo2 ? renderSo2Chart(sorted) : ''}
+      ${hasTav  ? renderTavChart(sorted) : ''}
+      ${hasAv   ? renderAvChart(sorted)  : ''}
+      ${renderAnalysesTable([...sorted].reverse())}
+    </div>
+  </div>`;
+}
+
+function renderLatestAnalysis(a) {
+  if (!a) return '';
+  const FIELDS = [
+    { k:'so2_libre',        l:'SO₂ libre',      u:'mg/L',   alertFn: v => v < _analyseThresholds.libre_bas ? '#d32f2f' : v < _analyseThresholds.libre_haut ? '#f57c00' : null },
+    { k:'so2_total',        l:'SO₂ total',      u:'mg/L',   alertFn: null },
+    { k:'so2_actif',        l:'SO₂ actif',      u:'mg/L',   alertFn: null },
+    { k:'ph',               l:'pH',             u:'',       alertFn: v => {
+        const mn = _analyseThresholds.ph_min, mx = _analyseThresholds.ph_max;
+        return (mn != null && v < mn) || (mx != null && v > mx) ? '#d32f2f' : null; } },
+    { k:'ta',               l:'Acid. totale',   u:'g/L',    alertFn: null },
+    { k:'acidite_volatile', l:'Acid. volatile', u:'g/L',    alertFn: v => v > 1.2 ? '#d32f2f' : v > _analyseThresholds.av_alert ? '#f57c00' : null },
+    { k:'tav',              l:'TAV',            u:'% vol',  alertFn: v => {
+        const mn = _analyseThresholds.tav_min, mx = _analyseThresholds.tav_max;
+        return (mn != null && v < mn) || (mx != null && v > mx) ? '#d32f2f' : null; } },
+    { k:'sucres_residuels', l:'Sucres résid.',  u:'g/L',    alertFn: null },
+    { k:'densite',          l:'Densité',        u:'',       alertFn: null },
+    { k:'temperature',      l:'T°',             u:'°C',     alertFn: v => (_analyseThresholds.temp_max != null && v > _analyseThresholds.temp_max) ? '#d32f2f' : null },
+    { k:'acide_malique',    l:'A. malique',     u:'g/L',    alertFn: null },
+    { k:'acide_lactique',   l:'A. lactique',    u:'g/L',    alertFn: null },
+    { k:'gf_neg5',          l:'GF -5°C',        u:'°C',     alertFn: null },
+    { k:'gf_pos5',          l:'GF +5°C',        u:'°C',     alertFn: null },
+    { k:'co2',              l:'CO₂',            u:'g/L',    alertFn: null },
+    { k:'turbidite',        l:'Turbidité',      u:'NTU',    alertFn: null },
+  ];
+
+  const cells = FIELDS.filter(f => a[f.k] != null).map(f => {
+    const v   = a[f.k];
+    const col = f.alertFn ? (f.alertFn(v) || 'var(--color-ink)') : 'var(--color-ink)';
+    return `<div style="background:var(--color-bg-subtle);border-radius:var(--radius-md);padding:10px 12px;text-align:center;min-width:88px;flex:1">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;margin-bottom:3px">${f.l}</div>
+      <div style="font-size:var(--text-title-2);font-weight:700;color:${col}">${fmt(v)}</div>
+      ${f.u ? `<div style="font-size:9px;color:var(--color-ink-quaternary)">${f.u}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  if (!cells) return '';
+  const contNom = a.contenants?.nom ? ` · ${escapeHtml(a.contenants.nom)}` : '';
+
+  return `
+  <div style="margin-bottom:var(--space-5)">
+    <div style="font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;margin-bottom:var(--space-2)">
+      Dernière analyse — ${fmtDate(a.date_analyse)}${contNom}
+    </div>
+    <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">${cells}</div>
+    ${a.notes ? `<div style="margin-top:var(--space-3);font-size:var(--text-footnote);color:var(--color-ink-tertiary);font-style:italic">${escapeHtml(a.notes)}</div>` : ''}
+  </div>`;
+}
+
+// Generic SVG line chart builder
+function _buildLineChart(opts) {
+  const W = opts.W || 600, H = opts.H || 180;
+  const PAD = { top:18, right:32, bottom:36, left:44 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top  - PAD.bottom;
+
+  const allDates = opts.series.flatMap(s => s.points.map(p => new Date(p.date).getTime())).filter(Boolean);
+  const allVals  = opts.series.flatMap(s => s.points.map(p => p.val)).filter(v => v != null);
+  if (!allDates.length || !allVals.length) return '';
+
+  const xMin = Math.min(...allDates), xMax = Math.max(...allDates);
+  const xRange = xMax - xMin || 1;
+
+  const threshVals = (opts.thresholds || []).map(t => t.value);
+  const rawYMax = Math.max(...allVals, ...threshVals, 1);
+  const rawYMin = Math.min(0, ...allVals);
+  const rawRange = rawYMax - rawYMin || 1;
+  const yStep  = rawRange <= 30 ? 5 : rawRange <= 80 ? 10 : rawRange <= 200 ? 25 : rawRange <= 500 ? 50 : 100;
+  const yMax   = Math.ceil(rawYMax  / yStep) * yStep;
+  const yMin   = Math.floor(rawYMin / yStep) * yStep;
+  const yRange = yMax - yMin;
+
+  function xs(d) { return PAD.left + (d - xMin) / xRange * cW; }
+  function ys(v) { return PAD.top  + cH - (v - yMin) / yRange * cH; }
+
+  const yTicks = [];
+  for (let v = yMin; v <= yMax; v += yStep) yTicks.push(v);
+
+  // X ticks: month labels or individual dates when ≤ 4 points
+  const allPts = opts.series.flatMap(s => s.points).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const xTickPts = [];
+  if (allPts.length <= 4) {
+    allPts.forEach(p => {
+      const t = new Date(p.date).getTime();
+      if (!xTickPts.find(x => x.t === t))
+        xTickPts.push({ t, label: new Date(p.date).toLocaleDateString('fr-FR', { day:'2-digit', month:'short' }) });
+    });
+  } else {
+    const seen = new Set();
+    allPts.forEach(p => {
+      const d = new Date(p.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        xTickPts.push({ t: d.getTime(), label: d.toLocaleDateString('fr-FR', { month:'short', year:'2-digit' }) });
+      }
+    });
+  }
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:260px;display:block">`;
+
+  // Grid
+  yTicks.forEach(v => {
+    const y = ys(v).toFixed(1);
+    s += `<line x1="${PAD.left}" y1="${y}" x2="${W-PAD.right}" y2="${y}" stroke="#e0e0e0" stroke-width="1"/>`;
+  });
+
+  // Threshold zone + line
+  (opts.thresholds || []).forEach(t => {
+    const y = ys(t.value).toFixed(1);
+    s += `<line x1="${PAD.left}" y1="${y}" x2="${W-PAD.right}" y2="${y}" stroke="${t.color}" stroke-width="1.5" stroke-dasharray="5,3" opacity=".85"/>`;
+    if (t.label) s += `<text x="${W-PAD.right+4}" y="${(+y+3.5).toFixed(1)}" font-size="9" fill="${t.color}">${escapeHtml(t.label)}</text>`;
+  });
+
+  // Axes
+  s += `<line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top+cH}" stroke="#c0c0c0" stroke-width="1.5"/>`;
+  s += `<line x1="${PAD.left}" y1="${PAD.top+cH}" x2="${W-PAD.right}" y2="${PAD.top+cH}" stroke="#c0c0c0" stroke-width="1.5"/>`;
+
+  // Y labels
+  yTicks.forEach(v => {
+    s += `<text x="${PAD.left-5}" y="${(ys(v)+3.5).toFixed(1)}" font-size="10" text-anchor="end" fill="#6d6d6d">${v}</text>`;
+  });
+  if (opts.yLabel) {
+    const midY = (PAD.top + cH / 2).toFixed(1);
+    s += `<text x="10" y="${midY}" font-size="9" fill="#aaa" text-anchor="middle" transform="rotate(-90 10 ${midY})">${opts.yLabel}</text>`;
+  }
+
+  // X labels
+  xTickPts.forEach(p => {
+    s += `<text x="${xs(p.t).toFixed(1)}" y="${(PAD.top+cH+16).toFixed(1)}" font-size="9" text-anchor="middle" fill="#6d6d6d">${escapeHtml(p.label)}</text>`;
+  });
+
+  // Series: lines then dots
+  opts.series.forEach(sr => {
+    const vp = sr.points.filter(p => p.val != null);
+    if (!vp.length) return;
+    if (vp.length > 1) {
+      const pts = vp.map(p => `${xs(new Date(p.date).getTime()).toFixed(1)},${ys(p.val).toFixed(1)}`).join(' ');
+      const dash = sr.dash ? ` stroke-dasharray="${sr.dash}"` : '';
+      s += `<polyline points="${pts}" fill="none" stroke="${sr.color}" stroke-width="${sr.width||2}"${dash} stroke-linejoin="round"/>`;
+    }
+    vp.forEach(p => {
+      const cx = xs(new Date(p.date).getTime()).toFixed(1);
+      const cy = ys(p.val).toFixed(1);
+      const fill = sr.dotFill ? sr.dotFill(p.val) : sr.color;
+      s += `<circle cx="${cx}" cy="${cy}" r="4" fill="${fill}" stroke="#fff" stroke-width="1.5"/>`;
+    });
+  });
+
+  s += '</svg>';
+  return s;
+}
+
+function _legend(items) {
+  return `<div style="display:flex;gap:var(--space-4);flex-wrap:wrap;margin-top:6px;font-size:var(--text-caption);color:var(--color-ink-secondary)">
+    ${items.map(i => `<span style="display:flex;align-items:center;gap:5px">
+      <svg width="22" height="10" viewBox="0 0 22 10"><line x1="0" y1="5" x2="22" y2="5" stroke="${i.color}" stroke-width="${i.width||2}" ${i.dash?`stroke-dasharray="${i.dash}"`:''}/>
+      ${i.dot ? `<circle cx="11" cy="5" r="3" fill="${i.dot}" stroke="#fff" stroke-width="1"/>` : ''}</svg>
+      ${escapeHtml(i.label)}</span>`).join('')}
+  </div>`;
+}
+
+function renderSo2Chart(sorted) {
+  const librePoints = sorted.filter(a => a.so2_libre != null).map(a => ({ date: a.date_analyse, val: a.so2_libre }));
+  const totalPoints = sorted.filter(a => a.so2_total != null).map(a => ({ date: a.date_analyse, val: a.so2_total }));
+  if (!librePoints.length && !totalPoints.length) return '';
+
+  const { libre_bas, libre_haut } = _analyseThresholds;
+  const chart = _buildLineChart({
+    W: 600, H: 200, yLabel: 'mg/L',
+    thresholds: [
+      { value: libre_bas,  color: '#d32f2f', label: String(libre_bas)  },
+      { value: libre_haut, color: '#43a047', label: String(libre_haut) },
+    ],
+    series: [
+      { points: totalPoints, color: '#1565c0', dash: '5,3', width: 1.8,
+        dotFill: () => '#1565c0' },
+      { points: librePoints, color: '#2e7d32', width: 2.5,
+        dotFill: v => v < libre_bas ? '#d32f2f' : v < libre_haut ? '#f57c00' : '#2e7d32' },
+    ],
+  });
+
+  return `
+  <div style="margin-bottom:var(--space-5)">
+    <div style="font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;margin-bottom:var(--space-2)">Évolution SO₂</div>
+    ${chart}
+    ${_legend([
+      { color:'#2e7d32', dot:'#2e7d32', width:2.5, label:'SO₂ libre (mg/L)' },
+      { color:'#1565c0', dot:'#1565c0', width:1.8, dash:'5,3', label:'SO₂ total (mg/L)' },
+      { color:'#d32f2f', width:1.5, dash:'4,3', label:`Seuil bas ${libre_bas} mg/L` },
+      { color:'#43a047', width:1.5, dash:'4,3', label:`Seuil haut ${libre_haut} mg/L` },
+    ])}
+  </div>`;
+}
+
+function renderTavChart(sorted) {
+  const pts = sorted.filter(a => a.tav != null).map(a => ({ date: a.date_analyse, val: a.tav }));
+  if (!pts.length) return '';
+
+  const chart = _buildLineChart({
+    W: 600, H: 160, yLabel: '% vol',
+    thresholds: [],
+    series: [{ points: pts, color: '#7b1fa2', width: 2.5, dotFill: () => '#7b1fa2' }],
+  });
+
+  return `
+  <div style="margin-bottom:var(--space-5)">
+    <div style="font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;margin-bottom:var(--space-2)">Évolution TAV</div>
+    ${chart}
+    ${_legend([{ color:'#7b1fa2', dot:'#7b1fa2', width:2.5, label:'Titre alcoométrique (% vol)' }])}
+  </div>`;
+}
+
+function renderAvChart(sorted) {
+  const pts = sorted.filter(a => a.acidite_volatile != null).map(a => ({ date: a.date_analyse, val: a.acidite_volatile }));
+  if (!pts.length) return '';
+
+  const av_alert = _analyseThresholds.av_alert;
+  const chart = _buildLineChart({
+    W: 600, H: 160, yLabel: 'g/L',
+    thresholds: [
+      { value: av_alert, color: '#f57c00', label: String(av_alert) },
+      { value: 1.0,      color: '#d32f2f', label: '1.0' },
+    ],
+    series: [{ points: pts, color: '#e65100', width: 2.5,
+      dotFill: v => v > 1.0 ? '#d32f2f' : v > av_alert ? '#f57c00' : '#e65100' }],
+  });
+
+  return `
+  <div style="margin-bottom:var(--space-5)">
+    <div style="font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;margin-bottom:var(--space-2)">Acidité volatile</div>
+    ${chart}
+    ${_legend([
+      { color:'#e65100', dot:'#e65100', width:2.5, label:'Acidité volatile (g/L)' },
+      { color:'#f57c00', width:1.5, dash:'4,3', label:`Seuil alerte ${av_alert} g/L` },
+      { color:'#d32f2f', width:1.5, dash:'4,3', label:'Limite 1.0 g/L' },
+    ])}
+  </div>`;
+}
+
+// ============================================================
+// Modal — Nouvelle analyse
+// ============================================================
+async function openAnalyseModal() {
+  if (!currentLot) return;
+
+  let contenants = [];
+  try {
+    contenants = await WB3DB.listTable('contenants', {
+      select: 'id, nom, type', filter: { actif: true }, order: 'nom', ascending: true,
+    });
+  } catch(e) { /* silent */ }
+
+  const lotContIds = new Set(
+    (currentLot.lot_contenants || []).map(lc => lc.contenants?.id).filter(Boolean)
+  );
+
+  const contOptions = '<option value="">— Aucun contenant —</option>'
+    + contenants.map(c => {
+        const sel = lotContIds.has(c.id) ? ' selected' : '';
+        return `<option value="${c.id}"${sel}>${escapeHtml(c.nom)}${c.type ? ' ('+escapeHtml(c.type)+')' : ''}</option>`;
+      }).join('');
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  document.getElementById('analyse-modal-body').innerHTML = `
+    <div class="an-section">
+      <div class="an-section-title">Identification</div>
+      <div class="an-grid">
+        <div class="an-field">
+          <label>Date *</label>
+          <input type="date" id="an-date" class="input" value="${today}" required>
+        </div>
+        <div class="an-field">
+          <label>Contenant</label>
+          <select id="an-contenant" class="select">${contOptions}</select>
+        </div>
+        <div class="an-field">
+          <label>Opérateur / Labo</label>
+          <input type="text" id="an-operateur" class="input" placeholder="Nom…">
+        </div>
+      </div>
+    </div>
+    <div class="an-section">
+      <div class="an-section-title">Dioxyde de soufre</div>
+      <div class="an-grid c3">
+        <div class="an-field"><label>SO₂ libre <span class="u">(mg/L)</span></label><input type="number" id="an-so2l" class="input" step="0.1" min="0" placeholder="—"></div>
+        <div class="an-field"><label>SO₂ total <span class="u">(mg/L)</span></label><input type="number" id="an-so2t" class="input" step="0.1" min="0" placeholder="—"></div>
+        <div class="an-field"><label>SO₂ actif <span class="u">(mg/L)</span></label><input type="number" id="an-so2a" class="input" step="0.01" min="0" placeholder="—"></div>
+      </div>
+    </div>
+    <div class="an-section">
+      <div class="an-section-title">Acidité</div>
+      <div class="an-grid c3">
+        <div class="an-field"><label>pH</label><input type="number" id="an-ph" class="input" step="0.01" min="2" max="5" placeholder="—"></div>
+        <div class="an-field"><label>AT <span class="u">(g/L H₂SO₄)</span></label><input type="number" id="an-ta" class="input" step="0.01" min="0" placeholder="—"></div>
+        <div class="an-field"><label>AV <span class="u">(g/L)</span></label><input type="number" id="an-av" class="input" step="0.01" min="0" placeholder="—"></div>
+        <div class="an-field"><label>A. malique <span class="u">(g/L)</span></label><input type="number" id="an-malique" class="input" step="0.01" min="0" placeholder="—"></div>
+        <div class="an-field"><label>A. lactique <span class="u">(g/L)</span></label><input type="number" id="an-lactique" class="input" step="0.01" min="0" placeholder="—"></div>
+      </div>
+    </div>
+    <div class="an-section">
+      <div class="an-section-title">Alcool &amp; sucres</div>
+      <div class="an-grid c3">
+        <div class="an-field"><label>TAV <span class="u">(% vol)</span></label><input type="number" id="an-tav" class="input" step="0.01" min="0" max="22" placeholder="—"></div>
+        <div class="an-field"><label>Sucres résid. <span class="u">(g/L)</span></label><input type="number" id="an-sr" class="input" step="0.1" min="0" placeholder="—"></div>
+        <div class="an-field"><label>Densité</label><input type="number" id="an-densite" class="input" step="0.0001" min="0.9" max="1.2" placeholder="—"></div>
+      </div>
+    </div>
+    <div class="an-section">
+      <div class="an-section-title">Autres paramètres</div>
+      <div class="an-grid c3">
+        <div class="an-field"><label>CO₂ <span class="u">(g/L)</span></label><input type="number" id="an-co2" class="input" step="0.01" min="0" placeholder="—"></div>
+        <div class="an-field"><label>Turbidité <span class="u">(NTU)</span></label><input type="number" id="an-turbidite" class="input" step="0.1" min="0" placeholder="—"></div>
+        <div class="an-field"><label>GF -5°C <span class="u">(°C)</span></label><input type="number" id="an-gfn5" class="input" step="0.1" placeholder="—"></div>
+        <div class="an-field"><label>GF +5°C <span class="u">(°C)</span></label><input type="number" id="an-gfp5" class="input" step="0.1" placeholder="—"></div>
+      </div>
+    </div>
+    <div class="an-section">
+      <div class="an-section-title">Notes</div>
+      <textarea id="an-notes" class="input" rows="2" placeholder="Observations, contexte…"
+        style="width:100%;resize:vertical"></textarea>
+    </div>`;
+
+  document.getElementById('analyse-modal').classList.add('open');
+}
+
+function closeAnalyseModal() {
+  document.getElementById('analyse-modal').classList.remove('open');
+}
+
+async function saveAnalyse() {
+  if (!currentLot) return;
+  const btn = document.getElementById('an-save-btn');
+  btn.disabled = true; btn.textContent = '…';
+
+  const num = id => {
+    const v = document.getElementById(id)?.value;
+    return v === '' || v == null ? null : Number(v);
+  };
+
+  const payload = {
+    lot_id:           currentLot.id,
+    date_analyse:     document.getElementById('an-date').value,
+    contenant_id:     document.getElementById('an-contenant').value || null,
+    operateur:        document.getElementById('an-operateur').value.trim() || null,
+    so2_libre:        num('an-so2l'),
+    so2_total:        num('an-so2t'),
+    so2_actif:        num('an-so2a'),
+    ph:               num('an-ph'),
+    ta:               num('an-ta'),
+    acidite_volatile: num('an-av'),
+    tav:              num('an-tav'),
+    sucres_residuels: num('an-sr'),
+    densite:          num('an-densite'),
+    acide_malique:    num('an-malique'),
+    acide_lactique:   num('an-lactique'),
+    co2:              num('an-co2'),
+    turbidite:        num('an-turbidite'),
+    gf_neg5:          num('an-gfn5'),
+    gf_pos5:          num('an-gfp5'),
+    notes:            document.getElementById('an-notes').value.trim() || null,
+  };
+
+  if (!payload.date_analyse) {
+    toast('La date est obligatoire', 'error');
+    btn.disabled = false; btn.textContent = '💾 Enregistrer';
+    return;
+  }
+
+  try {
+    await WB3DB.insertRow('analyses', payload);
+    toast('Analyse enregistrée ✓', 'success');
+    closeAnalyseModal();
+    await loadAndRender(currentLot.id);
+  } catch(e) {
+    toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+    btn.disabled = false; btn.textContent = '💾 Enregistrer';
+  }
+}
+
+function renderAnalysesTable(reversed) {
+  const ALL_COLS = [
+    { k:'so2_libre',        h:'SO₂L',    u:'mg/L',    d:1, alertFn: v => v < _analyseThresholds.libre_bas ? '#d32f2f' : v < _analyseThresholds.libre_haut ? '#f57c00' : null },
+    { k:'so2_total',        h:'SO₂T',    u:'mg/L',    d:1, alertFn: null },
+    { k:'so2_actif',        h:'SO₂Act.', u:'mg/L',    d:1, alertFn: null },
+    { k:'ph',               h:'pH',      u:'',        d:2, alertFn: v => {
+        const mn = _analyseThresholds.ph_min, mx = _analyseThresholds.ph_max;
+        return (mn != null && v < mn) || (mx != null && v > mx) ? '#d32f2f' : null; } },
+    { k:'ta',               h:'AT',      u:'g/L',     d:2, alertFn: null },
+    { k:'acidite_volatile', h:'AV',      u:'g/L',     d:2, alertFn: v => v > 1.2 ? '#d32f2f' : v > _analyseThresholds.av_alert ? '#f57c00' : null },
+    { k:'tav',              h:'TAV',     u:'%vol',    d:2, alertFn: v => {
+        const mn = _analyseThresholds.tav_min, mx = _analyseThresholds.tav_max;
+        return (mn != null && v < mn) || (mx != null && v > mx) ? '#d32f2f' : null; } },
+    { k:'sucres_residuels', h:'SR',      u:'g/L',     d:1, alertFn: null },
+    { k:'densite',          h:'Dens.',   u:'',        d:4, alertFn: null },
+    { k:'temperature',      h:'T°',      u:'°C',      d:1, alertFn: v => (_analyseThresholds.temp_max != null && v > _analyseThresholds.temp_max) ? '#d32f2f' : null },
+    { k:'acide_malique',    h:'A.Mal.',  u:'g/L',     d:2, alertFn: null },
+    { k:'acide_lactique',   h:'A.Lac.',  u:'g/L',     d:2, alertFn: null },
+    { k:'gf_neg5',          h:'GF-5°',  u:'°C',      d:1, alertFn: null },
+    { k:'gf_pos5',          h:'GF+5°',  u:'°C',      d:1, alertFn: null },
+    { k:'co2',              h:'CO₂',    u:'g/L',     d:2, alertFn: null },
+    { k:'turbidite',        h:'NTU',    u:'NTU',     d:1, alertFn: null },
+  ];
+  const activeCols = ALL_COLS.filter(c => reversed.some(a => a[c.k] != null));
+  if (!activeCols.length || !reversed.length) return '';
+
+  const thS = 'text-align:right;padding:5px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#6d6d6d;font-weight:600;border-bottom:1px solid var(--color-border);white-space:nowrap';
+  const headers = `<th style="text-align:left;padding:5px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#6d6d6d;font-weight:600;border-bottom:1px solid var(--color-border);white-space:nowrap">Date</th>`
+    + activeCols.map(c => `<th style="${thS}">${c.h}${c.u?`<br><span style="font-weight:400;opacity:.6">${c.u}</span>`:''}</th>`).join('');
+
+  const rows = reversed.map(a => {
+    const contNom = a.contenants?.nom ? `<div style="font-size:9px;color:#aaa;margin-top:1px">🛢 ${escapeHtml(a.contenants.nom)}</div>` : '';
+    const dateTd = `<td style="white-space:nowrap;font-size:var(--text-caption);color:var(--color-ink-tertiary);padding:6px 8px">${fmtDate(a.date_analyse)}${contNom}</td>`;
+    const valTds = activeCols.map(c => {
+      const v = a[c.k];
+      const col = (c.alertFn && v != null) ? (c.alertFn(v) || '') : '';
+      const style = col ? `color:${col};font-weight:600` : '';
+      return `<td style="text-align:right;padding:6px 8px;font-size:var(--text-callout);${style}">${v != null ? Number(v).toFixed(c.d) : '<span style="color:#ccc">—</span>'}</td>`;
+    }).join('');
+    return `<tr style="border-bottom:1px solid var(--color-border)">${dateTd}${valTds}</tr>`;
+  }).join('');
+
+  return `
+  <div style="overflow-x:auto;margin-top:var(--space-3)">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--color-bg-subtle)">${headers}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+</script>
+
+<!-- ── Modal Nouvelle analyse ── -->
+<div class="an-backdrop" id="analyse-modal" onclick="if(event.target===this)closeAnalyseModal()">
+  <div class="an-modal" role="dialog" aria-modal="true">
+    <div class="an-modal-head">
+      <span style="font-weight:700;font-size:var(--text-title-2)">📈 Nouvelle analyse</span>
+      <button class="btn btn--secondary btn--sm" onclick="closeAnalyseModal()">✕</button>
+    </div>
+    <div class="an-modal-body" id="analyse-modal-body"></div>
+    <div class="an-modal-foot">
+      <button class="btn btn--secondary" onclick="closeAnalyseModal()">Annuler</button>
+      <button class="btn btn--primary" id="an-save-btn" onclick="saveAnalyse()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

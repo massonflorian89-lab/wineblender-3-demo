@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Fiche contenant — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  /* ── Hero ── */
+  .cont-hero {
+    background:var(--color-bg-elevated); border-radius:var(--radius-lg);
+    box-shadow:0 1px 4px rgba(0,0,0,.06); padding:var(--space-6);
+    margin-bottom:var(--space-5);
+  }
+  .hero-top  { display:flex; align-items:flex-start; gap:var(--space-5); flex-wrap:wrap; }
+  .hero-left { flex:1; min-width:180px; }
+  .hero-nom  { font-size:var(--text-title-1); font-weight:700; margin-bottom:var(--space-1); }
+  .hero-meta { font-size:var(--text-callout); color:var(--color-ink-tertiary); margin-bottom:var(--space-3); }
+  .hero-badges { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+
+  .type-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 12px; border-radius:var(--radius-pill);
+    font-size:var(--text-footnote); font-weight:600;
+    background:var(--color-bg-mute); color:var(--color-ink-secondary);
+  }
+  .statut-badge-cont {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:3px 9px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+  }
+  .statut-service { background:var(--color-success-soft); color:var(--color-success); }
+  .statut-vide    { background:var(--color-bg-mute); color:var(--color-ink-tertiary); }
+  .statut-hors    { background:var(--color-danger-soft); color:var(--color-danger); }
+
+  /* Jauge de remplissage */
+  .fill-gauge { flex-shrink:0; text-align:center; min-width:100px; }
+  .gauge-ring {
+    width:80px; height:80px; margin:0 auto var(--space-2);
+    position:relative;
+  }
+  .gauge-ring svg { transform:rotate(-90deg); }
+  .gauge-ring .bg { fill:none; stroke:var(--color-border); stroke-width:8; }
+  .gauge-ring .fg { fill:none; stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset .4s; }
+  .gauge-pct { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+               font-size:var(--text-footnote); font-weight:700; color:var(--color-ink); }
+  .gauge-lbl { font-size:var(--text-caption); color:var(--color-ink-tertiary); text-transform:uppercase; letter-spacing:.4px; }
+  .gauge-vol { font-size:var(--text-footnote); color:var(--color-ink-secondary); font-weight:500; }
+
+  /* ── KPIs ── */
+  .kpi-row {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:var(--space-3); margin-bottom:var(--space-5);
+  }
+  .kpi-mini {
+    background:var(--color-bg-elevated); border-radius:var(--radius-md);
+    padding:var(--space-4); box-shadow:0 1px 3px rgba(0,0,0,.05);
+    display:flex; align-items:center; gap:var(--space-3);
+  }
+  .kpi-mini .icon { font-size:20px; flex-shrink:0; }
+  .kpi-mini .val  { font-size:var(--text-title-2); font-weight:700; color:var(--color-primary); }
+  .kpi-mini .lbl  { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+
+  /* ── Sections ── */
+  .detail-section {
+    background:var(--color-bg-elevated); border-radius:var(--radius-lg);
+    box-shadow:0 1px 3px rgba(0,0,0,.05); margin-bottom:var(--space-5); overflow:hidden;
+  }
+  .section-head {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:var(--space-3) var(--space-5); border-bottom:1px solid var(--color-border);
+  }
+  .section-head h2 {
+    flex:1; margin:0; font-size:var(--text-callout); font-weight:600;
+    color:var(--color-ink-secondary); text-transform:uppercase; letter-spacing:.5px;
+  }
+  .section-count {
+    background:var(--color-bg-mute); color:var(--color-ink-tertiary);
+    padding:2px 8px; border-radius:var(--radius-pill);
+    font-size:var(--text-caption); font-weight:600;
+  }
+  .section-body { padding:var(--space-4) var(--space-5); }
+
+  /* ── Lots actuels ── */
+  .lot-chips { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+  .lot-chip {
+    display:inline-flex; align-items:center; gap:var(--space-2);
+    padding:8px 14px; border-radius:var(--radius-md);
+    text-decoration:none; font-size:var(--text-callout);
+    border:1px solid var(--color-border);
+    background:var(--color-bg); color:var(--color-ink);
+    transition:all .15s; cursor:pointer; font-family:inherit;
+  }
+  .lot-chip:hover { border-color:var(--color-primary); box-shadow:0 2px 8px rgba(26,72,112,.1); }
+  .lot-chip .vol  { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .couleur-dot-rouge { color:#b00020; }
+  .couleur-dot-blanc { color:#a08040; }
+  .couleur-dot-rose  { color:#c06080; }
+  .couleur-dot-gris  { color:#808080; }
+
+  /* Statut lot (mini badge) */
+  .statut-badge-mini {
+    display:inline-block; padding:2px 6px; border-radius:var(--radius-pill);
+    font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.3px;
+  }
+  .statut-vendange    { background:#f5ede0; color:#836539; }
+  .statut-mout        { background:#faf3e7; color:#8b6738; }
+  .statut-fa          { background:#fff0ea; color:#bd4800; }
+  .statut-fml         { background:#fff3e7; color:#ac5800; }
+  .statut-vin         { background:#fce9ec; color:#b00020; }
+  .statut-elevage     { background:#e8f0fa; color:#1a4870; }
+  .statut-conditionne { background:#f0ece5; color:#555; }
+
+  /* ── Timeline ── */
+  .timeline { display:flex; flex-direction:column; gap:var(--space-3); padding:var(--space-4) var(--space-5); }
+  .tl-item  { display:flex; gap:var(--space-3); }
+  .tl-spine { display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:32px; }
+  .tl-dot   {
+    width:32px; height:32px; border-radius:50%;
+    background:var(--color-primary); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:var(--text-callout); flex-shrink:0; box-shadow:0 2px 8px rgba(26,72,112,.3);
+  }
+  .tl-line  { flex:1; width:2px; background:var(--color-border); margin-top:var(--space-1); min-height:16px; }
+  .tl-item:last-child .tl-line { display:none; }
+
+  .tl-card {
+    flex:1; background:var(--color-bg); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); padding:var(--space-3) var(--space-4);
+    margin-bottom:var(--space-1); min-width:0;
+  }
+  .tl-card-head { display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap; margin-bottom:var(--space-2); }
+  .tl-date { font-size:var(--text-caption); color:var(--color-ink-tertiary); font-weight:600; white-space:nowrap; }
+  .tl-type { font-size:var(--text-callout); font-weight:600; }
+  .tl-vol  { font-size:var(--text-caption); color:var(--color-ink-tertiary); margin-left:auto; white-space:nowrap; }
+
+  .role-badge {
+    display:inline-flex; align-items:center; padding:2px 8px;
+    border-radius:var(--radius-pill); font-size:10px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.4px; white-space:nowrap;
+  }
+  .role-source      { background:#fff0ea; color:#bd4800; }
+  .role-destination { background:var(--color-success-soft); color:var(--color-success); }
+  .role-implique    { background:var(--color-info-soft); color:var(--color-info); }
+  .op-stat-realise  { background:var(--color-success-soft); color:var(--color-success); }
+  .op-stat-planifie { background:var(--color-warning-soft); color:var(--color-warning); }
+  .op-stat-annule   { background:#f2f2f2; color:#6d6d6d; }
+
+  .tl-details { display:flex; flex-direction:column; gap:var(--space-2); }
+  .tl-detail-line { font-size:var(--text-footnote); color:var(--color-ink-secondary); display:flex; align-items:baseline; gap:var(--space-2); flex-wrap:wrap; }
+  .tl-detail-lbl  { color:var(--color-ink-tertiary); flex-shrink:0; width:80px; font-size:var(--text-caption); text-transform:uppercase; letter-spacing:.3px; }
+  .chips-inline   { display:flex; gap:var(--space-1); flex-wrap:wrap; }
+  .chip-lot  { background:var(--color-bg-mute); border-radius:var(--radius-pill); padding:2px 8px; font-size:var(--text-caption); }
+  .chip-prod { background:var(--color-bg-mute); border-radius:var(--radius-pill); padding:2px 8px; font-size:var(--text-caption); }
+  .tl-notes  { font-size:var(--text-footnote); color:var(--color-ink-tertiary); margin-top:var(--space-2); padding-top:var(--space-2); border-top:1px solid var(--color-border); font-style:italic; }
+
+  @media(max-width:600px) {
+    .cont-hero { padding:var(--space-4); }
+    .timeline   { padding:var(--space-3); }
+    .section-body { padding:var(--space-3); }
+  }
+
+  /* ── Blocs de section (séparateurs visuels) ── */
+  .bloc-label {
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.8px; color:var(--color-ink-tertiary);
+    padding:var(--space-2) 0; border-bottom:1px solid var(--color-border);
+    margin-bottom:var(--space-4); margin-top:var(--space-7);
+    display:flex; align-items:center; gap:var(--space-2);
+  }
+  .bloc-label:first-of-type { margin-top:0; }
+
+  /* ── Variantes dots timeline (mouvements physiques) ── */
+  .tl-dot--entree     { background:var(--color-success); }
+  .tl-dot--sortie     { background:#c62828; }
+  .tl-dot--transfert  { background:var(--color-info); }
+  .tl-dot--sortie-def { background:#6a1b9a; }
+  .tl-dot--analyse    { background:#00695c; }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <a href="cuverie.html" class="home"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="1em" height="1em" style="vertical-align:-.15em" aria-hidden="true"><rect x="3" y="3" width="14" height="13" rx="1.2" fill="#ccd8e4" stroke="#7a96b0" stroke-width="1.3"/><ellipse cx="10" cy="3" rx="7" ry="2.2" fill="#e0eaf4" stroke="#7a96b0" stroke-width="1.3"/><ellipse cx="10" cy="16" rx="7" ry="2.2" fill="#b8cad8" stroke="#7a96b0" stroke-width="1.3"/><line x1="3" y1="8.5" x2="17" y2="8.5" stroke="#7a96b0" stroke-width=".7"/><line x1="3" y1="12.5" x2="17" y2="12.5" stroke="#7a96b0" stroke-width=".7"/><line x1="14" y1="17.5" x2="14" y2="20" stroke="#7a96b0" stroke-width="1.6"/></svg> Cuverie</a>
+    <span class="sep">/</span>
+    <h1 id="page-title" style="font-size:var(--text-callout);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0">Chargement…</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+  <div id="content">
+    <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-qualite.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// Constantes
+// ============================================================
+const TYPE_LABELS = { cuve:'Cuve inox', foudre:'Foudre', fut:'Fût', pressoir:'Pressoir' };
+const TYPE_ICONS  = { cuve:'🫙', foudre:'🛢', fut:'🪵', pressoir:'🍇' };
+const COULEUR_ICONS  = { rouge:'🔴', blanc:'⚪', rose:'🌸', gris:'🩶' };
+const STATUT_LABELS  = {
+  vendange:'Vendange', mout:'Moût', fa:'Ferm. alc.', fml:'Ferm. malo.',
+  vin:'Vin', elevage:'Élevage', conditionne:'Conditionné',
+};
+const LOT_STATUT_SUFFIX = {
+  mout_debourbe:'.DB', mout_stabule:'.DB',
+  fa:'.FA', fml:'.FML', elevage:'.EL', vin_filtre:'.F', pre_mise:'.PM',
+};
+
+const OP_ICONS = {
+  soutirage:'🔄', assemblage:'🧬', sulfitage:'🧪', collage:'🍂', filtration:'🔬',
+  levurage:'🦠', enzymage:'⚗️', chaptalisation:'🍯', acidification:'⬆️',
+  desacidification:'⬇️', malo:'🧫', mise_en_bouteille:'🍾', autre:'⚙️',
+};
+const CAT_ICONS = {
+  so2:'🧪', levure:'🦠', enzyme:'⚗️', colle:'🧹', tanin:'🍂',
+  acidifiant:'⬆️', desacidifiant:'⬇️', nutriment:'💊',
+  correcteur_alcool:'🔢', filtre:'🔬', autre:'📦',
+};
+
+// ============================================================
+// Utilitaires
+// ============================================================
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmt(n) {
+  if (n == null) return '—';
+  const v = parseFloat(n);
+  return isNaN(v) ? '—' : (v % 1 === 0 ? String(v) : v.toFixed(2).replace(/\.?0+$/, ''));
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+}
+function groupByKey(arr, key) {
+  const m = {};
+  (arr || []).forEach(x => { if (!m[x[key]]) m[x[key]] = []; m[x[key]].push(x); });
+  return m;
+}
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+// Seuils analytiques (workflow 4) — délégués au helper partagé WB3Qualite.
+let _contTol = WB3Qualite.normalize(null);  // défauts ; rechargé à l'init
+
+// ============================================================
+// Init
+// ============================================================
+(async function init() {
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient ||
+      typeof window.WB3DB === 'undefined'    || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>';
+    return;
+  }
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>';
+    return;
+  }
+  const { tenant } = ctx;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+  // Charger les tolérances analytiques (workflow 4) via le helper partagé.
+  _contTol = await WB3Qualite.load();
+
+  const params = new URLSearchParams(window.location.search);
+  const contenantId = params.get('id');
+  if (!contenantId) {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Contenant introuvable</div><div class="actions"><a href="cuverie.html" class="btn">← Cuverie</a></div></div>';
+    return;
+  }
+  await loadAndRender(contenantId);
+})();
+
+// ============================================================
+// Chargement
+// ============================================================
+async function loadAndRender(contenantId) {
+  try {
+    const [detail, mouvements, ajustements] = await Promise.all([
+      WB3DB.getContenantDetail(contenantId),
+      WB3DB.getContenantMouvements(contenantId).catch(() => []),
+      WB3DB.getAjustements({ contenant_id: contenantId }).catch(() => []),
+    ]);
+    const { cont, lotConts, opConts, lotsByOp, prodByOp, analyses: contAnalyses } = detail;
+
+    document.getElementById('page-title').textContent = cont.nom;
+    document.title = `${cont.nom} — WineBlender 3`;
+
+    // Analyses des lots actuellement stockés (distinct des analyses du contenant)
+    const currentLotIds = lotConts.map(lc => lc.lots?.id).filter(Boolean);
+    let lotAnalyses = [];
+    if (currentLotIds.length) {
+      lotAnalyses = await WB3DB.queryAnalyses({ lot_ids: currentLotIds, ascending: true }).catch(() => []);
+    }
+
+    renderPage(cont, lotConts, opConts, lotsByOp, prodByOp, mouvements, contAnalyses, lotAnalyses, ajustements);
+
+  } catch(e) {
+    console.error('[WB3 contenant-detail]', e);
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Erreur de chargement</div>
+       <div class="desc">${escapeHtml(e.message)}</div>
+       <div class="actions"><a href="cuverie.html" class="btn">← Cuverie</a></div></div>`;
+  }
+}
+
+// ============================================================
+// Rendu
+// ============================================================
+function renderPage(cont, lotConts, opConts, lotsByOp, prodByOp, mouvements, contAnalyses, lotAnalyses, ajustements = []) {
+  const lots     = lotConts.map(lc => lc.lots).filter(Boolean);
+  const volStock = lotConts.reduce((s, lc) => s + (Number(lc.volume_hl) || 0), 0);
+  const pctReal  = cont.capacite_hl > 0 ? (volStock / cont.capacite_hl * 100) : 0;
+  const pct      = cont.capacite_hl > 0 ? Math.min(100, Math.round(pctReal)) : 0;
+  const isActif  = cont.actif !== false;
+
+  // Localisation
+  const locParts = [];
+  if (cont.travees?.nom) locParts.push(`📍 ${cont.travees.nom}`);
+  else if (cont.localisation) locParts.push(`📍 ${cont.localisation}`);
+  if (cont.materiau)  locParts.push(cont.materiau);
+  if (cont.marque)    locParts.push(cont.marque);
+  if (cont.annee_mise_service) locParts.push(`Mis en service ${cont.annee_mise_service}`);
+
+  // Statut
+  const statutCls   = !isActif ? 'statut-hors' : lots.length ? 'statut-service' : 'statut-vide';
+  const statutLabel = !isActif ? '⛔ Hors service' : lots.length ? '● En service' : '○ Vide';
+
+  // Jauge
+  const gaugeColor = pct >= 90 ? 'var(--color-danger)' : pct >= 70 ? 'var(--color-warning)' : 'var(--color-success)';
+  const r = 34; const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - pct / 100);
+
+  // Alertes
+  const alertesHtml = [
+    cont.capacite_hl > 0 && volStock > cont.capacite_hl
+      ? `<div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);background:var(--color-danger-soft);color:var(--color-danger);border:1px solid var(--color-danger);font-size:var(--text-callout);margin-bottom:var(--space-2)">⚠️ Volume stocké (${fmt(volStock)} hL) dépasse la capacité déclarée (${fmt(cont.capacite_hl)} hL)</div>` : '',
+    !isActif && lots.length > 0
+      ? `<div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);background:var(--color-warning-soft);color:var(--color-warning);border:1px solid var(--color-warning);font-size:var(--text-callout);margin-bottom:var(--space-2)">⚠️ Cuve hors service mais contient ${lots.length} lot${lots.length > 1 ? 's' : ''}</div>` : '',
+    lots.length > 1
+      ? `<div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);background:var(--color-info-soft);color:var(--color-info);border:1px solid var(--color-info);font-size:var(--text-callout);margin-bottom:var(--space-2)">ℹ️ ${lots.length} lots en co-stockage dans ce contenant</div>` : '',
+  ].filter(Boolean).join('');
+
+  // Lots actuels avec volumes
+  const lotsHtml = lots.length ? `
+    <div class="lot-chips">
+      ${lots.map(l => {
+        const lc = lotConts.find(x => x.lots?.id === l.id);
+        return `<button class="lot-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${l.id}')">
+          <span class="${'couleur-dot-' + (l.couleur || 'rouge')}">${COULEUR_ICONS[l.couleur] || '🍷'}</span>
+          <span>
+            <b>${escapeHtml(l.nom)}</b>${l.millesime ? ` <span style="color:var(--color-ink-tertiary)">${l.millesime}</span>` : ''}
+            ${l.statut ? `<span class="statut-badge-mini statut-${l.statut}" style="margin-left:var(--space-1)">${STATUT_LABELS[l.statut] || l.statut}</span>` : ''}
+          </span>
+          ${lc?.volume_hl != null ? `<span class="vol">${fmt(lc.volume_hl)} hL</span>` : ''}
+          <span style="color:var(--color-primary);font-size:var(--text-caption);margin-left:auto">→</span>
+        </button>`;
+      }).join('')}
+    </div>`
+    : `<p class="t-secondary" style="margin:0">Aucun lot dans ce contenant pour l'instant.</p>`;
+
+  const totalAnalyses = contAnalyses.length + lotAnalyses.length;
+
+  document.getElementById('content').innerHTML = `
+
+    <!-- Barre d'actions -->
+    <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5)">
+      <a href="cuverie.html" class="btn btn--secondary btn--sm">← Cuverie</a>
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm" onclick="WB3Nav.navigate('analyses.html?contenant_id=${cont.id}')">🧪 Nouvelle analyse</button>
+      <button class="btn btn--secondary btn--sm" onclick="WB3Nav.navigate('operations.html?type=ouillage&contenant_id=${cont.id}')">🪣 Ajustement rapide</button>
+      <a href="tracabilite.html?contenant=${cont.id}" class="btn btn--secondary btn--sm">🌳 Traçabilité</a>
+      <span style="font-size:var(--text-caption);color:var(--color-ink-quaternary);font-family:var(--font-mono)">${escapeHtml(cont.id)}</span>
+    </div>
+
+    <div class="bloc-label">📊 Contenu actuel</div>
+
+    <!-- Hero -->
+    <div class="cont-hero">
+      <div class="hero-top">
+        <div class="hero-left">
+          <div class="hero-nom">${TYPE_ICONS[cont.type] || '📦'} ${escapeHtml(cont.nom)}</div>
+          <div class="hero-meta">
+            ${TYPE_LABELS[cont.type] || cont.type || '—'}
+            · Capacité <b>${fmt(cont.capacite_hl)} hL</b>
+            ${locParts.length ? ` · ${locParts.join(' · ')}` : ''}
+          </div>
+          <div class="hero-badges">
+            <span class="statut-badge-cont ${statutCls}">${statutLabel}</span>
+            ${!isActif ? '' : cont.tags?.length ? cont.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('') : ''}
+            ${cont.capacite_hl > 0 && pctReal > 100 ? `<span style="background:#d32f2f22;color:#d32f2f;padding:2px 10px;border-radius:999px;font-size:var(--text-caption);font-weight:700">⚠️ Sur-capacité ! ${pctReal.toFixed(1)} %</span>` : ''}
+            ${cont.capacite_hl > 0 && pctReal > 95 && pctReal <= 100 ? `<span style="background:#f57c0022;color:#f57c00;padding:2px 10px;border-radius:999px;font-size:var(--text-caption);font-weight:700">⚠️ Presque plein ${pctReal.toFixed(1)} %</span>` : ''}
+          </div>
+        </div>
+        <div class="fill-gauge">
+          <div class="gauge-ring">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <circle class="bg" cx="40" cy="40" r="${r}"/>
+              <circle class="fg" cx="40" cy="40" r="${r}"
+                stroke="${gaugeColor}"
+                stroke-dasharray="${circ}"
+                stroke-dashoffset="${offset}"/>
+            </svg>
+            <div class="gauge-pct">${pct}%</div>
+          </div>
+          <div class="gauge-lbl">Remplissage</div>
+          <div class="gauge-vol">${fmt(volStock)} / ${fmt(cont.capacite_hl)} hL</div>
+        </div>
+      </div>
+      ${cont.notes ? `
+      <div style="margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--color-border);
+                  font-size:var(--text-callout);color:var(--color-ink-secondary);font-style:italic">
+        ${escapeHtml(cont.notes)}
+      </div>` : ''}
+    </div>
+
+    ${alertesHtml}
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi-mini">
+        <span class="icon">🍷</span>
+        <div><div class="val">${lots.length}</div><div class="lbl">Lot${lots.length !== 1 ? 's' : ''} actuel${lots.length !== 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">📏</span>
+        <div><div class="val">${fmt(volStock)} hL</div><div class="lbl">Stocké actuellement</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">🔋</span>
+        <div><div class="val">${cont.capacite_hl > 0 ? pctReal.toFixed(1) + ' %' : '—'}</div><div class="lbl">Taux de remplissage</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">🔄</span>
+        <div><div class="val">${mouvements.length}</div><div class="lbl">Mouvement${mouvements.length !== 1 ? 's' : ''} enregistré${mouvements.length !== 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">⚙️</span>
+        <div><div class="val">${opConts.length}</div><div class="lbl">Opération${opConts.length !== 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">🔬</span>
+        <div><div class="val">${totalAnalyses}</div><div class="lbl">Analyse${totalAnalyses !== 1 ? 's' : ''} liée${totalAnalyses !== 1 ? 's' : ''}</div></div>
+      </div>
+    </div>
+
+    <!-- Lots actuels -->
+    <div class="detail-section">
+      <div class="section-head"><h2>🍷 Lots actuellement dans ce contenant</h2><span class="section-count">${lots.length}</span></div>
+      <div class="section-body">${lotsHtml}</div>
+    </div>
+
+    <div class="bloc-label">📅 Historique cuve</div>
+    ${renderHistoriqueCuve(mouvements, opConts, lotsByOp, prodByOp, contAnalyses)}
+
+    <div class="bloc-label">🧪 Produits ajoutés</div>
+    ${renderProduitsSection(prodByOp, opConts, cont)}
+
+    ${ajustements.length > 0 ? `<div class="bloc-label">⚖️ Ajustements de cave</div>${renderAjustementsCuve(ajustements)}` : ''}
+
+    <div id="section-analyses" class="bloc-label">📈 Analyses liées</div>
+    ${renderAnalysesBloc(contAnalyses, { title: '📈 Analyses du contenant' })}
+    ${lots.length > 0
+      ? renderAnalysesBloc(lotAnalyses, { title: '🍷 Analyses des lots présents', note: 'Analyses rattachées aux lots actuellement stockés dans cette cuve. Distinctes des analyses du contenant lui-même.' })
+      : `<div class="detail-section"><div class="section-head"><h2>🍷 Analyses des lots présents</h2><span class="section-count">0</span></div><div class="section-body"><p class="t-secondary" style="margin:0">Aucun lot actuellement dans ce contenant.</p></div></div>`}
+  `;
+}
+
+// ============================================================
+// Bloc analyses (contenant ou lots)
+// ============================================================
+function renderAnalysesBloc(analyses, { title = '📈 Analyses', note = null } = {}) {
+  if (!analyses || !analyses.length) {
+    return `
+    <div class="detail-section">
+      <div class="section-head"><h2>${title}</h2><span class="section-count">0</span></div>
+      <div class="section-body">
+        ${note ? `<p style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin-bottom:var(--space-3)">${escapeHtml(note)}</p>` : ''}
+        <p class="t-secondary" style="margin:0">Aucune analyse enregistrée.</p>
+      </div>
+    </div>`;
+  }
+
+  const sorted  = [...analyses].sort((a, b) => new Date(a.date_analyse) - new Date(b.date_analyse));
+  const latest  = sorted[sorted.length - 1];
+  const reversed = [...sorted].reverse();
+
+  // alertFn déléguée au helper partagé WB3Qualite (couleur cohérente inter-pages).
+  const aFn = param => (v => WB3Qualite.alertColor(param, v, _contTol));
+  const ALL_COLS = [
+    { k:'so2_libre',        h:'SO₂L',    d:1, alertFn: aFn('so2_libre') },
+    { k:'so2_total',        h:'SO₂T',    d:1, alertFn: null },
+    { k:'so2_actif',        h:'SO₂Act.', d:2, alertFn: null },
+    { k:'ph',               h:'pH',      d:2, alertFn: aFn('ph') },
+    { k:'ta',               h:'AT',      d:2, alertFn: null },
+    { k:'acidite_volatile', h:'AV',      d:2, alertFn: aFn('acidite_volatile') },
+    { k:'tav',              h:'TAV',     d:2, alertFn: aFn('tav') },
+    { k:'sucres_residuels', h:'SR',      d:1, alertFn: null },
+    { k:'densite',          h:'Dens.',   d:4, alertFn: null },
+    { k:'temperature',      h:'T°',      d:1, alertFn: aFn('temperature') },
+    { k:'acide_malique',    h:'A.Mal.',  d:2, alertFn: null },
+    { k:'acide_lactique',   h:'A.Lac.',  d:2, alertFn: null },
+    { k:'gf_neg5',          h:'GF-5°',  d:1, alertFn: null },
+    { k:'gf_pos5',          h:'GF+5°',  d:1, alertFn: null },
+    { k:'co2',              h:'CO₂',    d:2, alertFn: null },
+    { k:'turbidite',        h:'NTU',    d:1, alertFn: null },
+  ];
+  const activeCols = ALL_COLS.filter(c => reversed.some(a => a[c.k] != null));
+
+  // Dernière analyse — cartes résumées
+  const FIELDS_LABEL = {
+    so2_libre:'SO₂ libre', so2_total:'SO₂ total', so2_actif:'SO₂ actif',
+    ph:'pH', ta:'AT', acidite_volatile:'AV', tav:'TAV', sucres_residuels:'SR',
+    densite:'Densité', temperature:'T°', acide_malique:'A. malique', acide_lactique:'A. lactique',
+    gf_neg5:'GF -5°C', gf_pos5:'GF +5°C', co2:'CO₂', turbidite:'NTU',
+  };
+  const latestCells = activeCols.filter(c => latest[c.k] != null).map(c => {
+    const v = latest[c.k];
+    const alertCol = c.alertFn ? c.alertFn(v) : null;
+    return `<div style="background:var(--color-bg-subtle);border-radius:var(--radius-md);padding:8px 10px;text-align:center;min-width:72px;flex:1${alertCol ? ';border:1px solid '+alertCol+'44' : ''}">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;margin-bottom:2px">${FIELDS_LABEL[c.k] || c.h}</div>
+      <div style="font-size:var(--text-title-3,1rem);font-weight:700;color:${alertCol || 'var(--color-ink)'}">${Number(v).toFixed(c.d)}${alertCol ? ' ⚠' : ''}</div>
+    </div>`;
+  }).join('');
+
+  const thS = 'text-align:right;padding:5px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border);white-space:nowrap';
+  const headers = `<th style="text-align:left;padding:5px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border)">Date</th><th style="${thS.replace('text-align:right','text-align:left')}">Lot</th>`
+    + activeCols.map(c => `<th style="${thS}">${c.h}</th>`).join('');
+
+  const rows = reversed.map(a => {
+    const lotCell = a.lots
+      ? `<button class="nav-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${a.lots.id}')" style="font-size:var(--text-caption)">🍷 ${escapeHtml(a.lots.nom)}</button>`
+      : '<span style="color:var(--color-ink-quaternary)">—</span>';
+    return `<tr style="border-bottom:1px solid var(--color-border-light,#f0f0f0)">
+      <td style="white-space:nowrap;font-size:var(--text-caption);color:var(--color-ink-tertiary);padding:5px 8px">${fmtDate(a.date_analyse)}</td>
+      <td style="padding:5px 8px">${lotCell}</td>
+      ${activeCols.map(c => {
+        const v = a[c.k];
+        const col = v != null && c.alertFn ? c.alertFn(v) : null;
+        return `<td style="text-align:right;padding:5px 8px;font-size:var(--text-callout)${col ? ';color:'+col+';font-weight:700' : ''}">${v != null ? Number(v).toFixed(c.d) + (col ? ' ⚠' : '') : '<span style="color:#ccc">—</span>'}</td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+
+  const lotLabel = latest.lots ? ` · lot ${escapeHtml(latest.lots.nom)}` : '';
+
+  return `
+  <div class="detail-section">
+    <div class="section-head"><h2>${title}</h2><span class="section-count">${analyses.length}</span></div>
+    <div class="section-body">
+      ${note ? `<p style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin-bottom:var(--space-3)">${escapeHtml(note)}</p>` : ''}
+      <div style="font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;margin-bottom:var(--space-2)">Dernière analyse — ${fmtDate(latest.date_analyse)}${lotLabel}</div>
+      <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;margin-bottom:var(--space-4)">${latestCells || '<span style="color:var(--color-ink-tertiary);font-size:var(--text-caption)">Aucune valeur enregistrée</span>'}</div>
+      ${latest.notes ? `<div style="font-size:var(--text-footnote);color:var(--color-ink-tertiary);font-style:italic;margin-bottom:var(--space-3)">${escapeHtml(latest.notes)}</div>` : ''}
+      ${analyses.length > 1 ? `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--color-bg-subtle)">${headers}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Synthèse produits œnologiques (cuve)
+// ============================================================
+function _doseCalc(quantite, _unite, concentration, volHl) {
+  if (concentration == null || quantite == null || quantite === 0) return { gActif: null, mgL: null };
+  const gActif = quantite * concentration; // concentration = g actif / unite_stock
+  const mgL = (volHl && volHl > 0) ? (gActif / (volHl * 100)) * 1000 : null;
+  return { gActif, mgL };
+}
+
+// ============================================================
+// Ajustements sur cette cuve
+// ============================================================
+function renderAjustementsCuve(ajustements) {
+  if (!ajustements || !ajustements.length) return '';
+
+  const AJUST_ICONS = {
+    complement_de_plein:'💧', ouillage:'🪣', ajustement_volume:'⚖️',
+    correction_jauge:'📏', perte_technique:'📉', correction_administrative:'📋',
+  };
+  const AJUST_LABELS = {
+    complement_de_plein:'Complément de plein', ouillage:'Ouillage',
+    ajustement_volume:'Ajustement volume', correction_jauge:'Correction de jauge',
+    perte_technique:'Perte technique', correction_administrative:'Correction admin.',
+  };
+  const thS = 'text-align:left;padding:6px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border)';
+
+  const rows = [...ajustements].sort((a, b) =>
+    (a.date_operation || '') < (b.date_operation || '') ? -1 : 1
+  ).map(a => {
+    const dateStr = a.date_operation
+      ? new Date(a.date_operation + 'T00:00:00').toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' })
+      : '—';
+    const icon  = AJUST_ICONS[a.type_operation] || '⚙️';
+    const lbl   = AJUST_LABELS[a.type_operation] || a.type_operation;
+    const lotNom = a.lot?.nom;
+    const lotId  = a.lot?.id;
+    const lotHtml = lotNom
+      ? (lotId ? `<button class="nav-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${lotId}')">🍷 ${escapeHtml(lotNom)}</button>` : `🍷 ${escapeHtml(lotNom)}`)
+      : '<span style="color:var(--color-ink-tertiary)">—</span>';
+    const delta = Number(a.delta_hl);
+    const pct   = a.delta_pct != null ? Number(a.delta_pct) : null;
+    const sign  = delta >= 0 ? '+' : '';
+    const deltaColor = delta > 0 ? 'color:#2e7d32' : delta < 0 ? 'color:#c62828' : '';
+    const absPct = pct != null ? Math.abs(pct) : null;
+    let seuilBadge = '';
+    if (absPct != null) {
+      if (absPct > 5)        seuilBadge = `<span style="background:#fce8e8;color:#c62828;border:1px solid #f5b4b4;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700">${Math.abs(pct).toFixed(1)}%</span>`;
+      else if (absPct > 2)   seuilBadge = `<span style="background:#fff3e0;color:#c62828;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700">${Math.abs(pct).toFixed(1)}%</span>`;
+      else if (absPct > 0.5) seuilBadge = `<span style="background:#fff8e1;color:#e65100;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700">${Math.abs(pct).toFixed(1)}%</span>`;
+    }
+    return `<tr>
+      <td style="white-space:nowrap;font-size:var(--text-caption);color:var(--color-ink-tertiary);padding:7px 10px">${dateStr}</td>
+      <td style="padding:7px 10px;font-size:var(--text-callout)">${icon} <span style="font-size:var(--text-caption)">${escapeHtml(lbl)}</span></td>
+      <td style="padding:7px 10px">${lotHtml}</td>
+      <td style="padding:7px 10px;text-align:right;font-family:monospace;font-size:var(--text-caption);white-space:nowrap">
+        ${fmt(a.volume_avant_hl)} → ${fmt(a.volume_apres_hl)} hL
+      </td>
+      <td style="padding:7px 10px;text-align:right;font-family:monospace;font-size:var(--text-caption);white-space:nowrap;${deltaColor}">
+        ${sign}${fmt(delta)} hL ${seuilBadge}
+      </td>
+      <td style="padding:7px 10px;font-size:var(--text-caption);color:var(--color-ink-secondary);max-width:180px">
+        ${a.motif ? escapeHtml(a.motif) : '<span style="opacity:.4">—</span>'}
+        ${a.operateur ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary)"> · 👤 ${escapeHtml(a.operateur)}</span>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="detail-section">
+    <div class="section-head">
+      <h2>⚖️ Ajustements de cave</h2>
+      <span class="section-count">${ajustements.length} ajustement${ajustements.length > 1 ? 's' : ''}</span>
+      <a class="btn btn--secondary btn--sm" style="margin-left:auto" href="qualite-traca.html" title="Diagnostics volumes">🩺 Vérif. volumes</a>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-callout)">
+        <thead><tr style="background:var(--color-bg-subtle)">
+          <th style="${thS}">Date</th>
+          <th style="${thS}">Type</th>
+          <th style="${thS}">Lot</th>
+          <th style="${thS};text-align:right">Avant → Après</th>
+          <th style="${thS};text-align:right">Δ</th>
+          <th style="${thS}">Motif</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderProduitsSection(prodByOp, opConts, cont) {
+  const usages = [];
+  opConts.forEach(oc => {
+    const opId = oc.operations.id;
+    const prods = prodByOp[opId] || [];
+    if (!prods.length) return;
+    const volHl = oc.volume_hl || oc.operations.volume_hl;
+    prods.forEach(p => {
+      const pl = p.produits_lots;
+      const pc = pl?.produits_catalogue;
+      if (!pc) return;
+      usages.push({ opId, date: oc.operations.date_operation, type_op: oc.operations.type_operation, pc, pl, quantite: p.quantite, unite: p.unite, volHl });
+    });
+  });
+  if (!usages.length) return `
+    <div class="detail-section">
+      <div class="section-body"><p class="t-secondary" style="margin:0">Aucun produit œnologique enregistré sur les opérations de ce contenant.</p></div>
+    </div>`;
+
+  const byProd = new Map();
+  usages.forEach(u => {
+    const cid = u.pc.id;
+    if (!byProd.has(cid)) byProd.set(cid, { pc: u.pc, usages: [] });
+    byProd.get(cid).usages.push(u);
+  });
+
+  const thStyle = 'text-align:left;padding:5px 10px;font-size:var(--text-caption);text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);font-weight:600;border-bottom:1px solid var(--color-border);white-space:nowrap';
+  const thR = thStyle + ';text-align:right';
+
+  const blocks = [...byProd.values()].map(({ pc, usages: pu }) => {
+    const totalQty = pu.reduce((s, u) => s + (u.quantite || 0), 0);
+    const { gActif: totalGActif } = _doseCalc(totalQty, pc.unite_stock, pc.concentration, null);
+
+    const detailRows = pu.map(u => {
+      const typeLabel = (u.type_op || '').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+      const { gActif, mgL } = _doseCalc(u.quantite, u.unite, pc.concentration, u.volHl);
+      const now  = new Date();
+      const dluo = u.pl?.dluo ? new Date(u.pl.dluo) : null;
+      const dluoExpired = dluo && dluo < now;
+      const dluoStr = dluo
+        ? `<span style="color:${dluoExpired ? 'var(--color-danger)' : 'var(--color-ink-tertiary)'};font-size:.85em" title="DLUO">${dluoExpired ? '⚠️ ' : ''}DLUO ${dluo.toLocaleDateString('fr-FR', { month:'short', year:'numeric' })}</span>`
+        : '';
+      return `<tr style="border-top:1px solid var(--color-border-light,#f0f0f0)">
+        <td style="padding:5px 10px;font-size:var(--text-caption);color:var(--color-ink-tertiary);white-space:nowrap">${fmtDate(u.date)}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption)">${typeLabel}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);font-family:monospace">${u.pl?.numero_lot ? escapeHtml(u.pl.numero_lot) : '—'} ${dluoStr}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);text-align:right;white-space:nowrap;color:var(--color-ink-tertiary)">${u.volHl != null ? `${fmt(u.volHl)} hL` : '—'}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);text-align:right;white-space:nowrap">${u.quantite != null ? `${fmt(u.quantite)} ${u.unite||''}` : '—'}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);text-align:right;white-space:nowrap">${gActif != null ? (gActif>=1000?`${fmt(gActif/1000)} kg`:`${fmt(gActif)} g`) : '—'}</td>
+        <td style="padding:5px 10px;font-size:var(--text-caption);text-align:right;white-space:nowrap;${mgL!=null&&pc.dose_max!=null&&mgL>pc.dose_max?'color:var(--color-danger);font-weight:600':''}">${mgL != null ? `${fmt(mgL)} mg/L` : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    const totalActifStr = totalGActif != null ? (totalGActif >= 1000 ? `${fmt(totalGActif/1000)} kg actif` : `${fmt(totalGActif)} g actif`) : null;
+    const doseMaxAlert = pc.dose_max != null ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary);opacity:.7">max ${pc.dose_max} mg/L</span>` : '';
+
+    return `
+    <div style="background:var(--color-bg-elevated);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-border);flex-wrap:wrap">
+        <span style="font-weight:600;font-size:var(--text-callout)">${CAT_ICONS[pc.categorie]||'📦'} ${escapeHtml(pc.nom)}</span>
+        ${pc.categorie ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary);background:var(--color-bg-subtle);padding:1px 8px;border-radius:var(--radius-pill)">${escapeHtml(pc.categorie)}</span>` : ''}
+        <span style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">${pu.length} utilisation${pu.length>1?'s':''}</span>
+        ${totalActifStr ? `<span style="font-size:var(--text-caption);color:var(--color-ink-secondary);font-weight:600">${totalActifStr}</span>` : ''}
+        ${doseMaxAlert}
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--color-bg-subtle)">
+            <th style="${thStyle}">Date</th>
+            <th style="${thStyle}">Opération</th>
+            <th style="${thStyle}">Lot produit</th>
+            <th style="${thR}">Vol. traité</th>
+            <th style="${thR}">Quantité</th>
+            <th style="${thR}">M. active</th>
+            <th style="${thR}">Dose</th>
+          </tr></thead>
+          <tbody>${detailRows}</tbody>
+          ${pu.length > 1 ? `<tfoot><tr style="border-top:2px solid var(--color-border);background:var(--color-bg-subtle)">
+            <td colspan="4" style="padding:6px 10px;font-size:var(--text-caption);font-weight:600;color:var(--color-ink-secondary)">Total</td>
+            <td style="padding:6px 10px;text-align:right;font-size:var(--text-caption);font-weight:600;white-space:nowrap">${fmt(totalQty)} ${pc.unite_stock||''}</td>
+            <td style="padding:6px 10px;text-align:right;font-size:var(--text-caption);font-weight:600;white-space:nowrap">${totalActifStr || '—'}</td>
+            <td></td>
+          </tr></tfoot>` : ''}
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="detail-section">
+    <div class="section-head"><h2>🧪 Produits œnologiques utilisés</h2><span class="section-count">${usages.length} utilisation${usages.length>1?'s':''}</span></div>
+    <div class="section-body" style="display:flex;flex-direction:column;gap:var(--space-3)">${blocks}</div>
+  </div>`;
+}
+
+// ============================================================
+// Historique de la cuve (mouvements physiques + opérations + analyses)
+// ============================================================
+function renderHistoriqueCuve(mouvements, opConts, lotsByOp, prodByOp, contAnalyses) {
+  const SENS_META = {
+    entree:            { icon:'🟢', cls:'tl-dot--entree',     label:'Entrée' },
+    sortie:            { icon:'🔴', cls:'tl-dot--sortie',     label:'Sortie' },
+    transfert:         { icon:'🔄', cls:'tl-dot--transfert',  label:'Transfert' },
+    sortie_definitive: { icon:'🚪', cls:'tl-dot--sortie-def', label:'Sortie définitive' },
+  };
+
+  const mvtOpIds = new Set(mouvements.map(m => m.operation_id).filter(Boolean));
+  const events = [];
+
+  mouvements.forEach(m  => events.push({ type:'mouvement',  date: m.date_mouvement,       data: m  }));
+  opConts.forEach(oc    => { if (!mvtOpIds.has(oc.operations.id)) events.push({ type:'operation', date: oc.operations.date_operation, data: oc }); });
+  contAnalyses.forEach(a => events.push({ type:'analyse',   date: a.date_analyse,          data: a  }));
+
+  events.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  if (!events.length) return `
+    <div class="detail-section">
+      <div class="section-body"><p class="t-secondary" style="margin:0">Aucun mouvement ni opération enregistré pour ce contenant.</p></div>
+    </div>`;
+
+  const items = events.map((e, i) => {
+    const isLast = i === events.length - 1;
+
+    if (e.type === 'mouvement') {
+      const m  = e.data;
+      const sm = SENS_META[m.sens] || { icon:'⚡', cls:'', label: m.sens || '?' };
+      const typeLabel = (m.type_operation || '').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+      const lot = m.lot;
+      const lotLnk = lot
+        ? `<button class="nav-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${lot.id}')">${COULEUR_ICONS[lot.couleur]||'🍷'} ${escapeHtml(lot.nom)}${lot.millesime ? ' ' + lot.millesime : ''}</button>`
+        : '<span style="color:var(--color-ink-tertiary)">Lot inconnu</span>';
+
+      const srcLnk = m.contenant_source
+        ? `<button class="nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${m.contenant_source.id}')">🫙 ${escapeHtml(m.contenant_source.nom)}</button>`
+        : '<span style="color:var(--color-ink-quaternary)">—</span>';
+      const dstLnk = m.contenant_dest
+        ? `<button class="nav-chip" onclick="WB3Nav.navigate('contenant-detail.html?id=${m.contenant_dest.id}')">🫙 ${escapeHtml(m.contenant_dest.nom)}</button>`
+        : '<span style="color:var(--color-ink-quaternary)">—</span>';
+
+      const routeHtml = m.contenant_source && m.contenant_dest
+        ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Trajet</span><div class="chips-inline">${srcLnk} → ${dstLnk}</div></div>`
+        : m.contenant_source
+          ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Source</span><div class="chips-inline">${srcLnk}</div></div>`
+          : m.contenant_dest
+            ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Destination</span><div class="chips-inline">${dstLnk}</div></div>`
+            : '';
+
+      return `<div class="tl-item">
+        <div class="tl-spine">
+          <div class="tl-dot ${sm.cls}">${sm.icon}</div>
+          ${!isLast ? '<div class="tl-line"></div>' : ''}
+        </div>
+        <div class="tl-card">
+          <div class="tl-card-head">
+            <span class="tl-date">${fmtDate(m.date_mouvement)}</span>
+            <span class="tl-type">${sm.label}</span>
+            ${typeLabel ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">${typeLabel}</span>` : ''}
+            ${m.volume_hl != null ? `<span class="tl-vol">📏 ${fmt(m.volume_hl)} hL</span>` : ''}
+          </div>
+          <div class="tl-details">
+            <div class="tl-detail-line"><span class="tl-detail-lbl">Lot</span><div class="chips-inline">${lotLnk}</div></div>
+            ${routeHtml}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    if (e.type === 'operation') return renderOpCard(e.data, lotsByOp, prodByOp, isLast);
+    if (e.type === 'analyse')   return renderAnalyseCard(e.data, isLast);
+    return '';
+  }).join('');
+
+  return `
+    <div class="detail-section">
+      <div class="section-head"><h2>📅 Historique de la cuve</h2><span class="section-count">${events.length}</span></div>
+      <div class="timeline">${items}</div>
+    </div>`;
+}
+
+// ============================================================
+// Carte opération (timeline)
+// ============================================================
+function renderOpCard(oc, lotsByOp, prodByOp, isLast) {
+  const op   = oc.operations;
+  const opId = op.id;
+  const icon  = OP_ICONS[op.type_operation] || '⚙️';
+  const typeL = op.type_operation.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  const roleClass = { source:'role-source', destination:'role-destination', implique:'role-implique' }[oc.role] || 'role-implique';
+  const roleLabel = { source:'← Source', destination:'→ Destination', implique:'⚡ Impliqué' }[oc.role] || oc.role;
+  const statCls   = `op-stat-${op.statut}`;
+  const statLbl   = { realise:'✓ Réalisé', planifie:'⏳ Planifié', annule:'✕ Annulé' }[op.statut] || op.statut;
+
+  const lots  = lotsByOp[opId]  || [];
+  const prods = prodByOp[opId]  || [];
+
+  const lotsHtml = lots
+    .map(ol => {
+      const l = ol.lots; if (!l) return '';
+      const arrow = { source:'← ', destination:'→ ', traite:'' }[ol.role] || '';
+      return `<button class="chip-lot nav-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${l.id}')">${arrow}🍷 ${escapeHtml(l.nom)}${l.numero_lot?' ['+escapeHtml(l.numero_lot)+']':''}</button>`;
+    }).filter(Boolean).join('');
+
+  const prodsHtml = prods
+    .map(p => {
+      const pc = p.produits_lots?.produits_catalogue; if (!pc) return '';
+      const qty = p.quantite != null ? `<b>${fmt(p.quantite)} ${p.unite || ''}</b>` : '';
+      const concLabel = pc.concentration_libelle
+        ? `<span style="opacity:.6;font-size:.9em"> (${escapeHtml(pc.concentration_libelle)})</span>` : '';
+      let actifStr = '';
+      if (pc.concentration != null && p.quantite != null) {
+        const gActif = p.quantite * pc.concentration;
+        actifStr = `<span style="color:var(--color-ink-tertiary);font-size:.88em"> → ${gActif>=1000?`${fmt(gActif/1000)} kg`:`${fmt(gActif)} g`} actif</span>`;
+      }
+      return `<span class="chip-prod">${CAT_ICONS[pc.categorie]||'📦'} ${escapeHtml(pc.nom)}${concLabel}${qty ? ` · ${qty}${actifStr}` : ''}</span>`;
+    }).filter(Boolean).join('');
+
+  const vol   = (oc.volume_hl != null ? oc.volume_hl : op.volume_hl);
+  const extra = [
+    op.reference ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">#${escapeHtml(op.reference)}</span>` : '',
+    op.operateur  ? `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">👤 ${escapeHtml(op.operateur)}</span>` : '',
+  ].filter(Boolean).join('');
+
+  const notes = op.notes || oc.notes;
+
+  return `
+  <div class="tl-item">
+    <div class="tl-spine">
+      <div class="tl-dot">${icon}</div>
+      ${!isLast ? '<div class="tl-line"></div>' : ''}
+    </div>
+    <div class="tl-card">
+      <div class="tl-card-head">
+        <span class="tl-date">${fmtDate(op.date_operation)}</span>
+        <span class="tl-type">${typeL}</span>
+        <span class="role-badge ${roleClass}">${roleLabel}</span>
+        <span class="role-badge ${statCls}">${statLbl}</span>
+        ${vol != null ? `<span class="tl-vol">📏 ${fmt(vol)} hL</span>` : ''}
+        ${extra}
+      </div>
+      <div class="tl-details">
+        ${lotsHtml  ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Lots</span><div class="chips-inline">${lotsHtml}</div></div>`  : ''}
+        ${prodsHtml ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Produits</span><div class="chips-inline">${prodsHtml}</div></div>` : ''}
+      </div>
+      ${notes ? `<div class="tl-notes">${escapeHtml(notes)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Carte analyse (timeline)
+// ============================================================
+function renderAnalyseCard(a, isLast) {
+  const n = (v, d = 1) => v != null ? `<b>${Number(v).toFixed(d)}</b>` : '<span style="color:var(--color-border)">—</span>';
+
+  const params = [
+    a.so2_libre        != null ? `SO₂L ${n(a.so2_libre)} mg/L`             : null,
+    a.so2_total        != null ? `SO₂T ${n(a.so2_total)} mg/L`             : null,
+    a.so2_actif        != null ? `SO₂act. ${n(a.so2_actif, 2)} mg/L`       : null,
+    a.ph               != null ? `pH ${n(a.ph, 2)}`                         : null,
+    a.ta               != null ? `AT ${n(a.ta, 2)} g/L`                    : null,
+    a.acidite_volatile != null ? `AV ${n(a.acidite_volatile, 2)} g/L`      : null,
+    a.tav              != null ? `TAV ${n(a.tav, 2)} %vol`                 : null,
+    a.sucres_residuels != null ? `SR ${n(a.sucres_residuels)} g/L`         : null,
+    a.densite          != null ? `D ${n(a.densite, 4)}`                    : null,
+    a.temperature      != null ? `T° ${n(a.temperature, 1)}°C`             : null,
+    a.acide_malique    != null ? `A.mal. ${n(a.acide_malique, 2)} g/L`     : null,
+    a.acide_lactique   != null ? `A.lac. ${n(a.acide_lactique, 2)} g/L`    : null,
+    a.gf_neg5          != null ? `GF-5° ${n(a.gf_neg5, 1)}°C`             : null,
+    a.gf_pos5          != null ? `GF+5° ${n(a.gf_pos5, 1)}°C`             : null,
+    a.co2              != null ? `CO₂ ${n(a.co2, 2)} g/L`                 : null,
+    a.turbidite        != null ? `NTU ${n(a.turbidite, 1)}`               : null,
+  ].filter(Boolean);
+
+  const lotLabel = a.lots
+    ? `<button class="chip-lot nav-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${a.lots.id}')">🍷 ${escapeHtml(a.lots.nom)}</button>`
+    : '';
+
+  return `
+  <div class="tl-item">
+    <div class="tl-spine">
+      <div class="tl-dot" style="background:#00695c">🔬</div>
+      ${!isLast ? '<div class="tl-line"></div>' : ''}
+    </div>
+    <div class="tl-card">
+      <div class="tl-card-head">
+        <span class="tl-date">${fmtDate(a.date_analyse)}</span>
+        <span class="tl-type" style="color:#00695c">Analyse</span>
+      </div>
+      <div class="tl-details">
+        ${params.length ? `<div class="tl-detail-line" style="font-size:var(--text-caption);flex-wrap:wrap;gap:var(--space-3)">${params.join(' · ')}</div>` : ''}
+        ${lotLabel ? `<div class="tl-detail-line"><span class="tl-detail-lbl">Lot</span><div class="chips-inline">${lotLabel}</div></div>` : ''}
+      </div>
+      ${a.notes ? `<div class="tl-notes">${escapeHtml(a.notes)}</div>` : ''}
+    </div>
+  </div>`;
+}
+</script>
+
+</body>
+</html>

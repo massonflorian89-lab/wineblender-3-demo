@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Tableau de bord — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  /* ── Hero greeting ───────────────────────────────────────── */
+  .dash-hero {
+    background: linear-gradient(135deg, #0d2137 0%, #1a3a55 60%, #2e5d7a 100%);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5) var(--space-6);
+    color: #fff;
+    margin-bottom: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+    position: relative;
+    overflow: hidden;
+  }
+  .dash-hero::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: rgba(232,176,74,.08);
+    pointer-events: none;
+  }
+  .hero-greeting { flex: 1; min-width: 200px; }
+  .hero-greeting .greet-line {
+    font-size: 26px; font-weight: 700; letter-spacing: -.3px;
+    margin-bottom:var(--space-1);
+  }
+  .hero-greeting .greet-date {
+    font-size: var(--text-callout); opacity: .7;
+  }
+  .hero-clock {
+    font-size: 48px; font-weight: 700; letter-spacing: -1px;
+    font-variant-numeric: tabular-nums; opacity: .92;
+    flex-shrink: 0;
+  }
+  .hero-actions {
+    display: flex; gap: var(--space-2); align-items: center; flex-shrink: 0;
+    margin-left: auto;
+  }
+  .hero-btn {
+    padding: 7px 14px; border-radius: 8px; font-size:var(--text-footnote); font-weight: 600;
+    cursor: pointer; transition: all .15s; border: none;
+  }
+  .hero-btn-primary {
+    background: #e8b04a; color: #0d2137;
+  }
+  .hero-btn-primary:hover { background: #f5c96a; }
+  .hero-btn-ghost {
+    background: rgba(255,255,255,.12); color: #fff;
+    border: 1px solid rgba(255,255,255,.2);
+  }
+  .hero-btn-ghost:hover { background: rgba(255,255,255,.2); }
+  .hero-btn-ghost.active { background: rgba(232,176,74,.2); border-color: #e8b04a; color: #e8b04a; }
+
+  /* ── Weather strip ───────────────────────────────────────── */
+  .weather-strip {
+    width: 100%;
+    margin-top: var(--space-4);
+    display: flex;
+    gap: var(--space-2);
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .weather-strip::-webkit-scrollbar { display: none; }
+  .weather-day {
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    flex-shrink: 0;
+    min-width: 76px;
+    position: relative;
+  }
+  .weather-day:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.3); }
+  .weather-day.today { border-color: #e8b04a; background: rgba(232,176,74,.15); }
+  .weather-day.expanded { background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.4); border-radius: 10px 10px 0 0; }
+  .wd-label { font-size:var(--text-caption); font-weight: 700; opacity: .7; text-transform: uppercase; letter-spacing: .4px; margin-bottom:var(--space-1); }
+  .wd-icon  { font-size:var(--text-title-1); margin: 2px 0; }
+  .wd-temps { font-size: 12px; font-weight: 600; opacity: .9; }
+  .wd-temps .tmax { color: #ffd080; }
+  .wd-temps .tmin { opacity: .65; }
+
+  .weather-detail {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 0 10px 10px 10px;
+    padding: 12px 16px;
+    display: none;
+    color: #fff;
+    font-size: 12.5px;
+    margin-top: -1px;
+  }
+  .weather-detail.show { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:var(--space-2); }
+  .wd-detail-item { display: flex; align-items: center; gap: 6px; opacity: .88; }
+  .wd-detail-item .di-icon { font-size:var(--text-callout); flex-shrink: 0; }
+  .wd-detail-item .di-val  { font-weight: 600; }
+  .wd-detail-item .di-lbl  { opacity: .65; font-size:var(--text-caption); }
+
+  /* ── Widget config panel ─────────────────────────────────── */
+  .widget-config-panel {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    display: none;
+  }
+  .widget-config-panel.show { display: block; }
+  .wcp-title {
+    font-size: var(--text-caption); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .6px; color: var(--color-ink-tertiary);
+    margin: 0 0 var(--space-3);
+  }
+  .wcp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--space-2);
+  }
+  .wcp-item {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: 10px 12px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer; transition: all .14s;
+    background: var(--color-bg-subtle);
+    user-select: none;
+  }
+  .wcp-item:hover { border-color: var(--color-primary); }
+  .wcp-item.active { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+  .wcp-item .wcp-icon { font-size: 18px; flex-shrink: 0; }
+  .wcp-item .wcp-lbl  { font-size: var(--text-callout); font-weight: 600; flex: 1; }
+  .wcp-item .wcp-check { font-size: 16px; color: var(--color-primary); }
+
+  /* ── Dashboard grid ─────────────────────────────────────── */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-4);
+  }
+  @media (max-width:900px) { .dash-grid { grid-template-columns:1fr 1fr; } }
+  @media (max-width:580px) { .dash-grid { grid-template-columns:1fr; } }
+
+  .dash-widget {
+    background: var(--color-bg-elevated); border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg); padding: var(--space-4);
+  }
+  .widget-title {
+    font-size: var(--text-caption); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .6px; color: var(--color-ink-tertiary); margin: 0 0 var(--space-3);
+    display: flex; align-items: center; gap: var(--space-1);
+  }
+  .widget-title a {
+    margin-left: auto; font-size: 10px; font-weight: 600; text-decoration: none;
+    color: var(--color-primary); letter-spacing: 0; text-transform: none;
+    padding: 2px 8px; border: 1px solid var(--color-primary);
+    border-radius: var(--radius-pill); transition: all .15s;
+  }
+  .widget-title a:hover { background: var(--color-primary); color: #fff; }
+
+  /* Stats cards (KPI widget) */
+  .kpi-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);
+  }
+  .kpi-card {
+    background: var(--color-bg-subtle); border: 1px solid var(--color-border);
+    border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+    position: relative; overflow: hidden;
+  }
+  .kpi-card .accent-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .kpi-label { font-size: var(--text-caption); color: var(--color-ink-tertiary); font-weight: 500; margin-bottom:var(--space-1); }
+  .kpi-value { font-size: 26px; font-weight: 700; color: var(--color-ink); line-height: 1.1; }
+  .kpi-sub   { font-size: var(--text-caption); color: var(--color-ink-tertiary); margin-top: 2px; }
+
+  /* Liste ops récentes */
+  .op-list-item {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border);
+    cursor: pointer;
+  }
+  .op-list-item:last-child { border-bottom: none; }
+  .op-list-item:hover { opacity: .8; }
+  .op-icon-pill {
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size:var(--text-callout); flex-shrink: 0;
+  }
+  .op-info { flex: 1; min-width: 0; }
+  .op-name { font-weight: 600; font-size: var(--text-callout); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .op-meta { font-size: var(--text-caption); color: var(--color-ink-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .op-date { font-size: var(--text-caption); color: var(--color-ink-tertiary); flex-shrink: 0; }
+
+  /* Lots statut */
+  .statut-row {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border);
+  }
+  .statut-row:last-child { border-bottom: none; }
+  .statut-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .statut-lbl { flex: 1; font-size: var(--text-callout); font-weight: 500; }
+  .statut-count { font-size: var(--text-callout); font-weight: 700; color: var(--color-ink); }
+  .statut-bar-bg { width: 80px; height: 6px; background: var(--color-bg-mute); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+  .statut-bar    { height: 100%; border-radius: 3px; transition: width .4s; }
+
+  /* Contenants */
+  .cont-row {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border);
+  }
+  .cont-row:last-child { border-bottom: none; }
+  .cont-icon { font-size: 16px; flex-shrink: 0; }
+  .cont-info { flex: 1; min-width: 0; }
+  .cont-name { font-weight: 600; font-size: var(--text-callout); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cont-desc { font-size: var(--text-caption); color: var(--color-ink-tertiary); }
+  .cont-fill-bar { margin-top: 3px; height: 4px; background: var(--color-bg-mute); border-radius: 2px; overflow: hidden; }
+  .cont-fill-inner { height: 100%; border-radius: 2px; }
+
+  /* Alertes */
+  .alert-item {
+    display: flex; align-items: flex-start; gap: var(--space-2);
+    padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border);
+  }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alert-msg  { flex: 1; font-size: var(--text-callout); color: var(--color-ink-secondary); }
+  .alert-msg strong { color: var(--color-ink); }
+
+  /* Apports */
+  .apport-row {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border);
+  }
+  .apport-row:last-child { border-bottom: none; }
+  .apport-strip { width: 4px; height: 32px; border-radius: 2px; flex-shrink: 0; }
+  .apport-info { flex: 1; min-width: 0; }
+  .apport-name { font-weight: 600; font-size: var(--text-callout); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .apport-desc { font-size: var(--text-caption); color: var(--color-ink-tertiary); }
+  .apport-vol  { font-size: var(--text-callout); font-weight: 700; flex-shrink: 0; }
+
+  /* Span full width */
+  .span-2 { grid-column: span 2; }
+  .span-3 { grid-column: span 3; }
+  @media (max-width:900px) { .span-2,.span-3 { grid-column: span 2; } }
+  @media (max-width:580px) { .span-2,.span-3 { grid-column: span 1; } }
+
+  /* ── Bouton + cockpit « Vendanges du jour » ───────────────────── */
+  .hero-btn.active { background:#e8b04a; border-color:#e8b04a; color:#3a1f12; font-weight:700; }
+  .vd-card .vd-kpis { display:flex; gap:var(--space-4); flex-wrap:wrap; padding:6px 0 10px; margin-bottom:6px; border-bottom:1px solid var(--color-border); }
+  .vd-card .vd-kpi { text-align:center; min-width:62px; }
+  .vd-card .vd-kpi .v { font-size:24px; font-weight:800; color:var(--color-primary); line-height:1.1; }
+  .vd-card .vd-kpi .l { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--color-ink-tertiary); }
+  .vd-row { display:flex; align-items:center; gap:var(--space-2); padding:5px 0; border-bottom:1px solid var(--color-border); font-size:var(--text-caption); }
+  .vd-row:last-child { border-bottom:none; }
+  .vd-row .muted { color:var(--color-ink-tertiary); }
+  .vd-row.done { opacity:.5; text-decoration:line-through; }
+  .vd-row .vd-flags { margin-left:auto; font-size:10px; color:#b45309; text-align:right; }
+  .vd-empty { padding:14px; text-align:center; color:var(--color-ink-tertiary); font-size:var(--text-caption); }
+  .vd-badge { font-size:10px; font-weight:700; background:#e53935; color:#fff; padding:1px 7px; border-radius:10px; margin-left:6px; }
+  .vd-late { margin-top:var(--space-2); font-size:var(--text-caption); color:#b45309; font-weight:600; }
+
+  /* ── Widgets Dashboard ajoutés (DLUO / FA) — local, à consolider
+     à la passe design system pré-Mobile ───────────────────────── */
+  .dluo-row, .fa-row {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border);
+  }
+  .dluo-row:last-child, .fa-row:last-child { border-bottom: none; }
+  .dluo-info, .fa-info { flex: 1; min-width: 0; }
+  .dluo-name, .fa-name {
+    font-weight: 600; font-size: var(--text-callout);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dluo-desc, .fa-desc { font-size: var(--text-caption); color: var(--color-ink-tertiary); }
+  .dluo-badge, .fa-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: var(--radius-pill); white-space: nowrap; flex-shrink: 0;
+  }
+  .dluo-l-passee  { background:#fdecec; color:#c62828; }
+  .dluo-l-j7      { background:#fff3e0; color:#e65100; }
+  .dluo-l-j30     { background:#fffae6; color:#a07a00; }
+  .fa-stuck       { background:#fdecec; color:#c62828; }
+  .fa-ok          { background:#eef6ee; color:#2e7d32; }
+  .fa-unknown     { background:#eceff1; color:#789; }
+  .cuverie-mini {
+    display:flex; gap:var(--space-3); font-size:var(--text-caption);
+    color:var(--color-ink-tertiary); margin-top:var(--space-1);
+  }
+  .cuverie-mini b { color:var(--color-ink); font-weight:700; }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1>📊 Tableau de bord</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+
+  <!-- Hero greeting + clock + weather -->
+  <div class="dash-hero">
+    <div class="hero-greeting">
+      <div class="greet-line" id="greet-text">Bonjour !</div>
+      <div class="greet-date" id="greet-date">—</div>
+    </div>
+    <div class="hero-clock" id="hero-clock">--:--</div>
+    <div class="hero-actions">
+      <button class="hero-btn" id="btn-vendange" onclick="toggleVendange()" title="Basculer en cockpit vendange">🍇 Mode vendange</button>
+      <button class="hero-btn hero-btn-ghost" id="btn-config-widgets" onclick="toggleWidgetConfig()">⚙️ Widgets</button>
+      <button class="hero-btn hero-btn-ghost" onclick="refresh()">↻ Actualiser</button>
+    </div>
+
+    <!-- Weather strip (full width) -->
+    <div class="weather-strip" id="weather-strip">
+      <div style="opacity:.5;font-size:var(--text-footnote);align-self:center;padding:0 4px">🌡 Chargement météo…</div>
+    </div>
+    <div id="weather-detail-row" style="width:100%;display:none">
+      <div class="weather-detail" id="weather-detail-panel"></div>
+    </div>
+  </div>
+
+  <!-- Widget config panel -->
+  <div class="widget-config-panel" id="widget-config-panel">
+    <div class="wcp-title">🛠 Configurer les widgets</div>
+    <div class="wcp-grid" id="wcp-grid"></div>
+  </div>
+
+  <!-- Cockpit « Vendanges du jour » (remplace la grille en mode vendange) -->
+  <div id="vendange-cockpit" style="display:none"></div>
+
+  <!-- Dashboard grid -->
+  <div class="dash-grid" id="dash-grid"></div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="wb3-vitals.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// Données
+// ============================================================
+let lots       = [];
+let contenants = [];
+let operations = [];
+let apports    = [];
+let produitsLots  = [];   // widget DLUO
+let lotContenants = [];   // compteur cuverie (lot↔contenant, statut)
+let _alertesCount = 0;    // partagé renderAlertes → KPIs (évite duplication logique)
+let _rtUnsub      = null; // désabonnement Realtime
+let _rtTimer      = null; // débounce Realtime
+
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmt(n) { return Number(n||0).toLocaleString('fr-FR', {maximumFractionDigits:1}); }
+
+// ============================================================
+// Horloge et salutation
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,'0');
+  const m = now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('hero-clock').textContent = `${h}:${m}`;
+
+  const jours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const mois  = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  document.getElementById('greet-date').textContent =
+    `${jours[now.getDay()]} ${now.getDate()} ${mois[now.getMonth()]} ${now.getFullYear()}`;
+}
+
+function updateGreeting(userName) {
+  const h = new Date().getHours();
+  let salut;
+  if (h < 5)       salut = 'Bonne nuit';
+  else if (h < 12) salut = 'Bonjour';
+  else if (h < 18) salut = 'Bon après-midi';
+  else             salut = 'Bonsoir';
+  const name = userName ? ` ${userName}` : '';
+  document.getElementById('greet-text').textContent = `${salut}${name} 👋`;
+}
+
+// ============================================================
+// Météo (Open-Meteo, libre, sans clé API)
+// ============================================================
+const WMO_ICON = {
+  0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',48:'🌫',
+  51:'🌦',53:'🌦',55:'🌧',56:'🌨',57:'❄️',
+  61:'🌧',63:'🌧',65:'🌧',71:'🌨',73:'🌨',75:'❄️',
+  77:'🌨',80:'🌦',81:'🌧',82:'⛈',85:'🌨',86:'❄️',
+  95:'⛈',96:'⛈',99:'⛈',
+};
+const WMO_LABEL = {
+  0:'Ensoleillé',1:'Partiellement nuageux',2:'Nuageux',3:'Couvert',
+  45:'Brouillard',48:'Brouillard givrant',
+  51:'Bruine légère',53:'Bruine modérée',55:'Bruine forte',
+  61:'Pluie légère',63:'Pluie modérée',65:'Pluie forte',
+  71:'Neige légère',73:'Neige modérée',75:'Neige forte',
+  80:'Averses légères',81:'Averses',82:'Fortes averses',
+  95:'Orage',96:'Orage + grêle',99:'Orage violent',
+};
+const WIND_DIR = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+
+let _weatherData = null;
+let _expandedDay = null;
+
+async function loadWeather() {
+  try {
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
+    );
+    const { latitude: lat, longitude: lon } = pos.coords;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`
+      + `&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant,uv_index_max`
+      + `&hourly=relativehumidity_2m`
+      + `&timezone=auto&forecast_days=7`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    _weatherData = await res.json();
+    renderWeather();
+  } catch(e) {
+    document.getElementById('weather-strip').innerHTML =
+      `<div style="opacity:.45;font-size:12px;align-self:center">⚠️ Météo indisponible (autorisation géolocalisation requise)</div>`;
+  }
+}
+
+function renderWeather() {
+  if (!_weatherData?.daily) return;
+  const d = _weatherData.daily;
+  const today = new Date().toISOString().slice(0,10);
+  const days = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+
+  const strip = document.getElementById('weather-strip');
+  strip.innerHTML = d.time.map((date, i) => {
+    const isToday = date === today;
+    const dow = days[new Date(date+'T12:00:00').getDay()];
+    const label = isToday ? 'Auj.' : dow;
+    const icon  = WMO_ICON[d.weathercode[i]] || '🌡';
+    const tmax  = Math.round(d.temperature_2m_max[i]);
+    const tmin  = Math.round(d.temperature_2m_min[i]);
+    return `<div class="weather-day${isToday?' today':''}" data-wi="${i}" onclick="toggleWeatherDay(${i}, this)">
+      <div class="wd-label">${label}</div>
+      <div class="wd-icon">${icon}</div>
+      <div class="wd-temps"><span class="tmax">${tmax}°</span> <span class="tmin">${tmin}°</span></div>
+    </div>`;
+  }).join('');
+}
+
+function toggleWeatherDay(i, el) {
+  const row   = document.getElementById('weather-detail-row');
+  const panel = document.getElementById('weather-detail-panel');
+
+  if (_expandedDay === i) {
+    _expandedDay = null;
+    row.style.display = 'none';
+    panel.classList.remove('show');
+    document.querySelectorAll('.weather-day').forEach(d => d.classList.remove('expanded'));
+    return;
+  }
+  _expandedDay = i;
+  const d = _weatherData.daily;
+
+  // Humidity: average of hourly values for that day (24 values per day)
+  const humStart = i * 24;
+  const humVals  = (_weatherData.hourly?.relativehumidity_2m || []).slice(humStart, humStart + 24).filter(v => v != null);
+  const humidity = humVals.length ? Math.round(humVals.reduce((s,v)=>s+v,0)/humVals.length) : null;
+
+  const windDeg = d.winddirection_10m_dominant?.[i];
+  const windDir = windDeg != null ? WIND_DIR[Math.round(windDeg / 22.5) % 16] : null;
+  const code    = d.weathercode[i];
+
+  const details = [
+    { icon:'🌡', val:`${Math.round(d.temperature_2m_max[i])}° / ${Math.round(d.temperature_2m_min[i])}°`, lbl:'Temp. max / min' },
+    { icon: WMO_ICON[code]||'🌡', val: WMO_LABEL[code]||`Code ${code}`, lbl:'Conditions' },
+    { icon:'🌧', val: d.precipitation_sum[i] != null ? `${d.precipitation_sum[i]} mm` : '—', lbl:'Précipitations' },
+    { icon:'💨', val: d.windspeed_10m_max[i] != null ? `${Math.round(d.windspeed_10m_max[i])} km/h${windDir?' '+windDir:''}` : '—', lbl:'Vent max' },
+    humidity != null ? { icon:'💧', val:`${humidity} %`, lbl:'Humidité moy.' } : null,
+    d.uv_index_max?.[i] != null ? { icon:'☀️', val:`${d.uv_index_max[i]}`, lbl:'Indice UV max' } : null,
+  ].filter(Boolean);
+
+  panel.innerHTML = details.map(det =>
+    `<div class="wd-detail-item">
+      <span class="di-icon">${det.icon}</span>
+      <div><div class="di-val">${escapeHtml(String(det.val))}</div><div class="di-lbl">${escapeHtml(det.lbl)}</div></div>
+    </div>`
+  ).join('');
+
+  panel.classList.add('show');
+  row.style.display = '';
+
+  document.querySelectorAll('.weather-day').forEach((d2, idx) => {
+    d2.classList.toggle('expanded', idx === i);
+  });
+}
+
+// ============================================================
+// Widgets — définition et gestion
+// ============================================================
+const WIDGET_DEFS = [
+  { id:'kpis',           title:'Indicateurs clés',     icon:'📊', span:3, render: renderKPIs           },
+  { id:'lots_statut',    title:'Lots — statuts',        icon:'🍷', span:1, render: renderLotsStatut     },
+  { id:'volumes_couleur',title:'Stock par couleur',     icon:'🎨', span:1, render: renderVolumesCouleur },
+  { id:'ops_recentes',   title:'Opérations récentes',  icon:'⚙️', span:2, render: renderOpsRecentes    },
+  { id:'alertes',        title:'Alertes cave',          icon:'🔔', span:1, render: renderAlertes        },
+  { id:'alertes_so2',    title:'Alertes SO₂',          icon:'🧪', span:1, render: renderAlertesSo2     },
+  { id:'contenants',     title:'Contenants occupés',    icon:'🛢', span:1, render: renderContenants     },
+  { id:'apports',        title:'Apports récents',       icon:'🍇', span:1, render: renderApports        },
+  { id:'fa_encours',     title:'FA en cours',           icon:'🌡', span:1, render: renderFaEncours      },
+  { id:'produits_dluo',  title:'Stock produits — DLUO', icon:'📦', span:1, render: renderProduitsDluo   },
+];
+
+const DEFAULT_WIDGETS = ['kpis','lots_statut','volumes_couleur','ops_recentes','alertes','alertes_so2','fa_encours','produits_dluo','contenants','apports'];
+let activeWidgets = [...DEFAULT_WIDGETS];
+let _configOpen   = false;
+let modeVendange  = false;   // cockpit « Vendanges du jour » (préférence perso)
+
+function toggleWidgetConfig() {
+  _configOpen = !_configOpen;
+  document.getElementById('widget-config-panel').classList.toggle('show', _configOpen);
+  document.getElementById('btn-config-widgets').classList.toggle('active', _configOpen);
+  if (_configOpen) renderWidgetConfig();
+}
+
+function renderWidgetConfig() {
+  const grid = document.getElementById('wcp-grid');
+  grid.innerHTML = WIDGET_DEFS.map(w => {
+    const on = activeWidgets.includes(w.id);
+    return `<div class="wcp-item${on?' active':''}" onclick="toggleWidget('${w.id}', this)">
+      <span class="wcp-icon">${w.icon}</span>
+      <span class="wcp-lbl">${escapeHtml(w.title)}</span>
+      ${on ? '<span class="wcp-check">✓</span>' : '<span class="wcp-check" style="opacity:.2">○</span>'}
+    </div>`;
+  }).join('');
+}
+
+function toggleWidget(id, el) {
+  const idx = activeWidgets.indexOf(id);
+  if (idx >= 0) {
+    if (activeWidgets.length <= 1) return;
+    activeWidgets.splice(idx, 1);
+    el.classList.remove('active');
+    el.querySelector('.wcp-check').textContent = '○';
+    el.querySelector('.wcp-check').style.opacity = '.2';
+  } else {
+    activeWidgets.push(id);
+    el.classList.add('active');
+    el.querySelector('.wcp-check').textContent = '✓';
+    el.querySelector('.wcp-check').style.opacity = '1';
+  }
+  saveWidgetPrefs();
+  renderDashboardGrid();
+}
+
+async function saveWidgetPrefs() {
+  try { await WB3DB.setUserPref('dashboard', { active_widgets: activeWidgets, mode_vendange: modeVendange }); } catch(e) { /* silent */ }
+}
+
+async function loadWidgetPrefs() {
+  try {
+    const p = await WB3DB.getUserPref('dashboard');
+    if (Array.isArray(p?.active_widgets) && p.active_widgets.length) {
+      activeWidgets = p.active_widgets.filter(id => WIDGET_DEFS.some(w => w.id === id));
+      if (!activeWidgets.length) activeWidgets = [...DEFAULT_WIDGETS];
+    }
+    modeVendange = !!p?.mode_vendange;
+  } catch(e) { /* use defaults */ }
+}
+
+// ── Mode vendange : cockpit « Vendanges du jour » ─────────────
+function toggleVendange() {
+  modeVendange = !modeVendange;
+  saveWidgetPrefs();
+  applyMode();
+}
+function applyMode() {
+  const cockpit = document.getElementById('vendange-cockpit');
+  const grid    = document.getElementById('dash-grid');
+  const cfg     = document.getElementById('widget-config-panel');
+  const btn     = document.getElementById('btn-vendange');
+  if (btn) btn.classList.toggle('active', modeVendange);
+  if (modeVendange) {
+    grid.style.display = 'none';
+    cfg.classList.remove('show');
+    document.getElementById('btn-config-widgets')?.classList.remove('active');
+    _configOpen = false;
+    cockpit.style.display = '';
+    renderVendangeCockpit();
+  } else {
+    cockpit.style.display = 'none';
+    grid.style.display = '';
+  }
+}
+
+// Libellé court d'une tâche (sans dépendre du module planning).
+function _vdTaskLabel(t) {
+  const d = t.detail || {};
+  if (t.type === 'transfert') return `${(d.sources||[]).join(', ')||'?'} → ${(d.destinations||[]).map(x=>x.cuve).filter(Boolean).join(', ')||'?'}`;
+  if (t.type === 'sulfitage') return `${d.cuve||t.contenant_nom||'?'} = ${d.dose_kg!=null?fmt(d.dose_kg)+' '+(d.unite||'kg'):''} ${d.produit||''}`.trim();
+  if (Array.isArray(d.cuves) && d.cuves.length) return d.cuves.join(', ');
+  return t.titre || t.contenant_nom || (t.type||'').replace(/_/g,' ');
+}
+const VD_TASK_ICON = { transfert:'🔀', sulfitage:'⚗️', neige:'❄️', brassage:'🌀', soutirage:'🔄', analyse:'🔬', echantillon:'🧪', mise_en_bib:'📦', degustation:'👅', nettoyage:'🧹' };
+
+async function renderVendangeCockpit() {
+  const root = document.getElementById('vendange-cockpit');
+  if (!root) return;
+  const today = new Date().toISOString().slice(0,10);
+  root.innerHTML = `<div class="loading-state" style="grid-column:span 3"><div class="spinner"></div>Vendanges du jour…</div>`;
+
+  const [appo, cuves, taches] = await Promise.all([
+    WB3DB.listTable('apports', {
+      select: 'id,date_apport,apporteur,poids_kg,volume_hl,statut,cepage,lots(nom)',
+      order: 'date_apport', ascending: false, limit: 300 }).catch(()=>[]),
+    (WB3DB.queryCuverieEtat ? WB3DB.queryCuverieEtat() : Promise.resolve([])).catch(()=>[]),
+    (WB3DB.listTaches ? WB3DB.listTaches({ from: '2000-01-01', to: today }) : Promise.resolve([])).catch(()=>[]),
+  ]);
+
+  // 1. Apports du jour
+  const todayApp = (appo||[]).filter(a => a.date_apport === today && a.statut !== 'annule');
+  const kg = todayApp.reduce((s,a)=>s+(Number(a.poids_kg)||0),0);
+  const hl = todayApp.reduce((s,a)=>s+(Number(a.volume_hl)||0),0);
+  const rdt = hl>0 ? kg/hl : null;
+  // 2. Cuves en alerte
+  const alertCuves = (cuves||[]).filter(c => c.niveau_alerte && c.niveau_alerte !== 'ok')
+    .sort((a,b)=> (a.niveau_alerte==='critique'?0:1) - (b.niveau_alerte==='critique'?0:1));
+  // 3 & 4. Tâches
+  const todayTasks = (taches||[]).filter(t => t.date_prevue === today && t.statut !== 'annule');
+  const lateTasks  = (taches||[]).filter(t => t.statut === 'a_faire' && t.date_prevue < today);
+  const sulf       = todayTasks.filter(t => t.type === 'sulfitage' && t.statut === 'a_faire');
+
+  const cuveFlags = c => {
+    const f=[];
+    if (c.sur_capacite) f.push('débordement'); if (c.fa_stuck) f.push('FA bloquée');
+    if (c.volume_incoherent) f.push('volume incohérent'); if (c.analyse_en_retard) f.push('analyse en retard');
+    if (c.dluo_produit_proche) f.push('DLUO produit'); if (c.sans_operation_recente) f.push('sans op récente');
+    return f.join(' · ');
+  };
+
+  root.innerHTML = `<div class="dash-grid">
+    <div class="dash-widget vd-card span-2">
+      <div class="widget-title">🍇 Apports du jour <a href="apports.html">Voir tout →</a></div>
+      <div class="vd-kpis">
+        <div class="vd-kpi"><div class="v">${todayApp.length}</div><div class="l">apports</div></div>
+        <div class="vd-kpi"><div class="v">${fmt(kg/1000)}</div><div class="l">tonnes</div></div>
+        <div class="vd-kpi"><div class="v">${fmt(hl)}</div><div class="l">hL jus</div></div>
+        <div class="vd-kpi"><div class="v">${rdt!=null?fmt(rdt):'—'}</div><div class="l">kg/hL moy.</div></div>
+      </div>
+      ${todayApp.length ? todayApp.slice(0,8).map(a=>`<div class="vd-row">
+        <b>${escapeHtml(a.apporteur||'—')}</b>
+        <span class="muted">${escapeHtml(a.cepage||a.lots?.nom||'')}</span>
+        <span style="margin-left:auto;font-weight:700">${a.poids_kg?fmt(a.poids_kg)+' kg':(a.volume_hl?fmt(a.volume_hl)+' hL':'')}</span>
+      </div>`).join('') : '<div class="vd-empty">Aucun apport reçu aujourd\'hui.</div>'}
+    </div>
+
+    <div class="dash-widget vd-card">
+      <div class="widget-title">⚠️ Cuves en alerte <a href="cuverie.html">Cuverie →</a></div>
+      ${alertCuves.length ? alertCuves.slice(0,12).map(c=>{
+        const col=c.niveau_alerte==='critique'?'#e53935':'#fb8c00';
+        return `<div class="vd-row" style="cursor:pointer" onclick="WB3Nav.navigate('contenant-detail.html?id=${c.contenant_id}')">
+          <span style="color:${col};font-size:var(--text-caption)">●</span><b>${escapeHtml(c.contenant_nom)}</b>
+          <span class="muted">${escapeHtml(c.lot_nom||'')}</span>
+          <span class="vd-flags">${escapeHtml(cuveFlags(c))}</span></div>`;
+      }).join('') : '<div class="vd-empty">✅ Aucune cuve en alerte.</div>'}
+    </div>
+
+    <div class="dash-widget vd-card span-2">
+      <div class="widget-title">📅 À faire aujourd'hui <a href="planning.html">Planning →</a>
+        ${lateTasks.length?`<span class="vd-badge">${lateTasks.length} en retard</span>`:''}</div>
+      ${todayTasks.length ? todayTasks.slice(0,12).map(t=>`<div class="vd-row${t.statut==='fait'?' done':''}">
+        <span>${VD_TASK_ICON[t.type]||'📋'}</span>
+        <b>${escapeHtml(_vdTaskLabel(t))}</b>
+        <span class="muted" style="margin-left:auto">${escapeHtml(t.assignee||'')}</span></div>`).join('')
+        : '<div class="vd-empty">Aucune tâche planifiée aujourd\'hui.</div>'}
+      ${lateTasks.length?`<div class="vd-late">⏰ ${lateTasks.length} tâche(s) en retard à reprendre — voir le planning.</div>`:''}
+    </div>
+
+    <div class="dash-widget vd-card">
+      <div class="widget-title">⚗️ Sulfitages à faire</div>
+      ${sulf.length ? sulf.map(t=>{ const d=t.detail||{};
+        return `<div class="vd-row"><b>${escapeHtml(d.cuve||t.contenant_nom||'?')}</b>
+          <span style="font-weight:700">${d.dose_kg!=null?fmt(d.dose_kg)+' '+escapeHtml(d.unite||'kg'):''}</span>
+          <span class="muted" style="margin-left:auto">${escapeHtml(d.produit||'SO₂')}</span></div>`;
+      }).join('') : '<div class="vd-empty">Aucun sulfitage planifié aujourd\'hui.</div>'}
+    </div>
+  </div>`;
+}
+
+let recentAnalyses = [];
+let _dashAnalyseThresholds = { libre_bas: 15, libre_haut: 30 };
+
+async function loadAlertePrefs() {
+  try {
+    const p = await WB3DB.getUserPref('analyses');
+    if (p?.so2_thresholds) {
+      _dashAnalyseThresholds = { ..._dashAnalyseThresholds, ...p.so2_thresholds };
+    }
+  } catch(e) { /* use defaults */ }
+}
+
+function renderDashboardGrid() {
+  const grid = document.getElementById('dash-grid');
+  grid.innerHTML = '';
+  activeWidgets.forEach(id => {
+    const def = WIDGET_DEFS.find(w => w.id === id);
+    if (!def) return;
+    const div = document.createElement('div');
+    div.className = `dash-widget${def.span > 1 ? ' span-'+def.span : ''}`;
+    div.id = `w-${id}`;
+    div.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+    grid.appendChild(div);
+    def.render();
+  });
+}
+
+// ============================================================
+// Init
+// ============================================================
+(async function init() {
+  updateClock();
+  setInterval(updateClock, 30000);
+
+  if (typeof window.supabase === 'undefined' || typeof window.WB3DB === 'undefined') {
+    document.getElementById('dash-grid').innerHTML =
+      `<div class="empty-state" style="grid-column:span 3">
+         <div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>`;
+    return;
+  }
+
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('dash-grid').innerHTML =
+      `<div class="empty-state" style="grid-column:span 3">
+         <div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>`;
+    return;
+  }
+  const { tenant, user } = ctx;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+
+  // Prénom depuis le profil utilisateur, avec fallback sur l'email
+  let firstName = '';
+  try {
+    const profil = await WB3DB.getUserPref('profil');
+    firstName = profil?.prenom?.trim() || '';
+  } catch(e) { /* silent */ }
+  if (!firstName) {
+    firstName = user?.user_metadata?.full_name?.split(' ')[0]
+      || user?.email?.split('@')[0] || '';
+  }
+  updateGreeting(firstName);
+
+  await Promise.all([loadWidgetPrefs(), loadAlertePrefs()]);
+  renderDashboardGrid();
+  applyMode();        // bascule cockpit vendange si la préférence est active
+  loadWeather();
+  loadAll();
+  setupRealtime();   // auto-refresh KPIs/cuverie/alertes sans reload (046)
+})();
+
+// ============================================================
+// Chargement données — rendu progressif
+// ============================================================
+async function loadAll() {
+  const pLots = WB3DB.listTable('lots', {
+    select: 'id,nom,couleur,millesime,statut,volume_actuel_hl,actif,created_at',
+    order: 'created_at', ascending: false,
+  }).then(d => { lots = d; renderLotsStatut(); renderVolumesCouleur(); renderKPIs(); renderAlertes(); })
+    .catch(() => { lots = []; });
+
+  // FIX bug pré-existant : 'volume_actuel_hl' n'existe PAS sur contenants.
+  // Le volume réel = Σ lot_contenants.volume_hl (source de vérité du modèle WB3),
+  // calculé via _recomputeContVolumes() une fois lot_contenants chargé.
+  const pContenants = WB3DB.listTable('contenants', {
+    select: 'id,nom,type,capacite_hl,actif',
+    filter: { actif: true },
+  }).then(d => { contenants = d; _recomputeContVolumes(); renderContenants(); renderKPIs(); renderAlertes(); })
+    .catch(() => { contenants = []; });
+
+  const pOperations = WB3DB.listTable('operations', {
+    select: 'id,type_operation,date_operation,statut,volume_hl,operateur,operation_lots(lots(nom)),operation_contenants(contenants(nom))',
+    order: 'date_operation', ascending: false, limit: 100,
+  }).then(d => { operations = d; renderOpsRecentes(); renderKPIs(); })
+    .catch(() => { operations = []; });
+
+  // FIX bug pré-existant : colonnes réelles = apporteur / poids_kg
+  // (pas nom_apporteur/quantite_kg) ; apports n'a pas de 'couleur'.
+  const pApports = WB3DB.listTable('apports', {
+    select: 'id,date_apport,apporteur,poids_kg,volume_hl,lot_id,lots(nom,couleur),statut',
+    order: 'date_apport', ascending: false, limit: 30,
+  }).then(d => { apports = d; renderApports(); })
+    .catch(() => { apports = []; });
+
+  const pAnalyses = WB3DB.queryAnalyses({ ascending: false })
+    .then(d => { recentAnalyses = d; renderAlertesSo2(); renderFaEncours(); })
+    .catch(() => { recentAnalyses = []; });
+
+  // Stock produits (DLUO) — listTable filtre déjà archived_at IS NULL (043)
+  const pProduits = WB3DB.listTable('produits_lots', {
+    select: 'id,numero_lot,dluo,quantite_actuelle,unite,produits_catalogue(nom,categorie)',
+    order: 'dluo', ascending: true,
+  }).then(d => { produitsLots = d; renderProduitsDluo(); renderKPIs(); })
+    .catch(() => { produitsLots = []; });
+
+  // Lot↔contenant : volume réel par cuve + compteur FA. Source de vérité
+  // du volume cave (contenants n'a pas de colonne volume).
+  const pLotCont = WB3DB.listTable('lot_contenants', {
+    select: 'contenant_id,volume_hl,lots(statut)',
+  }).then(d => { lotContenants = d; _recomputeContVolumes(); renderContenants(); renderKPIs(); renderAlertes(); })
+    .catch(() => { lotContenants = []; });
+
+  await Promise.allSettled([pLots, pContenants, pOperations, pApports, pAnalyses, pProduits, pLotCont]);
+}
+
+// ============================================================
+// Rendus des widgets
+// ============================================================
+function _getWEl(id) { return document.getElementById(`w-${id}`); }
+
+// Volume réel par cuve = Σ lot_contenants.volume_hl (contenants n'a PAS
+// de colonne volume). Annote chaque contenant.volume_actuel_hl pour que
+// tous les widgets existants (KPIs, alertes, contenants) restent inchangés.
+function _recomputeContVolumes() {
+  if (!contenants.length) return;
+  const sum = {};
+  (lotContenants || []).forEach(lc => {
+    if (!lc.contenant_id) return;
+    sum[lc.contenant_id] = (sum[lc.contenant_id] || 0) + (Number(lc.volume_hl) || 0);
+  });
+  contenants.forEach(c => { c.volume_actuel_hl = sum[c.id] || 0; });
+}
+
+// ── KPIs ─────────────────────────────────────────────────────
+function renderKPIs() {
+  const el = _getWEl('kpis');
+  if (!el) return;
+  const activeLots  = lots.filter(l => l.actif && l.statut !== 'sorti');
+  const volume      = contenants.reduce((s,c) => s + (Number(c.volume_actuel_hl)||0), 0);
+  const capacite    = contenants.reduce((s,c) => s + (Number(c.capacite_hl)||0), 0);
+  const txOccup     = capacite > 0 ? Math.round(volume / capacite * 100) : null;
+  const txColor     = txOccup == null ? '#9e9e9e' : txOccup >= 90 ? '#e53935' : txOccup >= 70 ? '#fb8c00' : '#43a047';
+  const moisActuel  = new Date().toISOString().slice(0,7);
+  const opsMonth    = operations.filter(o => (o.date_operation||'').startsWith(moisActuel)).length;
+  const planifiees  = operations.filter(o => o.statut === 'planifie').length;
+  // Ajouts : ops du jour, alertes du jour, compteur cuverie
+  const todayISO    = new Date().toISOString().slice(0,10);
+  const opsToday    = operations.filter(o => (o.date_operation||'') === todayISO && o.statut !== 'annule').length;
+  const faContIds   = new Set(lotContenants.filter(lc => lc.lots?.statut === 'fa').map(lc => lc.contenant_id));
+  const cuvesVides  = contenants.filter(c => c.actif && !(Number(c.volume_actuel_hl) > 0)).length;
+  const cuvesPleines= contenants.filter(c => c.actif && c.capacite_hl && c.volume_actuel_hl
+                        && (c.volume_actuel_hl / c.capacite_hl) >= 0.9).length;
+  const cuvesFa     = contenants.filter(c => c.actif && faContIds.has(c.id)).length;
+
+  el.innerHTML = `
+    <div class="widget-title">📊 Indicateurs clés</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="accent-bar" style="background:var(--color-primary)"></div>
+        <div class="kpi-label">Lots actifs</div><div class="kpi-value">${activeLots.length}</div>
+      </div>
+      <div class="kpi-card"><div class="accent-bar" style="background:#2e7d32"></div>
+        <div class="kpi-label">Volume en cave</div><div class="kpi-value">${fmt(volume)}</div><div class="kpi-sub">hL</div>
+      </div>
+      <div class="kpi-card"><div class="accent-bar" style="background:${txColor}"></div>
+        <div class="kpi-label">Taux occupation cave</div>
+        <div class="kpi-value" style="color:${txColor}">${txOccup != null ? txOccup+'%' : '—'}</div>
+        ${capacite > 0 ? `<div class="kpi-sub">${fmt(volume)} / ${fmt(capacite)} hL</div>` : ''}
+      </div>
+      <div class="kpi-card"><div class="accent-bar" style="background:#e65100"></div>
+        <div class="kpi-label">Opérations ce mois</div><div class="kpi-value">${opsMonth}</div>
+      </div>
+      <div class="kpi-card"><div class="accent-bar" style="background:#1565c0"></div>
+        <div class="kpi-label">Planifiées</div>
+        <div class="kpi-value" style="${planifiees>0?'color:#1565c0':''}">${planifiees}</div>
+      </div>
+      <div class="kpi-card"><div class="accent-bar" style="background:#6a1b9a"></div>
+        <div class="kpi-label">Opérations aujourd'hui</div><div class="kpi-value">${opsToday}</div>
+      </div>
+      <div class="kpi-card"><div class="accent-bar" style="background:${_alertesCount>0?'#e53935':'#43a047'}"></div>
+        <div class="kpi-label">Alertes du jour</div>
+        <div class="kpi-value" style="${_alertesCount>0?'color:#e53935':''}">${_alertesCount}</div>
+      </div>
+      <div class="kpi-card"><div class="accent-bar" style="background:#00897b"></div>
+        <div class="kpi-label">Cuverie</div>
+        <div class="kpi-value" style="font-size:18px">${cuvesVides} <span style="font-size:var(--text-caption);font-weight:500;color:var(--color-ink-tertiary)">vides</span></div>
+        <div class="cuverie-mini"><span><b>${cuvesPleines}</b> pleines</span><span><b>${cuvesFa}</b> en FA</span></div>
+      </div>
+    </div>`;
+}
+
+// ── Lots statuts ──────────────────────────────────────────────
+const STATUT_META = {
+  vendange:     { label:'Vendange',       dot:'#c8a87e' },
+  mout:         { label:'Moût',           dot:'#f5c25d' },
+  mout_stabule: { label:'Moût stabulé',   dot:'#e5b650' },
+  mout_debourbe:{ label:'Moût débourbé',  dot:'#d4a240' },
+  fa:           { label:'FA',             dot:'#ff7043' },
+  vin:          { label:'Vin',            dot:'#e53935' },
+  fml:          { label:'FML / Malo',     dot:'#fb8c00' },
+  elevage:      { label:'Élevage',        dot:'#1e88e5' },
+  vin_filtre:   { label:'Vin filtré',     dot:'#43a047' },
+  pre_mise:     { label:'Pré-mise',       dot:'#9e9e9e' },
+  conditionne:  { label:'Conditionné',    dot:'#616161' },
+  sorti:        { label:'Sorti',          dot:'#bdbdbd' },
+};
+
+function renderLotsStatut() {
+  const el = _getWEl('lots_statut');
+  if (!el) return;
+  const activeLots = lots.filter(l => l.actif && l.statut !== 'sorti');
+  if (!activeLots.length) {
+    el.innerHTML = `<div class="widget-title">🍷 Lots — statuts <a href="lots.html">Voir tout →</a></div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">🍷</div><div class="title">Aucun lot actif</div></div>`;
+    return;
+  }
+  const counts = {};
+  activeLots.forEach(l => { counts[l.statut] = (counts[l.statut]||0) + 1; });
+  const max = Math.max(...Object.values(counts));
+  const rows = Object.entries(counts).sort(([,a],[,b]) => b-a).map(([statut, cnt]) => {
+    const m = STATUT_META[statut] || { label:statut, dot:'#888' };
+    const pct = Math.round(cnt/max*100);
+    return `<div class="statut-row">
+      <span class="statut-dot" style="background:${m.dot}"></span>
+      <span class="statut-lbl">${escapeHtml(m.label)}</span>
+      <div class="statut-bar-bg"><div class="statut-bar" style="width:${pct}%;background:${m.dot}"></div></div>
+      <span class="statut-count">${cnt}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="widget-title">🍷 Lots — statuts <a href="lots.html">Voir tout →</a></div>${rows}`;
+}
+
+// ── Opérations récentes ───────────────────────────────────────
+const OP_ICONS = {
+  pressoir:'🍇',ecoulage:'🍷',soutirage:'🔄',relogement:'📦',transfert:'➡️',
+  assemblage:'🔀',filtration:'🔬',levurage:'🦠',malo:'🦠',enzymage:'⚗️',
+  sulfitage:'🧪',collage:'🧹',chaptalisation:'🍬',acidification:'⬆️',desacidification:'⬇️',
+  mise_en_bouteille:'🍾',sortie_lot:'📤',autre:'⚙️',
+};
+const OP_COLORS = {
+  pressoir:{bg:'#f3e5f5'},ecoulage:{bg:'#efebe9'},soutirage:{bg:'#ddeeff'},
+  relogement:{bg:'#e1f5fe'},transfert:{bg:'#e0f7fa'},assemblage:{bg:'#f0e6fa'},
+  filtration:{bg:'#e0f2ef'},levurage:{bg:'#fffde7'},malo:{bg:'#ede7f6'},
+  enzymage:{bg:'#efebe9'},sulfitage:{bg:'#fff0e0'},collage:{bg:'#e6f4ea'},
+  chaptalisation:{bg:'#fce4ec'},mise_en_bouteille:{bg:'#e8f5e9'},sortie_lot:{bg:'#ffebee'},autre:{bg:'#eceff1'},
+};
+
+function renderOpsRecentes() {
+  const el = _getWEl('ops_recentes');
+  if (!el) return;
+  const recent = operations.filter(o => o.statut !== 'annule').slice(0, 8);
+  if (!recent.length) {
+    el.innerHTML = `<div class="widget-title">⚙️ Opérations récentes <a href="operations.html">Voir tout →</a></div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">⚙️</div><div class="title">Aucune opération</div></div>`;
+    return;
+  }
+  const rows = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 var(--space-4)">` +
+    recent.map(o => {
+      const icon  = OP_ICONS[o.type_operation] || '⚙️';
+      const bg    = (OP_COLORS[o.type_operation]||{bg:'#eceff1'}).bg;
+      const label = o.type_operation ? o.type_operation.charAt(0).toUpperCase()+o.type_operation.slice(1).replace(/_/g,' ') : '—';
+      const lTxt  = (o.operation_lots||[]).map(ol=>ol.lots?.nom||'').filter(Boolean).join(', ');
+      const cTxt  = (o.operation_contenants||[]).map(oc=>oc.contenants?.nom||'').filter(Boolean).join(', ');
+      const ctx   = [lTxt, cTxt].filter(Boolean).join(' · ');
+      return `<div class="op-list-item" onclick="WB3Nav.navigate('operations.html')">
+        <div class="op-icon-pill" style="background:${bg}">${icon}</div>
+        <div class="op-info">
+          <div class="op-name">${escapeHtml(label)}</div>
+          <div class="op-meta">${ctx ? escapeHtml(ctx) : (o.operateur ? '👤 '+escapeHtml(o.operateur) : '—')}</div>
+        </div>
+        <div class="op-date">${o.date_operation||'—'}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  el.innerHTML = `<div class="widget-title">⚙️ Opérations récentes <a href="operations.html">Voir tout →</a></div>${rows}`;
+}
+
+// ── Alertes ───────────────────────────────────────────────────
+function renderAlertesSo2() {
+  const el = _getWEl('alertes_so2');
+  if (!el) return;
+
+  if (!recentAnalyses.length) {
+    el.innerHTML = `<div class="widget-title">🧪 Alertes SO₂ libre</div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">🔬</div><div class="title">Aucune analyse enregistrée</div></div>`;
+    return;
+  }
+
+  // Latest analysis per lot (data is already sorted desc by date)
+  const byLot = new Map();
+  recentAnalyses.forEach(a => { if (a.lot_id && !byLot.has(a.lot_id)) byLot.set(a.lot_id, a); });
+
+  const lotAnalyses = [...byLot.values()].filter(a => a.so2_libre != null);
+
+  if (!lotAnalyses.length) {
+    el.innerHTML = `<div class="widget-title">🧪 Alertes SO₂ libre</div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">🧪</div><div class="title">Pas de données SO₂ libre</div></div>`;
+    return;
+  }
+
+  const { libre_bas, libre_haut } = _dashAnalyseThresholds;
+  const sorted = [...lotAnalyses].sort((a, b) => a.so2_libre - b.so2_libre);
+  const alertCount = sorted.filter(a => a.so2_libre < libre_haut).length;
+
+  const rows = sorted.slice(0, 8).map(a => {
+    const v    = a.so2_libre;
+    const col  = v < libre_bas ? '#d32f2f' : v < libre_haut ? '#f57c00' : '#2e7d32';
+    const bg   = v < libre_bas ? '#fff0f0' : v < libre_haut ? '#fff8ee' : '#f0faf0';
+    const icon = v < libre_bas ? '🔴' : v < libre_haut ? '🟡' : '🟢';
+    const lotNom = a.lots?.nom || '—';
+    const date   = a.date_analyse
+      ? new Date(a.date_analyse + 'T00:00:00').toLocaleDateString('fr-FR', { day:'2-digit', month:'short' })
+      : '—';
+    return `<div style="display:flex;align-items:center;gap:var(--space-2);padding:5px 0;border-bottom:1px solid var(--color-border)">
+      <span style="font-size:12px;flex-shrink:0">${icon}</span>
+      <button class="nav-chip" onclick="WB3Nav.navigate('lot-detail.html?id=${a.lot_id}')"
+        style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left">${escapeHtml(lotNom)}</button>
+      <span style="font-size:var(--text-caption);color:${col};font-weight:700;background:${bg};padding:2px 7px;border-radius:var(--radius-pill);flex-shrink:0">${fmt(v)} mg/L</span>
+      <span style="font-size:9px;color:var(--color-ink-quaternary);flex-shrink:0;white-space:nowrap">${date}</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="widget-title">🧪 SO₂ libre — dernières analyses
+    ${alertCount > 0 ? `<span style="font-size:10px;font-weight:600;background:#e53935;color:#fff;padding:1px 6px;border-radius:10px;margin-left:var(--space-1)">${alertCount}</span>` : ''}
+    <a href="parametres.html?section=analyses" style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">⚙️ Seuils</a>
+  </div>
+  <div style="font-size:9px;color:var(--color-ink-tertiary);margin-bottom:var(--space-2)">
+    <span style="color:#2e7d32">●</span> ≥ ${libre_haut} mg/L &nbsp;
+    <span style="color:#f57c00">●</span> ${libre_bas}–${libre_haut} &nbsp;
+    <span style="color:#d32f2f">●</span> &lt; ${libre_bas} mg/L
+  </div>
+  ${rows}`;
+}
+
+function renderAlertes() {
+  const el = _getWEl('alertes');
+  if (!el) return;
+  const alertes = [];
+  const today7 = new Date(Date.now() + 7*86400000).toISOString().slice(0,10);
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  // FA longue (> 25 jours)
+  lots.filter(l => l.statut === 'fa' && l.actif).forEach(l => {
+    const since = l.created_at ? Math.round((Date.now() - new Date(l.created_at).getTime()) / 86400000) : null;
+    if (since && since > 25) alertes.push({ icon:'⚠️', lvl:'warn', msg:`<strong>${escapeHtml(l.nom)}</strong> — FA depuis ${since} j` });
+  });
+
+  // Cuves en vidange : contiennent du vin mais ne sont PAS pleines
+  // (< 99 % de la capacité) → espace de tête = risque d'oxydation,
+  // à ouiller. Seuil ajustable.
+  const SEUIL_VIDANGE_PCT = 99;
+  contenants.filter(c => c.actif && c.capacite_hl && c.volume_actuel_hl > 0).forEach(c => {
+    const pct = Math.round(c.volume_actuel_hl / c.capacite_hl * 100);
+    if (pct < SEUIL_VIDANGE_PCT) alertes.push({ icon:'🛢', lvl:'warn', msg:`<strong>${escapeHtml(c.nom)}</strong> — en vidange : ${pct}% (${fmt(c.volume_actuel_hl)} / ${fmt(c.capacite_hl)} hL)` });
+  });
+
+  // Opérations planifiées dans les 7 prochains jours
+  const planProches = operations.filter(o => o.statut === 'planifie' && o.date_operation >= todayStr && o.date_operation <= today7);
+  planProches.forEach(o => {
+    const icon = OP_ICONS[o.type_operation] || '⚙️';
+    alertes.push({ icon, lvl:'info', msg:`<strong>${escapeHtml(o.type_operation||'Op.')}</strong> planifiée le ${o.date_operation}` });
+  });
+
+  // Lots sans opération récente (FA/FML/élevage, > 30 j)
+  lots.filter(l => l.actif && ['fa','fml','elevage'].includes(l.statut)).forEach(l => {
+    const lastOp = operations.find(o => (o.operation_lots||[]).some(ol => ol.lots?.nom===l.nom));
+    if (!lastOp) {
+      alertes.push({ icon:'📋', lvl:'info', msg:`<strong>${escapeHtml(l.nom)}</strong> (${STATUT_META[l.statut]?.label||l.statut}) — aucune op.` });
+    } else {
+      const days = Math.round((Date.now() - new Date(lastOp.date_operation).getTime()) / 86400000);
+      if (days > 30) alertes.push({ icon:'📋', lvl:'info', msg:`<strong>${escapeHtml(l.nom)}</strong> — dernière op. il y a ${days} j` });
+    }
+  });
+
+  // Cuves vides sans volume renseigné
+  const contsSansVol = contenants.filter(c => c.actif && c.capacite_hl && !c.volume_actuel_hl);
+  if (contsSansVol.length)
+    alertes.push({ icon:'🛢', lvl:'info', msg:`<strong>${contsSansVol.length} contenant${contsSansVol.length>1?'s':''} vide${contsSansVol.length>1?'s':''}</strong> — Volume non renseigné` });
+
+  _alertesCount = alertes.length;          // partagé avec le KPI "Alertes du jour"
+  if (document.getElementById('w-kpis')) renderKPIs();
+
+  if (!alertes.length) {
+    el.innerHTML = `<div class="widget-title">🔔 Alertes cave</div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">✅</div><div class="title">Aucune alerte</div><div class="desc">Tout semble en ordre.</div></div>`;
+    return;
+  }
+  const lvlColor = { warn:'#e65100', info:'var(--color-ink-secondary)' };
+  el.innerHTML = `<div class="widget-title">🔔 Alertes cave <span style="font-size:10px;font-weight:600;background:#e53935;color:#fff;padding:1px 6px;border-radius:10px;margin-left:var(--space-1)">${alertes.length}</span></div>` +
+    alertes.slice(0,8).map(a =>
+      `<div class="alert-item"><span class="alert-icon">${a.icon}</span><span class="alert-msg" style="color:${lvlColor[a.lvl]||'inherit'}">${a.msg}</span></div>`
+    ).join('');
+}
+
+// ── Contenants occupés ────────────────────────────────────────
+const CONT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" style="vertical-align:-.15em" aria-hidden="true"><rect x="3" y="3" width="14" height="13" rx="1.2" fill="#ccd8e4" stroke="#7a96b0" stroke-width="1.3"/><ellipse cx="10" cy="3" rx="7" ry="2.2" fill="#e0eaf4" stroke="#7a96b0" stroke-width="1.3"/><ellipse cx="10" cy="16" rx="7" ry="2.2" fill="#b8cad8" stroke="#7a96b0" stroke-width="1.3"/><line x1="3" y1="8.5" x2="17" y2="8.5" stroke="#7a96b0" stroke-width="0.7"/><line x1="3" y1="12.5" x2="17" y2="12.5" stroke="#7a96b0" stroke-width="0.7"/><line x1="14" y1="17.5" x2="14" y2="20" stroke="#7a96b0" stroke-width="1.6"/></svg>`;
+
+function renderContenants() {
+  const el = _getWEl('contenants');
+  if (!el) return;
+  const occupes = contenants.filter(c => c.volume_actuel_hl > 0)
+    .sort((a,b) => (b.volume_actuel_hl||0) - (a.volume_actuel_hl||0)).slice(0, 7);
+  if (!occupes.length) {
+    el.innerHTML = `<div class="widget-title">${CONT_SVG} Cave — contenants occupés <a href="cuverie.html">Voir →</a></div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">🛢</div><div class="title">Aucun contenant avec volume</div></div>`;
+    return;
+  }
+  const rows = occupes.map(c => {
+    const pct  = c.capacite_hl ? Math.min(100, Math.round(c.volume_actuel_hl/c.capacite_hl*100)) : null;
+    const col  = pct==null?'#9e9e9e':pct>=90?'#e53935':pct>=70?'#fb8c00':'#43a047';
+    return `<div class="cont-row">
+      <span class="cont-icon">${CONT_SVG}</span>
+      <div class="cont-info">
+        <div class="cont-name">${escapeHtml(c.nom)}</div>
+        <div class="cont-desc">${escapeHtml(c.type||'—')}${c.capacite_hl?' · '+fmt(c.capacite_hl)+' hL':''}</div>
+        ${pct!=null?`<div class="cont-fill-bar"><div class="cont-fill-inner" style="width:${pct}%;background:${col}"></div></div>`:''}
+      </div>
+      <div style="font-size:var(--text-caption);font-weight:700;flex-shrink:0">${fmt(c.volume_actuel_hl)} hL${pct!=null?' ('+pct+'%)':''}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="widget-title">${CONT_SVG} Cave — contenants occupés <a href="cuverie.html">Voir →</a></div>${rows}`;
+}
+
+// ── Volumes par couleur ───────────────────────────────────────
+const COULEUR_COLOR = { rouge:'#b00020', blanc:'#c8a050', rose:'#d89dad', gris:'#9e9ea0' };
+const COULEUR_LABEL = { rouge:'Rouge', blanc:'Blanc', rose:'Rosé', gris:'Gris', orange:'Orange' };
+const COULEUR_CLR   = { rouge:'#b00020', blanc:'#c8a050', rose:'#e07090', gris:'#9e9ea0', orange:'#e07030' };
+
+function renderVolumesCouleur() {
+  const el = _getWEl('volumes_couleur');
+  if (!el) return;
+  const activeLots = lots.filter(l => l.actif && l.statut !== 'sorti' && l.volume_actuel_hl > 0);
+  if (!activeLots.length) {
+    el.innerHTML = `<div class="widget-title">🎨 Volumes par couleur</div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">🍷</div><div class="title">Aucun volume enregistré</div></div>`;
+    return;
+  }
+  const byCouleur = {};
+  activeLots.forEach(l => {
+    const k = l.couleur || 'inconnu';
+    if (!byCouleur[k]) byCouleur[k] = { vol:0, count:0 };
+    byCouleur[k].vol   += Number(l.volume_actuel_hl)||0;
+    byCouleur[k].count += 1;
+  });
+  const total = Object.values(byCouleur).reduce((s,v) => s+v.vol, 0);
+  const rows  = Object.entries(byCouleur).sort((a,b) => b[1].vol-a[1].vol).map(([k,v]) => {
+    const pct   = total > 0 ? Math.round(v.vol/total*100) : 0;
+    const color = COULEUR_CLR[k] || '#9e9ea0';
+    const label = COULEUR_LABEL[k] || k;
+    return `<div class="statut-row">
+      <span class="statut-dot" style="background:${color}"></span>
+      <span class="statut-lbl">${escapeHtml(label)}</span>
+      <div class="statut-bar-bg"><div class="statut-bar" style="width:${pct}%;background:${color}"></div></div>
+      <span class="statut-count" style="font-size:10px">${fmt(v.vol)} hL</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="widget-title">🎨 Stock par couleur — ${fmt(total)} hL total</div>${rows}`;
+}
+
+// ── Apports récents ───────────────────────────────────────────
+
+function renderApports() {
+  const el = _getWEl('apports');
+  if (!el) return;
+  const recent = apports.filter(a => a.statut !== 'annule').slice(0, 6);
+  if (!recent.length) {
+    el.innerHTML = `<div class="widget-title">🍇 Apports récents <a href="apports.html">Voir tout →</a></div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">🍇</div><div class="title">Aucun apport enregistré</div></div>`;
+    return;
+  }
+  const rows = recent.map(a => {
+    // Schéma réel : apporteur / poids_kg ; couleur via le lot lié (apports n'en a pas)
+    const color = COULEUR_COLOR[a.lots?.couleur] || '#9e9ea0';
+    const qte   = a.poids_kg ? fmt(a.poids_kg/1000)+' t'
+                : a.volume_hl ? fmt(a.volume_hl)+' hL' : '—';
+    return `<div class="apport-row">
+      <div class="apport-strip" style="background:${color}"></div>
+      <div class="apport-info">
+        <div class="apport-name">${escapeHtml(a.apporteur||'Apporteur inconnu')}</div>
+        <div class="apport-desc">${escapeHtml(a.date_apport||'—')} · ${escapeHtml(a.lots?.nom||'—')}</div>
+      </div>
+      <div class="apport-vol">${qte}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="widget-title">🍇 Apports récents <a href="apports.html">Voir tout →</a></div>${rows}`;
+}
+
+// ── Stock produits — alertes DLUO ─────────────────────────────
+function renderProduitsDluo() {
+  const el = _getWEl('produits_dluo');
+  if (!el) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const items = (produitsLots || [])
+    .filter(p => p.dluo && Number(p.quantite_actuelle) > 0)
+    .map(p => {
+      const d   = new Date(p.dluo + 'T00:00:00');
+      const j   = Math.round((d - today) / 86400000);   // jours restants (négatif = dépassée)
+      return { ...p, j };
+    })
+    .filter(p => p.j <= 30)                              // J-30 / J-7 / dépassée
+    .sort((a,b) => a.j - b.j);
+
+  if (!items.length) {
+    el.innerHTML = `<div class="widget-title">📦 Stock produits — DLUO <a href="produits.html">Voir →</a></div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">✅</div><div class="title">Aucune DLUO proche</div>
+        <div class="desc">Rien à péremption sous 30 j.</div></div>`;
+    return;
+  }
+  const nbCrit = items.filter(p => p.j < 0).length;
+  const rows = items.slice(0, 8).map(p => {
+    let cls, txt;
+    if (p.j < 0)       { cls='dluo-l-passee'; txt=`dépassée +${-p.j} j`; }
+    else if (p.j <= 7) { cls='dluo-l-j7';     txt=`J-${p.j}`; }
+    else               { cls='dluo-l-j30';    txt=`J-${p.j}`; }
+    const nom = p.produits_catalogue?.nom || p.numero_lot || 'Produit';
+    const qte = p.quantite_actuelle != null ? `${fmt(p.quantite_actuelle)} ${escapeHtml(p.unite||'')}` : '';
+    return `<div class="dluo-row">
+      <div class="dluo-info">
+        <div class="dluo-name">${escapeHtml(nom)}</div>
+        <div class="dluo-desc">${escapeHtml(p.numero_lot||'—')}${qte?' · '+qte:''} · DLUO ${escapeHtml(p.dluo)}</div>
+      </div>
+      <span class="dluo-badge ${cls}">${escapeHtml(txt)}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="widget-title">📦 Stock produits — DLUO
+    ${nbCrit>0?`<span style="font-size:10px;font-weight:600;background:#e53935;color:#fff;padding:1px 6px;border-radius:10px;margin-left:var(--space-1)">${nbCrit}</span>`:''}
+    <a href="produits.html">Voir →</a></div>${rows}`;
+}
+
+// ── FA en cours ───────────────────────────────────────────────
+// Limites assumées :
+//  • jour-J basé sur lots.date_entree (début de cuvée) faute de
+//    champ "début FA" structuré — approché si la FA démarre plus tard.
+//  • "FA stuck" nécessite ≥2 analyses avec densite ; espacement réel
+//    souvent > 48 h en cave → flag "indéterminé" si suivi insuffisant.
+function renderFaEncours() {
+  const el = _getWEl('fa_encours');
+  if (!el) return;
+  const faLots = (lots || []).filter(l => l.actif && l.statut === 'fa');
+  if (!faLots.length) {
+    el.innerHTML = `<div class="widget-title">🌡 FA en cours <a href="lots.html">Voir →</a></div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">🌡</div><div class="title">Aucune FA en cours</div></div>`;
+    return;
+  }
+  const now = Date.now();
+  const rows = faLots.slice(0, 8).map(l => {
+    // recentAnalyses est trié date desc ; analyses de ce lot avec densité
+    const an = (recentAnalyses || [])
+      .filter(a => a.lot_id === l.id && a.densite != null);
+    const last = an[0], prev = an[1];
+    const jourJ = l.date_entree
+      ? Math.max(0, Math.round((now - new Date(l.date_entree + 'T00:00:00').getTime())/86400000))
+      : (last ? Math.round((now - new Date(last.date_analyse+'T00:00:00').getTime())/86400000) : null);
+
+    let badgeCls = 'fa-unknown', badgeTxt = 'densité ?';
+    let densInfo = 'pas de densité';
+    if (last) {
+      densInfo = `dens. ${fmt(last.densite)}`;
+      if (prev) {
+        const dh = (new Date(last.date_analyse) - new Date(prev.date_analyse)) / 3600000;
+        if (dh >= 48 && Number(last.densite) >= Number(prev.densite)) {
+          badgeCls = 'fa-stuck'; badgeTxt = 'FA stuck ?';
+        } else if (Number(last.densite) < Number(prev.densite)) {
+          badgeCls = 'fa-ok'; badgeTxt = 'en baisse';
+        } else {
+          badgeCls = 'fa-unknown'; badgeTxt = 'suivi court';
+        }
+      } else {
+        badgeCls = 'fa-unknown'; badgeTxt = '1 mesure';
+      }
+    }
+    return `<div class="fa-row">
+      <div class="fa-info">
+        <div class="fa-name">${escapeHtml(l.nom)}</div>
+        <div class="fa-desc">${jourJ!=null?`J+${jourJ}`:'—'} · ${escapeHtml(densInfo)}</div>
+      </div>
+      <span class="fa-badge ${badgeCls}">${escapeHtml(badgeTxt)}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="widget-title">🌡 FA en cours
+    <span style="font-size:10px;font-weight:600;background:#ff7043;color:#fff;padding:1px 6px;border-radius:10px;margin-left:var(--space-1)">${faLots.length}</span>
+    <a href="lots.html">Voir →</a></div>
+    <div style="font-size:9px;color:var(--color-ink-tertiary);margin-bottom:var(--space-2)">
+      « FA stuck ? » = densité non décroissante depuis &gt;48 h (indicatif, dépend du suivi)
+    </div>${rows}`;
+}
+
+// ============================================================
+// Realtime — auto-refresh sans reload (pattern standardisé 046)
+// ============================================================
+function setupRealtime() {
+  if (_rtUnsub || typeof WB3DB.subscribeMany !== 'function') return;
+  try {
+    _rtUnsub = WB3DB.subscribeMany(
+      ['lots','operations','contenants','analyses','produits_lots','lot_contenants'],
+      () => {
+        clearTimeout(_rtTimer);
+        _rtTimer = setTimeout(() => { loadAll(); }, 800);  // débounce anti-rafale
+      }
+    );
+    window.addEventListener('pagehide', () => { try { _rtUnsub && _rtUnsub(); } catch(e){} }, { once:true });
+  } catch(e) { /* Realtime non critique : le bouton ↻ reste dispo */ }
+}
+
+// ============================================================
+// Refresh
+// ============================================================
+async function refresh() {
+  renderDashboardGrid();
+  if (modeVendange) renderVendangeCockpit();
+  loadAll();
+  loadWeather();
+}
+</script>
+
+</body>
+</html>

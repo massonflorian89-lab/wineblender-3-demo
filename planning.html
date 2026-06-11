@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Planning — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* ── Barre d'outils planning ───────────────────────────── */
+  .plng-toolbar { display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap; margin-bottom:var(--space-3); }
+  .plng-weeknav { display:flex; align-items:center; gap:var(--space-1); }
+  .plng-week-label { font-weight:600; min-width:210px; text-align:center; font-size:var(--text-callout); }
+  .plng-spacer { flex:1; }
+
+  /* ── Bandeau retard ────────────────────────────────────── */
+  .plng-late {
+    border:1px solid var(--color-danger, #b00020); border-left-width:4px;
+    background:var(--color-bg-elevated); border-radius:var(--radius-md);
+    padding:var(--space-2) var(--space-3); margin-bottom:var(--space-3);
+  }
+  .plng-late-title { font-weight:600; color:var(--color-danger,#b00020); font-size:var(--text-caption); margin-bottom:6px; }
+
+  /* ── Jours ─────────────────────────────────────────────── */
+  .plng-days { display:flex; flex-direction:column; gap:var(--space-3); }
+  .plng-day {
+    border:1px solid var(--color-border); border-radius:var(--radius-md);
+    background:var(--color-bg-elevated); overflow:hidden;
+  }
+  .plng-day-hdr {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:8px var(--space-3); background:var(--color-bg-subtle);
+    border-bottom:1px solid var(--color-border);
+  }
+  .plng-day-date { font-weight:600; text-transform:capitalize; }
+  .plng-day-today { box-shadow:0 0 0 2px var(--color-primary) inset; }
+  .plng-today-badge {
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+    background:var(--color-primary); color:#fff; padding:2px 8px; border-radius:var(--radius-pill);
+  }
+  .plng-day-count { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .plng-day-actions { margin-left:auto; display:flex; gap:6px; }
+  .plng-day-body { padding:6px var(--space-2); }
+  .plng-day-empty { padding:10px var(--space-2); color:var(--color-ink-tertiary); font-size:var(--text-caption); font-style:italic; }
+
+  /* ── Ligne tâche ───────────────────────────────────────── */
+  .plng-task {
+    display:flex; align-items:flex-start; gap:var(--space-2);
+    padding:8px 6px; border-bottom:1px solid var(--color-border);
+  }
+  .plng-task:last-child { border-bottom:none; }
+  .plng-task-icon { font-size:16px; line-height:1.3; flex-shrink:0; width:22px; text-align:center; }
+  .plng-task-main { flex:1; min-width:0; }
+  .plng-task-title { font-weight:600; font-size:var(--text-callout); }
+  .plng-task-sub { font-size:var(--text-caption); color:var(--color-ink-tertiary); margin-top:1px; }
+  .plng-task-note { font-size:var(--text-caption); color:var(--color-ink-secondary); margin-top:2px; white-space:pre-wrap; }
+  .plng-task-acts { display:flex; gap:4px; flex-shrink:0; }
+  .plng-task.done .plng-task-title { text-decoration:line-through; color:var(--color-ink-tertiary); }
+  .plng-task.annule { opacity:.55; }
+  .plng-task.annule .plng-task-title { text-decoration:line-through; }
+
+  .plng-chip {
+    display:inline-flex; align-items:center; gap:3px;
+    font-size:10px; font-weight:600; padding:1px 7px; border-radius:var(--radius-pill);
+    white-space:nowrap;
+  }
+  .plng-chip-who  { background:var(--color-bg-subtle); color:var(--color-ink-secondary); }
+  .plng-chip-cuve { background:#e0eaf4; color:#3a5a78; }
+  .plng-chip-cr   { background:#efe7fa; color:#5b3a9e; }
+  /* Créneaux 3×8 */
+  .plng-creneau-hdr {
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--color-ink-tertiary); padding:6px var(--space-2) 2px; margin-top:2px;
+    border-top:1px dashed var(--color-border);
+  }
+  .plng-day-body > .plng-creneau-hdr:first-child { border-top:none; margin-top:0; }
+  /* Glisser-déposer */
+  .plng-task { cursor:grab; }
+  .plng-task:active { cursor:grabbing; }
+  .plng-task.dragging { opacity:.5; }
+  .plng-day-body.plng-drop-over {
+    background:color-mix(in srgb, var(--color-primary) 8%, transparent);
+    outline:2px dashed var(--color-primary); outline-offset:-3px; border-radius:var(--radius-sm);
+  }
+  /* Fiche : tag créneau (par ligne) + bandeau équipe (en-tête, gros) */
+  .fiche-cr { font-size:10px; font-weight:700; color:#5b3a9e; margin-left:6px; }
+  .fiche-team { font-size:17px; font-weight:800; color:#4a2e86; margin-top:4px; letter-spacing:.3px; }
+  /* Drawer tâche (style cuverie), un peu plus large pour le formulaire */
+  .plng-drawer { width: 580px; }
+  .plng-drawer .plng-field label,
+  .plng-drawer .tk-detail label {
+    display:block; font-size:var(--text-caption); font-weight:600;
+    color:var(--color-ink-tertiary); text-transform:uppercase; letter-spacing:.5px;
+    margin-bottom:4px;
+  }
+  .plng-drawer .plng-field input,
+  .plng-drawer .plng-field select,
+  .plng-drawer .plng-field textarea,
+  .plng-drawer .tk-row input,
+  .plng-drawer .ep-calc input,
+  .plng-drawer .ep-calc select {
+    width:100%; box-sizing:border-box; padding:9px 12px;
+    border:1px solid var(--color-border); border-radius:var(--radius-md);
+    font-family:inherit; font-size:var(--text-callout);
+    background:var(--color-bg-elevated); color:var(--color-ink);
+    transition:border-color var(--duration-fast) var(--ease-standard),
+               box-shadow var(--duration-fast) var(--ease-standard);
+  }
+  .plng-drawer .plng-field input:focus,
+  .plng-drawer .plng-field select:focus,
+  .plng-drawer .plng-field textarea:focus,
+  .plng-drawer .tk-row input:focus {
+    outline:none; border-color:var(--color-primary);
+    box-shadow:var(--shadow-glow-primary, 0 0 0 3px rgba(106,27,42,.12));
+  }
+  .plng-drawer .tk-detail { background:var(--color-bg-subtle); }
+  .plng-prio-2 { border-left:3px solid var(--color-danger,#b00020); padding-left:6px; }
+  .plng-prio-0 { opacity:.85; }
+
+  .icon-btn {
+    background:none; border:1px solid transparent; cursor:pointer; border-radius:var(--radius-sm);
+    padding:3px 6px; font-size:13px; color:var(--color-ink-tertiary); line-height:1;
+  }
+  .icon-btn:hover { background:var(--color-bg-subtle); color:var(--color-ink); }
+  .icon-btn.ok:hover  { color:#2e7d32; }
+  .icon-btn.del:hover { color:var(--color-danger,#b00020); }
+
+  /* ── Modale tâche ──────────────────────────────────────── */
+  .plng-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000;
+    display:flex; align-items:center; justify-content:center; padding:var(--space-3);
+  }
+  .plng-modal {
+    background:var(--color-bg-elevated); border-radius:var(--radius-lg);
+    width:min(620px,100%); max-height:92vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.3);
+  }
+  .plng-modal-hdr { display:flex; align-items:center; justify-content:space-between; padding:var(--space-3); border-bottom:1px solid var(--color-border); }
+  .plng-modal-title { font-weight:700; }
+  .plng-modal-body { padding:var(--space-3); display:flex; flex-direction:column; gap:var(--space-3); }
+  .plng-row { display:flex; gap:var(--space-3); flex-wrap:wrap; }
+  .plng-field { display:flex; flex-direction:column; gap:4px; flex:1; min-width:140px; }
+  .plng-field.wide { flex-basis:100%; }
+  .plng-field label { font-size:var(--text-caption); font-weight:600; color:var(--color-ink-secondary); }
+  .plng-field input, .plng-field select, .plng-field textarea { width:100%; box-sizing:border-box; }
+  .plng-modal-foot { display:flex; justify-content:flex-end; gap:var(--space-2); padding:var(--space-3); border-top:1px solid var(--color-border); }
+
+  /* Bloc détail type-spécifique */
+  .tk-detail {
+    border:1px solid var(--color-border); border-radius:var(--radius-md);
+    padding:var(--space-3); background:var(--color-bg-subtle);
+    display:flex; flex-direction:column; gap:var(--space-2);
+  }
+  .tk-detail-title { font-size:var(--text-caption); font-weight:700; color:var(--color-ink-secondary); text-transform:uppercase; letter-spacing:.4px; }
+  .tk-rows { display:flex; flex-direction:column; gap:6px; }
+  .tk-row { display:flex; gap:6px; align-items:center; }
+  .tk-row input { flex:1; min-width:0; }
+  .tk-row .tk-row-rm { flex:0 0 auto; }
+  .tk-add { align-self:flex-start; }
+  .tk-hint { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .cuve-recap { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .cuve-recap:empty { margin-top:0; }
+  .cuve-mini {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:var(--text-caption); background:#e0eaf4; color:#3a5a78;
+    border-radius:var(--radius-pill); padding:2px 9px; white-space:nowrap;
+  }
+  /* Combobox cuve recherchable */
+  .cuve-combo-panel {
+    position:absolute; z-index:3000; display:none;
+    background:var(--color-bg-elevated); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); box-shadow:0 12px 32px rgba(0,0,0,.22);
+    max-height:300px; overflow-y:auto; padding:4px;
+  }
+  .cuve-combo-panel .cc-row {
+    display:flex; flex-direction:column; gap:1px; padding:6px 10px; border-radius:6px; cursor:pointer;
+  }
+  .cuve-combo-panel .cc-row.hi, .cuve-combo-panel .cc-row:hover { background:var(--color-bg-subtle); }
+  .cuve-combo-panel .cc-nom  { font-weight:700; font-size:var(--text-callout); color:var(--color-ink); }
+  .cuve-combo-panel .cc-meta { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .cuve-combo-panel .cc-vide { font-style:italic; }
+  .cuve-combo-panel .cc-empty{ padding:10px; color:var(--color-ink-tertiary); font-size:var(--text-caption); text-align:center; }
+
+  /* ── Fiche de travail (impression) ─────────────────────── */
+  .fiche-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1100;
+    display:flex; align-items:flex-start; justify-content:center; padding:var(--space-3); overflow:auto;
+  }
+  .fiche-sheet {
+    background:#fff; color:#1a1a1a; width:min(820px,100%);
+    border-radius:var(--radius-md); box-shadow:0 12px 40px rgba(0,0,0,.3); margin:auto;
+  }
+  .fiche-toolbar {
+    display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3);
+    border-bottom:1px solid #ddd; flex-wrap:wrap;
+  }
+  .fiche-doc { padding:22px 26px; font-size:13px; }
+
+  /* En-tête type formulaire qualité Richemer */
+  .fiche-head { display:flex; align-items:stretch; gap:10px; border:1px solid #1a1a1a; margin-bottom:16px; }
+  .fiche-brand { display:flex; align-items:center; justify-content:center; padding:6px 12px; border-right:1px solid #1a1a1a; text-align:center; min-width:120px; }
+  .fiche-brand b { font-size:15px; letter-spacing:.5px; }
+  .fiche-brand small { display:block; font-size:9px; color:#555; }
+  .fiche-head-mid { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px; }
+  .fiche-head-mid .t { font-size:18px; font-weight:800; }
+  .fiche-head-mid .d { font-size:14px; font-weight:600; text-decoration:underline; text-transform:capitalize; }
+  .fiche-meta { border-left:1px solid #1a1a1a; font-size:10px; min-width:180px; }
+  .fiche-meta div { display:flex; }
+  .fiche-meta div + div { border-top:1px solid #1a1a1a; }
+  .fiche-meta .k { flex:1; padding:2px 6px; border-right:1px solid #1a1a1a; color:#333; }
+  .fiche-meta .v { width:70px; padding:2px 6px; font-weight:700; }
+
+  .fiche-section { margin-bottom:14px; }
+  .fiche-sec-title { font-weight:700; margin-bottom:5px; }
+  .fiche-sec-title u { text-underline-offset:2px; }
+  .fiche-line { padding:1px 0 1px 14px; }
+  /* Consignes : éditeur unique (barre, écran) + bloc imprimé sur chaque fiche */
+  .fiche-consignes-bar { padding:10px 16px; border-bottom:1px solid #ddd; display:flex; flex-direction:column; gap:4px; }
+  .fiche-consignes-bar textarea { width:100%; box-sizing:border-box; min-height:48px; resize:vertical; font:inherit; padding:6px 9px; border:1px solid var(--color-border); border-radius:6px; }
+  .fiche-consignes-ro {
+    border:1px dashed #999; border-radius:6px; padding:8px 10px; margin-bottom:14px;
+    font-size:13px; min-height:34px; white-space:pre-wrap; background:#fafafa;
+  }
+  .fiche-doc + .fiche-doc { border-top:2px dashed #ccc; }   /* séparateur écran entre fiches */
+  .fiche-empty { padding:24px; text-align:center; color:#888; }
+  .fiche-foot { margin-top:18px; font-size:11px; color:#666; display:flex; justify-content:space-between; }
+
+  /* Sulfitage : items numérotés en ligne */
+  .sulf-item { display:inline-block; margin-right:18px; white-space:nowrap; }
+  .tr-num {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border:1px solid #1a1a1a; border-radius:50%;
+    font-size:11px; font-weight:700; margin-right:4px;
+  }
+
+  /* Transfert : diagramme fléché sources ── libellé ──► destinations */
+  .tr-row { display:grid; grid-template-columns:22px auto 1fr auto; align-items:center; gap:6px; margin:8px 0; }
+  .tr-src { text-align:right; padding-right:8px; border-right:2px solid #1a1a1a; line-height:1.35; font-weight:600; }
+  .tr-mid { position:relative; height:2px; background:#1a1a1a; margin:0 4px; }
+  .tr-lbl {
+    position:absolute; left:50%; top:-9px; transform:translate(-50%,-100%);
+    white-space:nowrap; font-style:italic; font-size:12px; background:#fff; padding:0 4px;
+  }
+  .tr-dst { padding-left:8px; line-height:1.35; font-weight:600; position:relative; }
+  .tr-dst::before { content:"►"; position:absolute; left:-8px; top:50%; transform:translateY(-50%); font-size:11px; }
+  .tr-note { font-style:italic; font-weight:400; color:#0a58ca; }
+  .tr-cv { font-size:9px; font-weight:400; color:#555; letter-spacing:.3px; margin-top:1px; white-space:nowrap; }
+
+  @media print {
+    body > *:not(#fiche-print-root) { display:none !important; }
+    #fiche-print-root, #fiche-print-root * { visibility:visible; }
+    .fiche-overlay { position:static; background:none; padding:0; display:block; overflow:visible; }
+    .fiche-sheet { box-shadow:none; width:100%; border-radius:0; }
+    .fiche-toolbar, .fiche-consignes-bar { display:none !important; }
+    /* Une fiche par équipe = une page séparée */
+    .fiche-doc { padding-top:0; }
+    .fiche-doc + .fiche-doc { border-top:none; }
+    .fiche-doc-break { break-after:page; page-break-after:always; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1>📅 Planning &amp; fiches de travail</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+
+  <div class="plng-toolbar">
+    <div class="plng-weeknav">
+      <button class="btn btn--secondary btn--sm" onclick="Planning.shiftWeek(-1)">‹</button>
+      <span class="plng-week-label" id="week-label">—</span>
+      <button class="btn btn--secondary btn--sm" onclick="Planning.shiftWeek(1)">›</button>
+      <button class="btn btn--secondary btn--sm" onclick="Planning.goToday()">Aujourd'hui</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:5px;font-size:var(--text-caption)">
+      <input type="checkbox" id="hide-done" onchange="Planning.render()"> Masquer les faits
+    </label>
+    <div class="plng-spacer"></div>
+    <button class="btn btn--primary btn--sm" id="btn-new-task" onclick="Planning.openTask()">+ Nouvelle tâche</button>
+  </div>
+
+  <div id="late-zone"></div>
+
+  <div id="content">
+    <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+  </div>
+
+</main>
+
+<!-- Conteneur d'impression de la fiche de travail -->
+<div id="fiche-print-root"></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+
+const Planning = (() => {
+
+  // Type → icône / libellé / famille de formulaire (kind). L'ORDRE des clés
+  // définit l'ordre des sections sur la fiche imprimée (calé sur la fiche
+  // papier Richemer : échantillons → BIB → transferts → sulfitage → neige →
+  // souder → brassage → autres).
+  const TYPE_META = {
+    echantillon:        { icon:'🧪', label:'Échantillons',      kind:'echantillon' },
+    mise_en_bib:        { icon:'📦', label:'Mise en BIB',        kind:'bib' },
+    transfert:          { icon:'🔀', label:'Transfert',          kind:'transfert' },
+    sulfitage:          { icon:'⚗️', label:'Sulfitage',          kind:'sulfitage' },
+    neige:              { icon:'❄️', label:'Neige carbonique',   kind:'liste' },
+    souder:             { icon:'🔧', label:'Souder',             kind:'liste' },
+    brassage:           { icon:'🌀', label:'Brassage azote',     kind:'liste' },
+    remontage:          { icon:'🔁', label:'Remontage',          kind:'simple' },
+    decuvage:           { icon:'⬇️', label:'Décuvage',           kind:'simple' },
+    pressurage:         { icon:'🗜️', label:'Pressurage',         kind:'simple' },
+    assemblage:         { icon:'🍷', label:'Assemblage',         kind:'simple' },
+    traitement:         { icon:'💊', label:'Traitement',         kind:'simple' },
+    analyse:            { icon:'🔬', label:'Analyse',            kind:'simple' },
+    degustation:        { icon:'👅', label:'Dégustation',        kind:'simple' },
+    mise_en_bouteille:  { icon:'🍾', label:'Mise en bouteille',  kind:'simple' },
+    nettoyage:          { icon:'🧹', label:'Nettoyage',          kind:'liste' },
+    reception_vendange: { icon:'🍇', label:'Réception vendange', kind:'simple' },
+    autre:              { icon:'📋', label:'Autre',              kind:'simple' },
+  };
+  const PRIO_LABEL = { 0:'Basse', 1:'Normale', 2:'Haute' };
+  const TEMPLATE_EMISSION = '24/11/2025';   // date d'émission du modèle qualité
+
+  let _tenant   = null;
+  let _weekStart = null;
+  let _tasks    = [];
+  let _cuves    = [];      // {contenant_id, contenant_nom, lot_nom, capacite_hl, volume_actuel_hl, millesime}
+  let _produitLots = [];   // lots produits (catalogue) pour le calcul de dose sulfitage
+  let _hasCreneau = true;  // capacité tache.creneau (mig 070) ; si false → sélecteur créneau masqué (dégradation gracieuse)
+  let _canPlan    = true;  // rôle autorisé à créer/éditer des tâches (caviste = coche « fait » seulement)
+  let _cuveNames = [];
+  let _assignees = [];
+  let _editId   = null;
+  let _draft    = null;    // brouillon de détail pendant la modale
+
+  // ── Dates ────────────────────────────────────────────────
+  function _iso(d){ return d.toISOString().slice(0,10); }
+  function _todayIso(){ return _iso(new Date()); }
+  function _mondayOf(d){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); return x; }
+  function _addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+  function _fmtDayLong(iso){ return new Date(iso+'T00:00:00').toLocaleDateString('fr',{weekday:'long',day:'numeric',month:'long'}); }
+  function _fmtWeekLabel(start){ const end=_addDays(start,6);
+    const a=start.toLocaleDateString('fr',{day:'numeric',month:'short'});
+    const b=end.toLocaleDateString('fr',{day:'numeric',month:'short',year:'numeric'});
+    return `Semaine du ${a} au ${b}`; }
+  function _fmtDateNum(iso){ return new Date(iso+'T00:00:00').toLocaleDateString('fr'); }
+
+  // ── Helpers ──────────────────────────────────────────────
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function _meta(type){ return TYPE_META[type] || TYPE_META.autre; }
+  function _num(x){ return (x==null||x==='') ? '' : String(x).replace('.',','); }
+  function _parseList(s){ return String(s||'').split(/[,;\s]+/).map(v=>v.trim()).filter(Boolean); }
+
+  // ── Chargement ───────────────────────────────────────────
+  async function load(){
+    const to = _iso(_addDays(_weekStart, 7));
+    _tasks = await WB3DB.listTaches({ from:'2000-01-01', to });   // capte aussi les retards
+    const set = new Set(_assignees);
+    _tasks.forEach(t => { if (t.assignee) set.add(t.assignee); });
+    _assignees = [...set].sort((a,b)=>a.localeCompare(b,'fr'));
+  }
+
+  // ── Résumé lisible d'une tâche (selon kind) ──────────────
+  function _summary(t){
+    const d = t.detail || {};
+    const kind = _meta(t.type).kind;
+    if (kind==='transfert'){
+      const s=(d.sources||[]).join(', ');
+      const dst=(d.destinations||[]).map(x=>x.cuve+(x.note?' ('+x.note+')':'')).join(', ');
+      return `${s||'?'} → ${dst||'?'}`;
+    }
+    if (kind==='sulfitage') return `${d.cuve||'?'} = ${_num(d.dose_kg)} ${d.unite||'kg'} ${d.produit||'SO₂ gaz'}`;
+    if (kind==='echantillon'){
+      const cat = d.categorie==='client'?'Client':'Labo';
+      const meta=[d.destinataire,d.format,d.traitement].filter(Boolean).join(' ');
+      return `${cat} ${meta} : ${(d.cuves||[]).join(', ')}`.replace(/\s+:\s*$/,'');
+    }
+    if (kind==='bib') return d.note || 'Mise en BIB';
+    if (kind==='liste') return `${(d.cuves||[]).join(', ')}${d.extra?' '+d.extra:''}`;
+    return t.titre || _meta(t.type).label;
+  }
+  function _subtitle(t){
+    const d=t.detail||{}; const kind=_meta(t.type).kind;
+    if (kind==='transfert' && d.libelle) return esc(d.libelle);
+    return '';
+  }
+
+  // Créneaux 3×8 (vendange). NULL = équipe unique (sans indication).
+  const CRENEAU_META = { matin:{label:'Matin',icon:'🌅'}, aprem:{label:'Après-midi',icon:'☀️'}, nuit:{label:'Nuit',icon:'🌙'} };
+  const CRENEAU_ORDER = ['matin','aprem','nuit'];
+  let _dragTaskId = null;
+
+  // Corps d'une journée : à plat, ou groupé par créneau si au moins une tâche en a un.
+  function _renderDayBody(dayTasks){
+    if(!dayTasks.length) return '<div class="plng-day-empty">Aucune tâche.</div>';
+    if(!dayTasks.some(t=>t.creneau)) return dayTasks.map(t=>_taskRow(t,false)).join('');
+    const groups={ matin:[], aprem:[], nuit:[], '':[] };
+    dayTasks.forEach(t=>{ groups[t.creneau||''].push(t); });
+    let out='';
+    CRENEAU_ORDER.concat(['']).forEach(cr=>{
+      const list=groups[cr]; if(!list.length) return;
+      const m=CRENEAU_META[cr];
+      out += `<div class="plng-creneau-hdr">${m?m.icon+' '+esc(m.label):'— Sans créneau'}</div>` + list.map(t=>_taskRow(t,false)).join('');
+    });
+    return out;
+  }
+
+  // ── Rendu semaine ────────────────────────────────────────
+  function render(){
+    document.getElementById('week-label').textContent = _fmtWeekLabel(_weekStart);
+    const hideDone = document.getElementById('hide-done')?.checked;
+    const today = _todayIso();
+
+    const late = _tasks.filter(t => t.statut==='a_faire' && t.date_prevue < today)
+                       .sort((a,b)=> a.date_prevue<b.date_prevue?-1:1);
+    const lateZone = document.getElementById('late-zone');
+    lateZone.innerHTML = late.length ? `<div class="plng-late">
+      <div class="plng-late-title">⏰ ${late.length} tâche(s) en retard</div>
+      ${late.map(t=>_taskRow(t,true)).join('')}</div>` : '';
+
+    const blocks = [];
+    for (let i=0;i<7;i++){
+      const dIso = _iso(_addDays(_weekStart,i));
+      let dayTasks = _tasks.filter(t=>t.date_prevue===dIso);
+      if (hideDone) dayTasks = dayTasks.filter(t=>t.statut!=='fait');
+      dayTasks.sort((a,b)=>(a.ordre-b.ordre)||(b.priorite-a.priorite)||(a.created_at<b.created_at?-1:1));
+      const isToday = dIso===today;
+      const nbAfaire = _tasks.filter(t=>t.date_prevue===dIso && t.statut==='a_faire').length;
+      blocks.push(`<div class="plng-day${isToday?' plng-day-today':''}">
+        <div class="plng-day-hdr">
+          <span class="plng-day-date">${esc(_fmtDayLong(dIso))}</span>
+          ${isToday?'<span class="plng-today-badge">Aujourd\'hui</span>':''}
+          <span class="plng-day-count">${nbAfaire} à faire</span>
+          <div class="plng-day-actions">
+            ${_canPlan ? `<button class="btn btn--secondary btn--sm" onclick="Planning.openTask(null,'${dIso}')">+ Tâche</button>` : ''}
+            <button class="btn btn--secondary btn--sm" onclick="Planning.openFiche('${dIso}')">🖨️ Fiche</button>
+          </div>
+        </div>
+        <div class="plng-day-body" ondragover="Planning.onDragOver(event)" ondragleave="Planning.onDragLeave(event)" ondrop="Planning.onDrop(event,'${dIso}')">
+          ${_renderDayBody(dayTasks)}
+        </div>
+      </div>`);
+    }
+    document.getElementById('content').innerHTML = `<div class="plng-days">${blocks.join('')}</div>`;
+  }
+
+  function _taskRow(t, showDate){
+    const m=_meta(t.type);
+    const cls=['plng-task'];
+    if (t.statut==='fait')   cls.push('done');
+    if (t.statut==='annule') cls.push('annule');
+    if (t.priorite===2) cls.push('plng-prio-2');
+    if (t.priorite===0) cls.push('plng-prio-0');
+
+    const sub=[];
+    if (showDate) sub.push(esc(new Date(t.date_prevue+'T00:00:00').toLocaleDateString('fr',{weekday:'short',day:'numeric',month:'short'})));
+    sub.push(esc(m.label));
+    const st=_subtitle(t); if (st) sub.push(st);
+
+    const chips=[];
+    if (t.creneau && CRENEAU_META[t.creneau]) chips.push(`<span class="plng-chip plng-chip-cr">${CRENEAU_META[t.creneau].icon} ${esc(CRENEAU_META[t.creneau].label)}</span>`);
+    if (t.assignee) chips.push(`<span class="plng-chip plng-chip-who">👤 ${esc(t.assignee)}</span>`);
+
+    const doneBtn = t.statut==='a_faire'
+      ? `<button class="icon-btn ok" title="Marquer fait" onclick="Planning.setStatut('${t.id}','fait')">✓</button>`
+      : `<button class="icon-btn" title="Rouvrir" onclick="Planning.setStatut('${t.id}','a_faire')">↺</button>`;
+
+    return `<div class="${cls.join(' ')}" draggable="true" ondragstart="Planning.onDragStart(event,'${t.id}')" ondragend="Planning.onDragEnd(event)">
+      <span class="plng-task-icon" title="Glisser pour déplacer">${m.icon}</span>
+      <div class="plng-task-main">
+        <div class="plng-task-title">${esc(_summary(t))}</div>
+        <div class="plng-task-sub">${sub.join(' · ')} ${chips.join(' ')}</div>
+        ${t.note ? `<div class="plng-task-note">${esc(t.note)}</div>` : ''}
+      </div>
+      <div class="plng-task-acts">
+        ${doneBtn}
+        ${_canPlan ? `<button class="icon-btn" title="Dupliquer" onclick="Planning.dupTask('${t.id}')">⧉</button>
+        <button class="icon-btn" title="Modifier" onclick="Planning.openTask('${t.id}')">✏️</button>
+        <button class="icon-btn del" title="Supprimer" onclick="Planning.removeTask('${t.id}')">🗑️</button>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // ── Duplication + glisser-déposer entre jours ───────────────
+  async function dupTask(id){
+    if (!_canPlan) { toast('Lecture seule : réservé aux responsables.', 'error'); return; }
+    try{ await WB3DB.copyTache(id); await load(); render(); toast('✅ Tâche dupliquée'); }
+    catch(e){ console.error('[planning] dupTask',e); WB3UI.alert('Échec : '+(WB3DB.errMsg?WB3DB.errMsg(e):(e.message||e)), { title:'Erreur' }); }
+  }
+  function onDragStart(e,id){ _dragTaskId=id; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',id);}catch(_){} e.currentTarget.classList.add('dragging'); }
+  function onDragEnd(){ _dragTaskId=null;
+    document.querySelectorAll('.plng-drop-over').forEach(el=>el.classList.remove('plng-drop-over'));
+    document.querySelectorAll('.plng-task.dragging').forEach(el=>el.classList.remove('dragging')); }
+  function onDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; e.currentTarget.classList.add('plng-drop-over'); }
+  function onDragLeave(e){ if(!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('plng-drop-over'); }
+  async function onDrop(e,dayIso){
+    e.preventDefault();
+    e.currentTarget.classList.remove('plng-drop-over');
+    const id=_dragTaskId || (e.dataTransfer&&e.dataTransfer.getData('text/plain'));
+    _dragTaskId=null;
+    if(!id) return;
+    if(!_canPlan){ toast('Lecture seule : déplacement réservé aux responsables.', 'error'); return; }
+    const t=_tasks.find(x=>x.id===id);
+    if(!t || t.date_prevue===dayIso) return;
+    try{ await WB3DB.updateTache(id,{ date_prevue:dayIso }); await load(); render(); toast('Tâche déplacée'); }
+    catch(err){ console.error('[planning] onDrop',err); WB3UI.alert('Échec du déplacement : '+(err.message||err), { title:'Erreur' }); }
+  }
+
+  // ── Modale tâche ─────────────────────────────────────────
+  function _emptyDraft(kind){
+    return { kind,
+      sources:[''], libelle:'', destinations:[{cuve:'',note:''}],
+      cuve:'', dose_kg:'', produit:'', produit_lot_id:'', dose_cible:'', dose_unite:'g_hl', unite:'',
+      categorie:'labo', format:'', traitement:'', destinataire:'', cuves:[''],
+      extra:'', note:'',
+      titre:'', contenant_id:'' };
+  }
+  function _draftFromTask(t){
+    const k=_meta(t.type).kind; const d=t.detail||{};
+    const dr=_emptyDraft(k);
+    dr.note = t.note || '';
+    if (k==='transfert'){ dr.sources=(d.sources&&d.sources.length?d.sources:['']); dr.libelle=d.libelle||''; dr.destinations=(d.destinations&&d.destinations.length?d.destinations.map(x=>({cuve:x.cuve||'',note:x.note||''})):[{cuve:'',note:''}]); }
+    else if (k==='sulfitage'){ dr.cuve=d.cuve||''; dr.dose_kg=(d.dose_kg!=null?d.dose_kg:''); dr.produit=d.produit||''; dr.produit_lot_id=d.produit_lot_id||''; dr.dose_cible=(d.dose_cible!=null?d.dose_cible:''); dr.dose_unite=d.dose_unite||'g_hl'; dr.unite=d.unite||''; }
+    else if (k==='echantillon'){ dr.categorie=d.categorie||'labo'; dr.format=d.format||''; dr.traitement=d.traitement||''; dr.destinataire=d.destinataire||''; dr.cuves=(d.cuves&&d.cuves.length?d.cuves:['']); }
+    else if (k==='bib'){ dr.note=d.note||t.note||'feuille annexe'; }
+    else if (k==='liste'){ dr.cuves=(d.cuves&&d.cuves.length?d.cuves:['']); dr.extra=d.extra||''; }
+    else { dr.titre=t.titre||''; dr.contenant_id=t.contenant_id||''; }
+    return dr;
+  }
+
+  function openTask(id=null, presetDate=null, presetCuve=null){
+    if (!_canPlan) { toast('Lecture seule : créer/modifier une tâche est réservé aux responsables. Vous pouvez cocher « fait ».', 'error'); return; }
+    _editId = id;
+    const t = id ? _tasks.find(x=>x.id===id) : null;
+    const type = t ? t.type : 'transfert';
+    const dateVal = t ? t.date_prevue : (presetDate || _todayIso());
+    _draft = t ? _draftFromTask(t) : _emptyDraft(_meta(type).kind);
+
+    // Deep-link depuis une cuve (C4) : pré-remplit le champ cuve selon le type
+    // par défaut. L'utilisateur reste libre de changer de type (onTypeChange
+    // réinitialise le détail).
+    if (!t && presetCuve){
+      const k=_meta(type).kind;
+      if (k==='transfert')                       _draft.sources=[presetCuve];
+      else if (k==='sulfitage')                  _draft.cuve=presetCuve;
+      else if (k==='echantillon' || k==='liste') _draft.cuves=[presetCuve];
+    }
+
+    const typeOpts = Object.entries(TYPE_META).map(([k,v]) =>
+      `<option value="${k}"${type===k?' selected':''}>${v.icon} ${v.label}</option>`).join('');
+    const prioOpts = [0,1,2].map(p => `<option value="${p}"${(t?t.priorite:1)===p?' selected':''}>${PRIO_LABEL[p]}</option>`).join('');
+    const assigneeList = _assignees.map(a=>`<option value="${esc(a)}">`).join('');
+    // Datalist cuve ENRICHI (#4) : recherche par n° + infos (vol/cap · lot · millésime).
+    const cuveList = _cuves.map(c=>`<option value="${esc(c.contenant_nom)}">${esc(_cuveOptLabel(c))}</option>`).join('');
+
+    const ov=document.createElement('div');
+    ov.id='task-overlay';
+    ov.innerHTML = `
+      <div class="drawer-backdrop" id="tk-backdrop"></div>
+      <aside class="drawer plng-drawer" id="tk-drawer">
+        <div class="drawer-head">
+          <h3>${id?'✏️ Modifier la tâche':'📅 Nouvelle tâche'}</h3>
+          <button class="close-btn" onclick="Planning.closeTask()" aria-label="Fermer">×</button>
+        </div>
+        <div class="drawer-body">
+          <div class="drawer-section">
+            <div class="drawer-section-title">Planification</div>
+            <div class="drawer-section-content">
+              <div class="plng-row">
+                <div class="plng-field"><label>Date *</label><input type="date" id="tk-date" value="${dateVal}"></div>
+                <div class="plng-field"><label>Type</label><select id="tk-type" onchange="Planning.onTypeChange()">${typeOpts}</select></div>
+                <div class="plng-field"><label>Priorité</label><select id="tk-prio">${prioOpts}</select></div>
+              </div>
+              <div class="plng-row" style="margin-top:var(--space-2)">
+                <div class="plng-field"><label>Assigné à</label>
+                  <input type="text" id="tk-who" list="assignee-list" placeholder="Nom" value="${t?esc(t.assignee||''):''}">
+                </div>
+                ${_hasCreneau ? `<div class="plng-field"><label>Créneau (3×8)</label>
+                  <select id="tk-creneau">
+                    <option value="">— Sans (équipe unique)</option>
+                    <option value="matin"${t&&t.creneau==='matin'?' selected':''}>🌅 Matin</option>
+                    <option value="aprem"${t&&t.creneau==='aprem'?' selected':''}>☀️ Après-midi</option>
+                    <option value="nuit"${t&&t.creneau==='nuit'?' selected':''}>🌙 Nuit</option>
+                  </select>
+                </div>` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="drawer-section">
+            <div class="drawer-section-title">Détails de l'opération</div>
+            <div id="tk-detail" class="tk-detail"></div>
+          </div>
+          <datalist id="assignee-list">${assigneeList}</datalist>
+          <datalist id="cuve-names">${cuveList}</datalist>
+        </div>
+        <div class="drawer-foot">
+          ${id?`<button class="btn btn--secondary" onclick="Planning.setStatut('${id}','annule',true)">Annuler la tâche</button>`:''}
+          <div class="actions-right">
+            <button class="btn btn--secondary" onclick="Planning.closeTask()">Fermer</button>
+            <button class="btn btn--primary" onclick="Planning.saveTask()">💾 Enregistrer</button>
+          </div>
+        </div>
+      </aside>`;
+    document.body.appendChild(ov);
+    document.getElementById('tk-backdrop').addEventListener('click', closeTask);
+    requestAnimationFrame(()=>{
+      document.getElementById('tk-backdrop')?.classList.add('open');
+      document.getElementById('tk-drawer')?.classList.add('open');
+    });
+    _renderDetail();
+  }
+  function closeTask(){
+    const dr=document.getElementById('tk-drawer'), bd=document.getElementById('tk-backdrop');
+    if(dr) dr.classList.remove('open');
+    if(bd) bd.classList.remove('open');
+    setTimeout(()=>{ document.getElementById('task-overlay')?.remove(); }, 220);
+    _draft=null;
+  }
+
+  function onTypeChange(){
+    _syncDraft();
+    const kind=_meta(document.getElementById('tk-type').value).kind;
+    if (_draft.kind!==kind){ const note=_draft.note; _draft=_emptyDraft(kind); _draft.note=note; }
+    _renderDetail();
+  }
+
+  // Construit les champs spécifiques au type courant
+  function _renderDetail(){
+    const box=document.getElementById('tk-detail'); if(!box) return;
+    const k=_draft.kind; let html='';
+
+    if (k==='transfert'){
+      html = `<div class="tk-detail-title">🔀 Transfert</div>
+        <div class="plng-field"><label>Cuves sources</label>
+          <input type="text" id="d-sources" class="cuve-combo" data-multi="1" autocomplete="off" value="${esc(_draft.sources.join(', '))}" placeholder="Rechercher n°, lot ou millésime…" oninput="Planning.onCuveField('d-sources','d-src-info')">
+          <span class="tk-hint">Séparer par des virgules. Plusieurs sources = assemblage.</span>
+          <div id="d-src-info" class="cuve-recap"></div>
+        </div>
+        <div class="plng-field"><label>Libellé (lot / vrac)</label>
+          <input type="text" id="d-libelle" value="${esc(_draft.libelle)}" placeholder="ex. Viognier vrac v.3"></div>
+        <div class="plng-field"><label>Destinations</label>
+          <div class="tk-rows" id="d-dest">${_draft.destinations.map((x,i)=>_destRow(x,i)).join('')}</div>
+          <button class="btn btn--secondary btn--sm tk-add" onclick="Planning.addDest()">+ Destination</button>
+          <span class="tk-hint">Annotation : plein, solde, à souder, analyse VS+SO₂…</span>
+          <div id="d-dst-info" class="cuve-recap"></div>
+        </div>`;
+    } else if (k==='sulfitage'){
+      const prodOpts=_prodOptions(_draft.produit_lot_id);
+      const noProd=_produitLots.length===0;
+      const du=_draft.dose_unite||'g_hl';
+      html = `<div class="tk-detail-title">⚗️ Sulfitage</div>
+        <div class="plng-field"><label>Cuve</label>
+          <input type="text" id="d-cuve" class="cuve-combo" autocomplete="off" value="${esc(_draft.cuve)}" placeholder="Rechercher n°, lot ou millésime…" oninput="Planning.onCuveField('d-cuve','d-cuve-info');Planning.planDose()">
+          <div id="d-cuve-info" class="cuve-recap"></div></div>
+        <div class="plng-field"><label>Produit</label>
+          <select id="d-prod" onchange="Planning.planDose()">
+            <option value="">${noProd?'— aucun produit en stock —':'— Choisir un produit —'}</option>${prodOpts}
+          </select>
+          ${noProd?'<span class="tk-hint">Ajoute des produits dans 🧪 Produits pour activer le calcul.</span>':''}
+        </div>
+        <div class="plng-row">
+          <div class="plng-field"><label>Dose cible</label>
+            <input type="number" step="any" id="d-dose-cible" value="${esc(_draft.dose_cible)}" placeholder="ex. 3" oninput="Planning.planDose()"></div>
+          <div class="plng-field"><label>Unité</label>
+            <select id="d-dunit" onchange="Planning.planDose()">
+              <option value="g_hl"${du==='g_hl'?' selected':''}>g/hL</option>
+              <option value="mg_l"${du==='mg_l'?' selected':''}>mg/L</option>
+              <option value="cl_hl"${du==='cl_hl'?' selected':''}>cL/hL</option>
+              <option value="ml_hl"${du==='ml_hl'?' selected':''}>mL/hL</option>
+            </select></div>
+          <div class="plng-field"><label>Quantité</label>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" step="any" id="d-qty" value="${esc(_draft.dose_kg)}" placeholder="auto" style="min-width:0">
+              <span id="d-qty-unit" class="tk-hint">${esc(_draft.unite||'')}</span>
+            </div></div>
+        </div>
+        <div id="d-dose-warn" class="tk-hint" style="min-height:16px"></div>`;
+    } else if (k==='echantillon'){
+      html = `<div class="tk-detail-title">🧪 Échantillons</div>
+        <div class="plng-row">
+          <div class="plng-field"><label>Catégorie</label>
+            <select id="d-cat">
+              <option value="labo"${_draft.categorie==='labo'?' selected':''}>Labo</option>
+              <option value="client"${_draft.categorie==='client'?' selected':''}>Client</option>
+            </select></div>
+          <div class="plng-field"><label>Format</label><input type="text" id="d-format" value="${esc(_draft.format)}" placeholder="ex. 20cl / 75cl"></div>
+          <div class="plng-field"><label>Traitement</label><input type="text" id="d-trait" value="${esc(_draft.traitement)}" placeholder="ex. VS+SO₂"></div>
+        </div>
+        <div class="plng-field"><label>Destinataire (si client)</label><input type="text" id="d-dest-nom" value="${esc(_draft.destinataire)}" placeholder="ex. Castan"></div>
+        <div class="plng-field"><label>Cuves prélevées</label>
+          <input type="text" id="d-cuves" class="cuve-combo" data-multi="1" autocomplete="off" value="${esc(_draft.cuves.join(', '))}" placeholder="Rechercher n°, lot ou millésime…">
+          <span class="tk-hint">Séparer par des virgules.</span></div>`;
+    } else if (k==='bib'){
+      html = `<div class="tk-detail-title">📦 Mise en BIB</div>
+        <div class="plng-field"><label>Précision</label><input type="text" id="d-note" value="${esc(_draft.note)}" placeholder="ex. feuille annexe"></div>`;
+    } else if (k==='liste'){
+      html = `<div class="tk-detail-title">${esc(_meta(document.getElementById('tk-type').value).label)}</div>
+        <div class="plng-field"><label>Cuves (au km)</label>
+          <textarea id="d-cuves" class="cuve-combo" data-multi="1" autocomplete="off" rows="3" placeholder="Rechercher n°, lot ou millésime — ou saisir à la suite (virgule / espace / retour ligne)">${esc(_draft.cuves.join(', '))}</textarea>
+          <span class="tk-hint">Virgule, espace ou retour à la ligne — comme tu veux.</span></div>
+        <div class="plng-field"><label>Complément</label><input type="text" id="d-extra" value="${esc(_draft.extra)}" placeholder="ex. + VS+SO₂"></div>`;
+    } else { // simple
+      const cuveOpts = ['<option value="">— Aucune cuve —</option>'].concat(
+        _cuves.map(c=>`<option value="${esc(c.contenant_id)}"${_draft.contenant_id===c.contenant_id?' selected':''}>${esc(_cuveOptLabel(c))}</option>`)
+      ).join('');
+      html = `<div class="tk-detail-title">${esc(_meta(document.getElementById('tk-type').value).label)}</div>
+        <div class="plng-field"><label>Intitulé</label><input type="text" id="d-titre" value="${esc(_draft.titre)}" placeholder="Décrire l'opération"></div>
+        <div class="plng-field"><label>Cuve concernée</label>
+          <select id="d-contenant" onchange="if(window.WB3CuveInfo)WB3CuveInfo.show(this.value,'d-cont-info')">${cuveOpts}</select>
+          <div id="d-cont-info"></div></div>`;
+    }
+
+    // Note commune (sauf bib où la précision tient lieu de note)
+    if (k!=='bib'){
+      html += `<div class="plng-field"><label>Note / remarque</label>
+        <textarea id="d-note" rows="2" placeholder="Quantités, consignes…">${esc(_draft.note)}</textarea></div>`;
+    }
+    box.innerHTML = html;
+    _refreshCuveRecaps();   // info-cuve pré-remplie (édition)
+  }
+
+  // ── Info-cuve dans le planning (contenance · vol · lot · millésime) ──
+  function _cuveByName(name){
+    const n=String(name||'').trim().toLowerCase();
+    if(!n) return null;
+    return _cuves.find(c=>String(c.contenant_nom||'').trim().toLowerCase()===n) || null;
+  }
+  // Noms de cuves référencés par une tâche (toutes formes de détail confondues).
+  function _taskCuveNames(t){
+    const d=t.detail||{}; const out=[];
+    if(Array.isArray(d.sources)) out.push(...d.sources);
+    if(Array.isArray(d.cuves))   out.push(...d.cuves);
+    if(d.cuve) out.push(d.cuve);
+    if(Array.isArray(d.destinations)) d.destinations.forEach(x=>{ if(x&&x.cuve) out.push(x.cuve); });
+    return out.map(s=>String(s||'').trim().toLowerCase()).filter(Boolean);
+  }
+  // Nb de tâches à faire (≥ aujourd'hui) déjà prévues sur cette cuve, hors tâche en cours d'édition.
+  function _cuvePlannedCount(cuveName){
+    const n=String(cuveName||'').trim().toLowerCase(); if(!n) return 0;
+    const _today=_todayIso();
+    return _tasks.filter(t=> t.id!==_editId && t.statut==='a_faire'
+      && t.date_prevue>=_today && _taskCuveNames(t).includes(n)).length;
+  }
+  function _cuveChip(c){
+    const vol=c.volume_actuel_hl!=null?_num(c.volume_actuel_hl):'?';
+    const cap=c.capacite_hl!=null?_num(c.capacite_hl):'?';
+    const lot=c.lot_nom?`${esc(c.lot_nom)}${c.millesime?' '+esc(c.millesime):''}`:'vide';
+    // Repère ITALIQUE : cuve déjà engagée par une autre tâche prévue → éviter
+    // de programmer inconsciemment une opération conflictuelle.
+    const np=_cuvePlannedCount(c.contenant_nom);
+    const warn=np>0?` <i style="color:#b45309">⚠ ${np} tâche${np>1?'s':''} déjà prévue${np>1?'s':''}</i>`:'';
+    return `<span class="cuve-mini">🛢 <b>${esc(c.contenant_nom)}</b> · ${vol}/${cap} hL · ${lot}${warn}</span>`;
+  }
+  // Label enrichi pour le menu déroulant cuve : n° · vol/cap hL · lot millésime.
+  function _cuveOptLabel(c){
+    const vol=c.volume_actuel_hl!=null?_num(c.volume_actuel_hl):'?';
+    const cap=c.capacite_hl!=null?_num(c.capacite_hl):'?';
+    const lot=c.lot_nom?` · ${c.lot_nom}${c.millesime?' '+c.millesime:''}`:' · vide';
+    return `${c.contenant_nom} · ${vol}/${cap} hL${lot}`;
+  }
+
+  // ── Combobox cuve recherchable (par n° / lot / millésime) ───────────
+  // S'attache (délégation) à tout champ .cuve-combo. data-multi="1" = champ
+  // multi-cuves (sources, listes) → ajoute à la suite ; sinon remplace.
+  const _COMBO = { input:null, items:[], hi:0 };
+  function _comboPanel(){
+    let p=document.getElementById('cuve-combo-panel');
+    if(!p){ p=document.createElement('div'); p.id='cuve-combo-panel'; p.className='cuve-combo-panel'; document.body.appendChild(p); }
+    return p;
+  }
+  function _comboTerm(inp){
+    const v=inp.value||'';
+    if(inp.dataset.multi==='1'){ const seg=v.split(/[,;\n]/); return (seg[seg.length-1]||'').trim(); }
+    return v.trim();
+  }
+  function _comboMatches(term){
+    const t=term.toLowerCase();
+    const list = !t ? _cuves : _cuves.filter(c=>
+      String(c.contenant_nom||'').toLowerCase().includes(t) ||
+      String(c.lot_nom||'').toLowerCase().includes(t) ||
+      String(c.millesime||'').toLowerCase().includes(t));
+    return list.slice(0,50);
+  }
+  function _comboShow(inp){
+    _COMBO.input=inp;
+    const p=_comboPanel();
+    _COMBO.items=_comboMatches(_comboTerm(inp)); _COMBO.hi=0;
+    p.innerHTML = _COMBO.items.length ? _COMBO.items.map((c,i)=>{
+      const vol=c.volume_actuel_hl!=null?_num(c.volume_actuel_hl):'?';
+      const cap=c.capacite_hl!=null?_num(c.capacite_hl):'?';
+      const lot=c.lot_nom?`${esc(c.lot_nom)}${c.millesime?' '+esc(c.millesime):''}`:'<span class="cc-vide">vide</span>';
+      return `<div class="cc-row${i===0?' hi':''}" data-i="${i}"><span class="cc-nom">${esc(c.contenant_nom)}</span><span class="cc-meta">${vol}/${cap} hL · ${lot}</span></div>`;
+    }).join('') : '<div class="cc-empty">Aucune cuve trouvée</div>';
+    const r=inp.getBoundingClientRect();
+    p.style.left=(r.left+window.scrollX)+'px';
+    p.style.top=(r.bottom+window.scrollY+3)+'px';
+    p.style.minWidth=Math.max(r.width,280)+'px';
+    p.style.display='block';
+  }
+  function _comboHide(){ const p=document.getElementById('cuve-combo-panel'); if(p) p.style.display='none'; _COMBO.input=null; }
+  function _comboHi(){ const p=document.getElementById('cuve-combo-panel'); if(p)[...p.querySelectorAll('.cc-row')].forEach((el,i)=>el.classList.toggle('hi',i===_COMBO.hi)); }
+  function _comboPick(i){
+    const inp=_COMBO.input, c=_COMBO.items[i]; if(!inp||!c) return;
+    if(inp.dataset.multi==='1'){
+      const v=inp.value||'';
+      const idx=Math.max(v.lastIndexOf(','),v.lastIndexOf(';'),v.lastIndexOf('\n'));
+      const prefix = idx>=0 ? v.slice(0,idx+1).replace(/\s*$/,' ') : '';
+      inp.value = prefix + c.contenant_nom + ', ';
+    } else {
+      inp.value = c.contenant_nom;
+    }
+    inp.dispatchEvent(new Event('input',{bubbles:true}));
+    _comboHide();
+    inp.focus();
+  }
+  // Listeners délégués (posés une seule fois au chargement du module).
+  document.addEventListener('focusin', e=>{ const el=e.target; if(el.classList&&el.classList.contains('cuve-combo')) _comboShow(el); });
+  document.addEventListener('input',   e=>{ const el=e.target; if(el.classList&&el.classList.contains('cuve-combo')&&_COMBO.input===el) _comboShow(el); });
+  document.addEventListener('mousedown', e=>{
+    const row=e.target.closest&&e.target.closest('#cuve-combo-panel .cc-row');
+    if(row){ e.preventDefault(); _comboPick(parseInt(row.dataset.i,10)); return; }
+    if(_COMBO.input && e.target!==_COMBO.input && !(e.target.closest&&e.target.closest('#cuve-combo-panel'))) _comboHide();
+  });
+  document.addEventListener('keydown', e=>{
+    const p=document.getElementById('cuve-combo-panel');
+    if(!_COMBO.input || !p || p.style.display!=='block') return;
+    if(e.key==='Escape'){ _comboHide(); }
+    else if(e.key==='ArrowDown'){ e.preventDefault(); _COMBO.hi=Math.min(_COMBO.hi+1,_COMBO.items.length-1); _comboHi(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); _COMBO.hi=Math.max(_COMBO.hi-1,0); _comboHi(); }
+    else if(e.key==='Enter' && _COMBO.items.length){ e.preventDefault(); _comboPick(_COMBO.hi); }
+  });
+  document.addEventListener('focusout', e=>{ if(e.target===_COMBO.input){ const inp=e.target; setTimeout(()=>{ if(document.activeElement!==inp) _comboHide(); }, 120); } });
+  function _renderCuveRecap(names, containerId){
+    const el=document.getElementById(containerId); if(!el) return;
+    const chips=names.map(_cuveByName).filter(Boolean).map(_cuveChip);
+    el.innerHTML=chips.join('');
+  }
+  function onCuveField(inputId, containerId){
+    const v=document.getElementById(inputId)?.value||'';
+    _renderCuveRecap(_parseList(v), containerId);
+  }
+  function onDestInput(){
+    const names=[...document.querySelectorAll('#d-dest .d-dcuve')].map(i=>i.value);
+    _renderCuveRecap(names, 'd-dst-info');
+  }
+  function _refreshCuveRecaps(){
+    const g=id=>document.getElementById(id);
+    if(g('d-src-info'))  onCuveField('d-sources','d-src-info');
+    if(g('d-dst-info'))  onDestInput();
+    if(g('d-cuve-info')) onCuveField('d-cuve','d-cuve-info');
+    if(g('d-cont-info')){ const s=g('d-contenant'); if(s&&s.value&&window.WB3CuveInfo) WB3CuveInfo.show(s.value,'d-cont-info'); }
+    if(g('d-qty')) planDose();   // calcule la quantité à l'ouverture/édition
+  }
+
+  // ── Sulfitage : dropdown produit (#5) + calcul de dose (#4) ──────────
+  function _prodOptions(selId){
+    const today=new Date().toISOString().slice(0,10);
+    return _produitLots.map(pl=>{
+      const pc=pl.produits_catalogue||{};
+      const conc=pc.concentration_libelle||(pc.concentration!=null?pc.concentration+' g/'+(pc.unite_stock||'u'):'');
+      const exp=pl.dluo&&pl.dluo<today?' ⚠ DLUO '+pl.dluo:'';
+      const lab=`${pc.nom||'—'}${conc?' ('+conc+')':''}${pl.numero_lot?' [lot '+pl.numero_lot+']':''}${exp}`;
+      return `<option value="${esc(pl.id)}"${selId===pl.id?' selected':''}>${esc(lab)}</option>`;
+    }).join('');
+  }
+  function _sig3(x){
+    if(!isFinite(x)||x===0) return 0;
+    const m=Math.pow(10, 2-Math.floor(Math.log10(Math.abs(x))));
+    return Math.round(x*m)/m;
+  }
+  // Conversion dose cible → quantité (même formule que cuverie/operations).
+  function planDose(){
+    if(!_draft || _draft.kind!=='sulfitage') return;
+    const g=id=>document.getElementById(id);
+    _draft.cuve=g('d-cuve')?.value.trim()||'';
+    _draft.produit_lot_id=g('d-prod')?.value||'';
+    _draft.dose_cible=g('d-dose-cible')?.value||'';
+    _draft.dose_unite=g('d-dunit')?.value||'g_hl';
+    const pl=_produitLots.find(x=>x.id===_draft.produit_lot_id);
+    const pc=pl?.produits_catalogue;
+    if(pc){ _draft.produit=pc.nom||_draft.produit; _draft.unite=pc.unite_stock||_draft.unite; }
+    const warn=g('d-dose-warn'), out=g('d-qty'), um=g('d-qty-unit');
+    if(um) um.textContent=_draft.unite||'';
+    const cuve=_cuveByName(_draft.cuve);
+    const vol=cuve?cuve.volume_actuel_hl:null;
+    const dose=parseFloat(String(_draft.dose_cible).replace(',','.'));
+    if(!pc || pc.concentration==null || !(vol>0) || !(dose>0)){
+      if(warn) warn.textContent = (_draft.produit_lot_id && pc && pc.concentration==null)
+        ? 'ℹ Produit sans concentration : saisir la quantité à la main.'
+        : (!(vol>0)&&_draft.cuve ? 'ℹ Volume de la cuve inconnu : saisir la quantité à la main.' : '');
+      return;  // n'écrase pas une quantité saisie manuellement
+    }
+    const u=_draft.dose_unite;
+    const mgL = u==='g_hl'?dose*10 : u==='cl_hl'?dose*pc.concentration/10 : u==='ml_hl'?dose*pc.concentration/100 : dose;
+    const qty=_sig3((mgL*vol*100)/(pc.concentration*1000));
+    _draft.dose_kg=qty; _draft.unite=pc.unite_stock||'';
+    if(out) out.value=qty;
+    if(um) um.textContent=_draft.unite;
+    const overMax = pc.dose_max!=null && mgL>Number(pc.dose_max);
+    if(warn) warn.innerHTML = overMax
+      ? `<span style="color:var(--color-danger)">⚠ ${_num(mgL)} mg/L &gt; dose max ${esc(pc.dose_max)} mg/L</span>`
+      : `≈ ${qty} ${esc(_draft.unite)} pour ${_num(vol)} hL`;
+  }
+
+  function _destRow(x,i){
+    return `<div class="tk-row">
+      <input class="d-dcuve cuve-combo" autocomplete="off" value="${esc(x.cuve)}" placeholder="Rechercher cuve / IBC…" oninput="Planning.onDestInput()">
+      <input class="d-dnote" value="${esc(x.note)}" placeholder="annotation (plein, solde, analyse…)">
+      <button class="icon-btn del tk-row-rm" title="Retirer" onclick="Planning.rmDest(${i})">✕</button>
+    </div>`;
+  }
+  function addDest(){ _syncDraft(); _draft.destinations.push({cuve:'',note:''}); _renderDetail(); }
+  function rmDest(i){ _syncDraft(); _draft.destinations.splice(i,1); if(!_draft.destinations.length) _draft.destinations=[{cuve:'',note:''}]; _renderDetail(); }
+
+  // Lit les champs du DOM dans _draft (avant re-render ou sauvegarde)
+  function _syncDraft(){
+    if(!_draft) return;
+    const g=id=>document.getElementById(id);
+    const k=_draft.kind;
+    if (k==='transfert'){
+      _draft.sources=_parseList(g('d-sources')?.value);
+      _draft.libelle=g('d-libelle')?.value||'';
+      _draft.destinations=[...document.querySelectorAll('#d-dest .tk-row')].map(r=>({
+        cuve:r.querySelector('.d-dcuve').value.trim(),
+        note:r.querySelector('.d-dnote').value.trim() }));
+      if(!_draft.destinations.length) _draft.destinations=[{cuve:'',note:''}];
+    } else if (k==='sulfitage'){
+      _draft.cuve=g('d-cuve')?.value.trim()||'';
+      _draft.produit_lot_id=g('d-prod')?.value||'';
+      const pl=_produitLots.find(x=>x.id===_draft.produit_lot_id);
+      const pc=pl?.produits_catalogue;
+      if(pc){ _draft.produit=pc.nom||_draft.produit; _draft.unite=pc.unite_stock||_draft.unite; }
+      _draft.dose_cible=g('d-dose-cible')?.value||'';
+      _draft.dose_unite=g('d-dunit')?.value||'g_hl';
+      _draft.dose_kg=g('d-qty')?.value||'';
+    } else if (k==='echantillon'){
+      _draft.categorie=g('d-cat')?.value||'labo';
+      _draft.format=g('d-format')?.value.trim()||'';
+      _draft.traitement=g('d-trait')?.value.trim()||'';
+      _draft.destinataire=g('d-dest-nom')?.value.trim()||'';
+      _draft.cuves=_parseList(g('d-cuves')?.value);
+    } else if (k==='bib'){
+      _draft.note=g('d-note')?.value.trim()||'';
+    } else if (k==='liste'){
+      _draft.cuves=_parseList(g('d-cuves')?.value);
+      _draft.extra=g('d-extra')?.value.trim()||'';
+    } else {
+      _draft.titre=g('d-titre')?.value.trim()||'';
+      _draft.contenant_id=g('d-contenant')?.value||'';
+    }
+    if (k!=='bib'){ const n=g('d-note'); if(n) _draft.note=n.value; }
+  }
+
+  // Construit { detail, titre, contenant_* } pour la base
+  function _buildFields(){
+    const k=_draft.kind; const out={ detail:{}, titre:null, contenant_id:null, contenant_nom:null, lot_nom:null, note:null };
+    out.note = (_draft.note||'').trim() || null;
+    if (k==='transfert'){
+      out.detail={ sources:_draft.sources, libelle:_draft.libelle.trim(),
+        destinations:_draft.destinations.filter(d=>d.cuve||d.note) };
+    } else if (k==='sulfitage'){
+      out.detail={ cuve:_draft.cuve, produit:_draft.produit||'SO₂ gaz', produit_lot_id:_draft.produit_lot_id||null,
+        dose_cible:_draft.dose_cible===''?null:parseFloat(String(_draft.dose_cible).replace(',','.')),
+        dose_unite:_draft.dose_unite||'g_hl',
+        dose_kg:_draft.dose_kg===''?null:parseFloat(String(_draft.dose_kg).replace(',','.')),
+        unite:_draft.unite||'kg' };
+    } else if (k==='echantillon'){
+      out.detail={ categorie:_draft.categorie, format:_draft.format, traitement:_draft.traitement, destinataire:_draft.destinataire, cuves:_draft.cuves };
+    } else if (k==='bib'){
+      out.detail={ note:_draft.note }; out.note=null;
+    } else if (k==='liste'){
+      out.detail={ cuves:_draft.cuves, extra:_draft.extra };
+    } else {
+      out.titre=_draft.titre||null;
+      const cuveId=_draft.contenant_id||null;
+      const cuve=cuveId?_cuves.find(c=>c.contenant_id===cuveId):null;
+      out.contenant_id=cuveId; out.contenant_nom=cuve?cuve.contenant_nom:null; out.lot_nom=cuve?(cuve.lot_nom||null):null;
+    }
+    return out;
+  }
+
+  async function saveTask(){
+    if (!_canPlan) { toast('Lecture seule : réservé aux responsables.', 'error'); return; }
+    _syncDraft();
+    const date=document.getElementById('tk-date').value;
+    if(!date){ WB3UI.alert('La date est requise.', { title:'Champ manquant' }); return; }
+    const fields = Object.assign({
+      date_prevue:date,
+      type:document.getElementById('tk-type').value,
+      priorite:parseInt(document.getElementById('tk-prio').value,10),
+      assignee:document.getElementById('tk-who').value.trim()||null,
+      // creneau : seulement si la colonne existe (mig 070) — sinon on n'envoie pas la clé
+      ...(_hasCreneau ? { creneau:document.getElementById('tk-creneau')?.value||null } : {}),
+    }, _buildFields());
+    try{
+      if(_editId) await WB3DB.updateTache(_editId, fields);
+      else        await WB3DB.createTache(fields);
+      closeTask(); await load(); render();
+    }catch(e){ console.error('[planning] saveTask',e); WB3UI.alert('Échec : '+(WB3DB.errMsg?WB3DB.errMsg(e):(e.message||e)), { title:'Erreur' }); }
+  }
+
+  async function setStatut(id,statut,fromModal=false){
+    try{ await WB3DB.setTacheStatut(id,statut); if(fromModal) closeTask(); await load(); render(); }
+    catch(e){ console.error('[planning] setStatut',e); WB3UI.alert('Échec : '+(WB3DB.errMsg?WB3DB.errMsg(e):(e.message||e)), { title:'Erreur' }); }
+  }
+  async function removeTask(id){
+    const ok = await WB3UI.confirm('Supprimer définitivement cette tâche ?', { title:'Supprimer la tâche', okText:'Supprimer', danger:true });
+    if(!ok) return;
+    try{ await WB3DB.deleteTache(id); await load(); render(); }
+    catch(e){ console.error('[planning] removeTask',e); WB3UI.alert('Suppression refusée (créateur ou privilégié uniquement).', { title:'Refusé' }); }
+  }
+
+  // ── Fiche de travail (format Richemer) ───────────────────
+  async function openFiche(dateIso){
+    let fiche=null;
+    try{ fiche = await WB3DB.getOrCreateFicheTravail(dateIso, ''); }
+    catch(e){ console.warn('[planning] fiche', e); }
+
+    const all=_tasks.filter(t=>t.date_prevue===dateIso && t.statut!=='annule');
+    all.sort((a,b)=>(a.ordre-b.ordre)||(b.priorite-a.priorite)||(a.created_at<b.created_at?-1:1));
+
+    const consignes=fiche?.consignes||'';
+    const numero=fiche?.numero!=null?fiche.numero:'—';
+    const version=fiche?.version!=null?fiche.version:1;
+    const brand=_tenant?esc(_tenant.nom):'Cave';
+
+    // Une fiche par créneau présent (matin/aprem/nuit/sans). Page séparée à l'impression.
+    const groups=[];
+    CRENEAU_ORDER.concat(['']).forEach(cr=>{
+      const list=all.filter(t=>(t.creneau||'')===cr);
+      if(list.length) groups.push({cr,list});
+    });
+    if(!groups.length) groups.push({cr:'',list:[]});
+    const multi=groups.length>1;
+
+    const docs=groups.map((g,gi)=>{
+      const m=g.cr&&CRENEAU_META[g.cr];
+      const team=m ? `<div class="fiche-team">${m.icon} ${esc(m.label)}</div>`
+                   : (multi?'<div class="fiche-team">— Sans équipe</div>':'');
+      const body=g.list.length ? _ficheSections(g.list) : '<div class="fiche-empty">Aucune tâche planifiée.</div>';
+      const brk=gi<groups.length-1 ? ' fiche-doc-break' : '';
+      return `<div class="fiche-doc${brk}">
+        <div class="fiche-head">
+          <div class="fiche-brand"><div><b>${brand}</b><small>Fiche de travail</small></div></div>
+          <div class="fiche-head-mid">
+            <div class="t">FICHE DE TRAVAIL DU</div>
+            <div class="d">${esc(_fmtDateNum(dateIso))}</div>
+            ${team}
+          </div>
+          <div class="fiche-meta">
+            <div><span class="k">Version :</span><span class="v">${esc(version)}</span></div>
+            <div><span class="k">Date d'émission :</span><span class="v">${TEMPLATE_EMISSION}</span></div>
+            <div><span class="k">Date de révision :</span><span class="v"></span></div>
+            <div><span class="k">N° :</span><span class="v">${esc(numero)}</span></div>
+          </div>
+        </div>
+        <div class="fiche-consignes-ro">${esc(consignes)||'&nbsp;'}</div>
+        ${body}
+        <div class="fiche-foot">
+          <span>WineBlender 3 — éditée le ${new Date().toLocaleDateString('fr')}</span>
+          <span>Visa : ____________________</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    const root=document.getElementById('fiche-print-root');
+    root.innerHTML = `<div class="fiche-overlay" id="fiche-overlay">
+      <div class="fiche-sheet">
+        <div class="fiche-toolbar">
+          <strong>Fiche de travail — ${esc(_fmtDayLong(dateIso))}</strong>
+          <span class="tk-hint">N° ${numero}${multi?` · ${groups.length} fiches (1 par équipe)`:''}</span>
+          <div style="flex:1"></div>
+          <button class="btn btn--secondary btn--sm" onclick="Planning.saveConsignes('${dateIso}')">💾 Consignes</button>
+          <button class="btn btn--primary btn--sm" onclick="window.print()">🖨️ Imprimer</button>
+          <button class="btn btn--secondary btn--sm" onclick="Planning.closeFiche()">Fermer</button>
+        </div>
+        <div class="fiche-consignes-bar">
+          <label class="tk-hint">Consignes générales du jour (imprimées sur chaque fiche)</label>
+          <textarea id="fiche-consignes-input" placeholder="Consignes générales…">${esc(consignes)}</textarea>
+        </div>
+        ${docs}
+      </div>
+    </div>`;
+    document.getElementById('fiche-overlay').addEventListener('click', e=>{ if(e.target.id==='fiche-overlay') closeFiche(); });
+  }
+  function closeFiche(){ document.getElementById('fiche-print-root').innerHTML=''; }
+
+  // Sections groupées par type, dans l'ordre de TYPE_META (= ordre fiche papier)
+  function _ficheSections(tasks){
+    const byType={}; tasks.forEach(t=>{ (byType[t.type]=byType[t.type]||[]).push(t); });
+    const out=[];
+    Object.keys(TYPE_META).forEach(type=>{
+      const list=byType[type]; if(!list||!list.length) return;
+      const meta=TYPE_META[type]; const k=meta.kind;
+
+      if (k==='echantillon'){
+        const lines=list.map(t=>{ const d=t.detail||{};
+          const cat=d.categorie==='client'?'Client':'Labo';
+          const head=[d.destinataire,d.format,d.traitement].filter(Boolean).join(' ');
+          const cuves=(d.cuves||[]).join(', ');
+          return `<div class="fiche-line">× <u>${cat}</u> : ${esc(head)}${cuves?' : '+esc(cuves):''}</div>`;
+        }).join('');
+        out.push(`<div class="fiche-section"><div class="fiche-sec-title"><u>Échantillons</u> :</div>${lines}</div>`);
+
+      } else if (k==='bib'){
+        const lines=list.map(t=>{ const d=t.detail||{}; return `<div class="fiche-line">- <u>Mise en BIB</u>${d.note?' ('+esc(d.note)+')':''}</div>`; }).join('');
+        out.push(`<div class="fiche-section">${lines}</div>`);
+
+      } else if (k==='transfert'){
+        const rows=list.map((t,i)=>_ficheTransfert(t,i+1)).join('');
+        out.push(`<div class="fiche-section"><div class="fiche-sec-title"><u>Transferts</u> :</div>${rows}</div>`);
+
+      } else if (k==='sulfitage'){
+        const items=list.map((t,i)=>{ const d=t.detail||{};
+          return `<span class="sulf-item"><span class="tr-num">${i+1}</span>${esc(d.cuve||'')} = ${esc(_num(d.dose_kg))} ${esc(d.unite||'kg')} ${esc(d.produit||'SO₂ gaz')}${_crTag(t)}</span>`;
+        }).join('');
+        out.push(`<div class="fiche-section"><div class="fiche-sec-title"><u>Sulfitage</u> :</div><div class="fiche-line">${items}</div></div>`);
+
+      } else if (k==='liste'){
+        // fusionne toutes les cuves des tâches de ce type en une ligne
+        const cuves=[]; let extra='';
+        list.forEach(t=>{ const d=t.detail||{}; (d.cuves||[]).forEach(c=>cuves.push(c)); if(d.extra) extra=d.extra; });
+        out.push(`<div class="fiche-section"><div class="fiche-line">- <u>${esc(meta.label)}</u> : ${esc(cuves.join(', '))}${extra?' '+esc(extra):''}</div></div>`);
+
+      } else { // simple
+        const lines=list.map(t=>`<div class="fiche-line">- ${esc(t.titre||meta.label)}${t.contenant_nom?' ('+esc(t.contenant_nom)+')':''}${t.note?' — '+esc(t.note):''}${_crTag(t)}</div>`).join('');
+        out.push(`<div class="fiche-section"><div class="fiche-sec-title"><u>${esc(meta.label)}</u> :</div>${lines}</div>`);
+      }
+    });
+    return out.join('');
+  }
+
+  function _crTag(t){ const m=t.creneau&&CRENEAU_META[t.creneau]; return m?` <span class="fiche-cr">${m.icon} ${esc(m.label)}</span>`:''; }
+
+  // Bandeau « équipe(s) » de la fiche : créneaux présents ce jour, en gros près de la date.
+  function _ficheTeamTag(tasks){
+    const set=[...new Set(tasks.map(t=>t.creneau).filter(Boolean))]
+      .sort((a,b)=>CRENEAU_ORDER.indexOf(a)-CRENEAU_ORDER.indexOf(b));
+    if(!set.length) return '';
+    return `<div class="fiche-team">${set.map(c=>`${CRENEAU_META[c].icon} ${esc(CRENEAU_META[c].label)}`).join(' · ')}</div>`;
+  }
+
+  function _ficheTransfert(t,n){
+    const d=t.detail||{};
+    // Zone vierge Creux/Volume sous chaque cuve (le caviste relève à la main).
+    const cv='<div class="tr-cv">creux ____ · vol ____ hL</div>';
+    const src=(d.sources&&d.sources.length?d.sources:['—']).map(s=>`<div>${esc(s)}${cv}</div>`).join('');
+    const dst=(d.destinations&&d.destinations.length?d.destinations:[{cuve:'—'}])
+      .map(x=>`<div>${esc(x.cuve||'')}${x.note?' <span class="tr-note">→ '+esc(x.note)+'</span>':''}${cv}</div>`).join('');
+    return `<div class="tr-row">
+      <span class="tr-num">${n}</span>
+      <div class="tr-src">${src}</div>
+      <div class="tr-mid"><span class="tr-lbl">${esc(d.libelle||'')}${_crTag(t)}</span></div>
+      <div class="tr-dst">${dst}</div>
+    </div>`;
+  }
+
+  async function saveConsignes(dateIso){
+    const val=document.getElementById('fiche-consignes-input')?.value||'';
+    try{
+      await WB3DB.saveFicheTravail(dateIso,'',{ consignes:val.trim()||null });
+      document.querySelectorAll('.fiche-consignes-ro').forEach(el=>{ el.innerHTML=esc(val.trim())||'&nbsp;'; });
+      toast('✅ Consignes enregistrées');
+    }catch(e){ console.error('[planning] saveConsignes',e); WB3UI.alert('Échec : '+(WB3DB.errMsg?WB3DB.errMsg(e):(e.message||e)), { title:'Erreur' }); }
+  }
+
+  // ── Navigation ───────────────────────────────────────────
+  async function shiftWeek(delta){ _weekStart=_addDays(_weekStart,delta*7); await load(); render(); }
+  async function goToday(){ _weekStart=_mondayOf(new Date()); await load(); render(); }
+
+  // ── Boot ─────────────────────────────────────────────────
+  async function init(){
+    if (typeof window.supabase==='undefined' || typeof window.WB3DB==='undefined' || typeof window.WB3Auth==='undefined'){
+      document.getElementById('content').innerHTML='<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>'; return;
+    }
+    const ctx=await WB3AppBoot.requireReadyContext();
+    if(!ctx){ document.getElementById('content').innerHTML='<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>'; return; }
+    _tenant=ctx.tenant;
+    document.getElementById('tenant-pill').textContent=`🏢 ${ctx.tenant.nom} · ${ctx.tenant.role}`;
+
+    // Garde module : migration 064 requise (tache + fiche_travail)
+    if (WB3DB.ensureModule && !(await WB3DB.ensureModule('planning','content'))) return;
+
+    // Créneau 3×8 (mig 070) = optionnel : si la capacité manque, on masque le
+    // sélecteur et on n'envoie pas la colonne (base 064 sans 070 → planning OK).
+    try {
+      const caps = WB3DB.checkBackendCapabilities ? await WB3DB.checkBackendCapabilities() : null;
+      _hasCreneau = caps ? (caps.capabilities?.tache_creneau !== false) : true;
+    } catch(_) { _hasCreneau = true; }
+    _canPlan = !WB3DB.can || WB3DB.can('planning.edit');
+    if (!_canPlan) document.getElementById('btn-new-task')?.remove();
+
+    try{
+      const etat=await WB3DB.queryCuverieEtat();
+      _cuves=etat.map(c=>({ contenant_id:c.contenant_id, contenant_nom:c.contenant_nom, lot_nom:c.lot_nom||null,
+                            capacite_hl:c.capacite_hl??null,
+                            volume_actuel_hl:(c.volume_total_hl!=null?c.volume_total_hl:(c.volume_actuel_hl??null)), // contenu courant de la cuve
+                            millesime:c.millesime??null }))
+                 .sort((a,b)=>String(a.contenant_nom).localeCompare(String(b.contenant_nom),'fr',{numeric:true}));
+      _cuveNames=_cuves.map(c=>c.contenant_nom).filter(Boolean);
+    }catch(e){ console.warn('[planning] cuves indisponibles',e); _cuves=[]; _cuveNames=[]; }
+
+    try{ _produitLots = WB3DB.getProduitLots ? await WB3DB.getProduitLots() : []; }
+    catch(e){ console.warn('[planning] produits indisponibles',e); _produitLots=[]; }
+
+    _weekStart=_mondayOf(new Date());
+    await load(); render();
+
+    // Deep-link : planning.html?new=1[&date=YYYY-MM-DD][&contenant=<id>]
+    try{
+      const qs=new URLSearchParams(window.location.search);
+      if(qs.get('new')==='1'){
+        const date=qs.get('date')||_todayIso();
+        const cuveId=qs.get('contenant')||null;
+        const presetCuve = cuveId ? (_cuves.find(c=>c.contenant_id===cuveId)?.contenant_nom || null) : null;
+        qs.delete('new'); qs.delete('contenant'); qs.delete('date');
+        history.replaceState(null,'',window.location.pathname+(qs.toString()?'?'+qs.toString():''));
+        openTask(null,date,presetCuve);
+      }
+    }catch(e){ console.warn('[planning] deep-link ignoré',e); }
+  }
+
+  return { init, render, shiftWeek, goToday,
+           openTask, closeTask, onTypeChange, saveTask, setStatut, removeTask,
+           addDest, rmDest, onCuveField, onDestInput, planDose,
+           dupTask, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop,
+           openFiche, closeFiche, saveConsignes };
+})();
+
+Planning.init();
+</script>
+</body>
+</html>

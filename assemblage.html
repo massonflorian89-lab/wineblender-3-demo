@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Assemblage — WineBlender 3</title>
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  .wb-main { padding:18px 22px; max-width:1500px; margin:0 auto; }
+  .asm-layout { display:grid; grid-template-columns:280px 1fr; gap:var(--space-4); align-items:start; }
+  @media(max-width:900px){ .asm-layout{ grid-template-columns:1fr; } }
+
+  /* Arborescence */
+  .asm-tree { background:var(--color-bg-elevated); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); padding:var(--space-3); max-height:78vh; overflow-y:auto; }
+  .asm-tree-hd { display:flex; gap:6px; margin-bottom:var(--space-2); }
+  .tree-node { padding:4px 6px; border-radius:var(--radius-sm); cursor:pointer; font-size:var(--text-callout); display:flex; align-items:center; gap:6px; }
+  .tree-node:hover { background:var(--color-bg-subtle); }
+  .tree-node.active { background:var(--color-primary-soft); font-weight:600; }
+  .tree-essai { padding-left:22px; font-size:var(--text-caption); }
+  .tree-children { margin-left:14px; border-left:1px solid var(--color-border); padding-left:4px; }
+
+  /* Panneau simulateur */
+  .asm-panel { background:var(--color-bg-elevated); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); padding:var(--space-4); }
+  .asm-tbl { width:100%; border-collapse:collapse; font-size:var(--text-callout); }
+  .asm-tbl th { text-align:left; padding:6px 8px; font-size:var(--text-caption); color:var(--color-ink-tertiary); border-bottom:1px solid var(--color-border); }
+  .asm-tbl td { padding:5px 8px; border-bottom:1px solid var(--color-border-light,#f0f0f0); }
+  .asm-tbl input { width:70px; text-align:right; }
+  .kpi-row { display:flex; gap:var(--space-3); flex-wrap:wrap; margin:var(--space-3) 0; }
+  .kpi-mini { display:flex; align-items:center; gap:8px; background:var(--color-bg-subtle);
+    border-radius:var(--radius-md); padding:8px 12px; }
+  .kpi-mini .val { font-weight:700; font-size:1.1rem; }
+  .kpi-mini .lbl { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .pill-warn { color:#b91c1c; font-weight:600; }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1>🧪 Assemblage &amp; échantillons</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+  <div id="boot" class="loading-state"><div class="spinner"></div>Chargement…</div>
+  <div id="app" class="asm-layout" style="display:none">
+    <!-- Arborescence -->
+    <aside class="asm-tree">
+      <div class="asm-tree-hd">
+        ${_canAsm ? `<button class="btn btn--secondary btn--sm" onclick="asmNewDossier()" title="Nouveau dossier">📁 +</button>
+        <button class="btn btn--primary btn--sm" style="flex:1" onclick="asmNewEssai()">+ Nouvel essai</button>` : '<span class="muted" style="font-size:12px;padding:4px">Lecture seule</span>'}
+      </div>
+      <div id="tree"></div>
+    </aside>
+
+    <!-- Simulateur -->
+    <section class="asm-panel" id="panel">
+      <div class="empty-state"><div class="icon">🧪</div>
+        <div class="title">Sélectionne ou crée un essai</div>
+        <div class="desc">Compose un assemblage à partir des cuves, simule le mélange et prépare les échantillons.</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ── État ──────────────────────────────────────────────────────
+let _cuves     = [];     // v_cuverie_etat (snapshot source live)
+let _dossiers  = [];
+let _essais    = [];     // essais (liste légère) du tenant
+let _curEssai  = null;   // essai en cours d'édition (objet complet)
+let _curDossier = null;  // dossier sélectionné (filtre arbre)
+let _dirty     = false;
+let _canAsm    = true;   // rôle autorisé à créer/modifier des essais (caviste = lecture seule)
+
+// Paramètres pondérés = ceux exposés par v_cuverie_etat (dernière analyse
+// du lot principal). AV/densité non dans la vue → non pondérés ici.
+const PARAMS_ANA = [
+  { k:'tav', l:'TAV', u:'%vol', d:1 },
+  { k:'ph',  l:'pH',  u:'',     d:2 },
+  { k:'so2_libre', l:'SO₂L', u:'mg/L', d:0 },
+  { k:'so2_total', l:'SO₂T', u:'mg/L', d:0 },
+];
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmt(n,d=1){ return n==null||isNaN(n)?'—':Number(n).toLocaleString('fr-FR',{maximumFractionDigits:d}); }
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+async function logout(){ await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+// ── Init ──────────────────────────────────────────────────────
+(async function init(){
+  const ctx = await WB3AppBoot.requireReadyContext({ maxWaitMs: 8000 });
+  if (!ctx) { document.getElementById('boot').innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Session expirée</div></div>'; return; }
+  document.getElementById('tenant-pill').textContent = `🏢 ${ctx.tenant.nom} · ${ctx.tenant.role}`;
+  WB3Auth.onAuthChange(({ user }) => { if (!user) WB3Nav.navigateTop('app.html'); });
+  // Garde module : migration 063 requise (essai + essai_dossier)
+  if (WB3DB.ensureModule && !(await WB3DB.ensureModule('assemblage','boot'))) return;
+  _canAsm = !WB3DB.can || WB3DB.can('assemblage.edit');
+  try {
+    [_cuves, _dossiers, _essais] = await Promise.all([
+      WB3DB.queryCuverieEtat ? WB3DB.queryCuverieEtat() : Promise.resolve([]),
+      WB3DB.listEssaiDossiers(),
+      WB3DB.listEssais(),
+    ]);
+  } catch(e) { toast('Erreur chargement : '+e.message,'error'); }
+  document.getElementById('boot').style.display='none';
+  document.getElementById('app').style.display='';
+  renderTree();
+})();
+
+// ── Arborescence ──────────────────────────────────────────────
+function renderTree(){
+  const box = document.getElementById('tree');
+  const byParent = {};
+  _dossiers.forEach(d => { (byParent[d.parent_id||'root'] = byParent[d.parent_id||'root']||[]).push(d); });
+  const essaisByDos = {};
+  _essais.forEach(e => { (essaisByDos[e.dossier_id||'root'] = essaisByDos[e.dossier_id||'root']||[]).push(e); });
+
+  function renderLevel(parentKey){
+    const dossiers = (byParent[parentKey]||[]).sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+    const essais   = (essaisByDos[parentKey]||[]);
+    let html = '';
+    dossiers.forEach(d => {
+      html += `<div class="tree-node${_curDossier===d.id?' active':''}" onclick="selectDossier('${d.id}')">
+        📁 <span style="flex:1">${escapeHtml(d.nom)}</span>
+        <span onclick="event.stopPropagation();asmRenameDossier('${d.id}')" title="Renommer" style="opacity:.5">✏️</span>
+        <span onclick="event.stopPropagation();asmDeleteDossier('${d.id}')" title="Supprimer" style="opacity:.5">🗑</span>
+      </div>`;
+      html += `<div class="tree-children">${renderLevel(d.id)}</div>`;
+    });
+    essais.forEach(e => {
+      html += `<div class="tree-node tree-essai${_curEssai&&_curEssai.id===e.id?' active':''}" onclick="openEssai('${e.id}')">
+        🧪 <span style="flex:1">${escapeHtml(e.nom)}</span>
+      </div>`;
+    });
+    return html || '<div style="font-size:var(--text-caption);color:var(--color-ink-tertiary);padding:4px 6px">(vide)</div>';
+  }
+  box.innerHTML = `<div class="tree-node${_curDossier===null?' active':''}" onclick="selectDossier(null)">🗂 Tous</div>`
+    + renderLevel('root');
+}
+
+function selectDossier(id){ _curDossier = id; renderTree(); }
+
+async function asmNewDossier(){
+  if(!_canAsm){ toast('Lecture seule : réservé aux responsables.','error'); return; }
+  const nom = await WB3UI.prompt('Nom du dossier :', { title:'Nouveau dossier', placeholder:'Nom du dossier', okText:'Créer' }); if (!nom) return;
+  try { const d = await WB3DB.createEssaiDossier(nom.trim(), _curDossier || null); _dossiers.push(d); renderTree(); }
+  catch(e){ toast('Erreur : '+e.message,'error'); }
+}
+async function asmRenameDossier(id){
+  const d = _dossiers.find(x=>x.id===id); if(!d) return;
+  const nom = await WB3UI.prompt('Renommer le dossier :', { title:'Renommer', value:d.nom, okText:'Renommer' }); if(!nom||nom===d.nom) return;
+  try { await WB3DB.renameEssaiDossier(id, nom.trim()); d.nom=nom.trim(); renderTree(); }
+  catch(e){ toast('Erreur : '+e.message,'error'); }
+}
+async function asmDeleteDossier(id){
+  if(!(await WB3UI.confirm('Supprimer ce dossier et tout son contenu ?', { title:'Supprimer le dossier', okText:'Supprimer', danger:true }))) return;
+  try { await WB3DB.deleteEssaiDossier(id);
+    _dossiers = _dossiers.filter(d=>d.id!==id);
+    _essais   = await WB3DB.listEssais();
+    if(_curDossier===id) _curDossier=null;
+    renderTree();
+  } catch(e){ toast(/policy|permission|row-level/i.test(e.message)?'Droits insuffisants (admin/œnologue)':('Erreur : '+e.message),'error'); }
+}
+
+// ── Essai : nouveau / ouvrir ──────────────────────────────────
+function asmNewEssai(){
+  if(!_canAsm){ toast('Lecture seule : réservé aux responsables.','error'); return; }
+  _curEssai = { id:null, nom:'Nouvel essai', dossier_id:_curDossier||null,
+                lignes:[], params:{ mode:'pct', volume_cible_hl:null, nb_lots:1, bts_par_lot:2, vol_bts_ml:750 },
+                resultat:{}, snapshot_at:new Date().toISOString() };
+  _dirty = true;
+  renderPanel();
+}
+async function openEssai(id){
+  try { _curEssai = await WB3DB.getEssai(id); _dirty=false; renderTree(); renderPanel(); }
+  catch(e){ toast('Erreur : '+e.message,'error'); }
+}
+
+// ── Panneau simulateur ────────────────────────────────────────
+function renderPanel(){
+  const p = document.getElementById('panel');
+  if (!_curEssai) { return; }
+  const e = _curEssai;
+  const pr = e.params || {};
+
+  // Cuves disponibles (non déjà ajoutées), occupées
+  const usedIds = new Set((e.lignes||[]).map(l=>l.contenant_id));
+  const dispo = _cuves
+    .filter(c => (c.volume_total_hl||0) > 0 && !usedIds.has(c.contenant_id))
+    .sort((a,b)=> (a.contenant_nom||'').localeCompare(b.contenant_nom||'','fr',{numeric:true}));
+
+  const res = _calcResultat(e);
+
+  p.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:var(--space-3)">
+      <input class="input" id="essai-nom" value="${escapeHtml(e.nom)}" style="font-weight:700;font-size:1.05rem;flex:1"
+             oninput="_curEssai.nom=this.value;_dirty=true">
+      ${_canAsm ? `<button class="btn btn--primary btn--sm" onclick="saveEssai()">💾 ${e.id?'Enregistrer':'Créer'}</button>
+      ${e.id?`<button class="btn btn--secondary btn--sm" onclick="copyEssai()">⧉ Copier</button>
+              <button class="btn btn--ghost btn--sm" onclick="delEssai()" title="Supprimer">🗑</button>`:''}` : '<span class="muted" style="font-size:12px;align-self:center">Lecture seule (responsables)</span>'}
+    </div>
+    <div style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin-bottom:var(--space-2)">
+      📸 Snapshot des cuves au ${new Date(e.snapshot_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}
+      · mode <select id="essai-mode" onchange="_curEssai.params.mode=this.value;_dirty=true;renderPanel()" style="font-size:inherit">
+          <option value="pct"${pr.mode!=='vol'?' selected':''}>% assemblage</option>
+          <option value="vol"${pr.mode==='vol'?' selected':''}>volume (hL)</option>
+        </select>
+      ${pr.mode==='vol'?'':`· volume cible <input class="input" type="number" id="essai-cible" value="${pr.volume_cible_hl||''}" placeholder="auto" style="width:90px" oninput="_curEssai.params.volume_cible_hl=parseFloat(this.value)||null;_dirty=true;renderPanel()"> hL`}
+    </div>
+
+    <!-- Ajout de cuve -->
+    <div style="display:flex;gap:8px;margin-bottom:var(--space-3)">
+      <select class="select" id="add-cuve" style="flex:1">
+        <option value="">+ Ajouter une cuve à l'assemblage…</option>
+        ${dispo.map(c=>`<option value="${c.contenant_id}">${escapeHtml(c.contenant_nom)} · ${fmt(c.volume_total_hl)} hL${c.lot_nom?' · '+escapeHtml(c.lot_nom):''}</option>`).join('')}
+      </select>
+      <button class="btn btn--secondary btn--sm" onclick="addLigne()">Ajouter</button>
+    </div>
+
+    <!-- Lignes -->
+    <table class="asm-tbl">
+      <thead><tr>
+        <th>Cuve</th><th>Lot</th><th style="text-align:right">Dispo (hL)</th>
+        <th style="text-align:right">${pr.mode==='vol'?'Volume (hL)':'% '}</th>
+        ${PARAMS_ANA.map(a=>`<th style="text-align:right">${a.l}</th>`).join('')}
+        <th></th>
+      </tr></thead>
+      <tbody>${(e.lignes||[]).map((l,i)=>_ligneRow(l,i,pr)).join('') || `<tr><td colspan="${5+PARAMS_ANA.length}" style="text-align:center;color:var(--color-ink-tertiary);padding:14px">Aucune cuve. Ajoute des cuves ci-dessus.</td></tr>`}</tbody>
+      ${(e.lignes||[]).length?`<tfoot><tr style="font-weight:700">
+        <td colspan="3" style="text-align:right">Assemblage</td>
+        <td style="text-align:right">${pr.mode==='vol'?fmt(res.volume_total)+' hL':fmt(res.ratio_total)+' %'}</td>
+        ${PARAMS_ANA.map(a=>`<td style="text-align:right">${res.ana[a.k]!=null?fmt(res.ana[a.k],a.d):'—'}</td>`).join('')}
+        <td></td>
+      </tr></tfoot>`:''}
+    </table>
+
+    ${(e.lignes||[]).length?`
+    <div class="kpi-row">
+      <div class="kpi-mini"><span>🫙</span><div><div class="val">${fmt(res.volume_total)} hL</div><div class="lbl">volume assemblage</div></div></div>
+      ${pr.mode!=='vol'&&Math.abs(res.ratio_total-100)>0.1?`<div class="kpi-mini"><span>⚠</span><div><div class="val pill-warn">${fmt(res.ratio_total)} %</div><div class="lbl">total ≠ 100%</div></div></div>`:''}
+    </div>
+
+    <!-- Échantillons -->
+    <div class="drawer-section" style="margin-top:var(--space-3)">
+      <div class="drawer-section-title">🧪 Préparation d'échantillons</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;padding:var(--space-2) 0">
+        <div class="field"><label class="field-label">Nb lots</label>
+          <input class="input" type="number" min="1" id="ech-nblots" value="${pr.nb_lots||1}" style="width:80px"
+                 oninput="_curEssai.params.nb_lots=parseInt(this.value)||1;_dirty=true;renderPanel()"></div>
+        <div class="field"><label class="field-label">Bts / lot</label>
+          <input class="input" type="number" min="1" id="ech-btslot" value="${pr.bts_par_lot||2}" style="width:80px"
+                 oninput="_curEssai.params.bts_par_lot=parseInt(this.value)||1;_dirty=true;renderPanel()"></div>
+        <div class="field"><label class="field-label">Vol. bouteille (ml)</label>
+          <input class="input" type="number" min="1" id="ech-volbts" value="${pr.vol_bts_ml||750}" style="width:90px"
+                 oninput="_curEssai.params.vol_bts_ml=parseInt(this.value)||750;_dirty=true;renderPanel()"></div>
+        <div class="kpi-mini"><span>🍾</span><div><div class="val">${res.ech.total_bts}</div><div class="lbl">bouteilles à préparer</div></div></div>
+      </div>
+      <table class="asm-tbl">
+        <thead><tr><th>Cuve / lot</th><th style="text-align:right">${pr.mode==='vol'?'%':'Vol. (hL)'}</th><th style="text-align:right">À prélever (ml)</th></tr></thead>
+        <tbody>${res.ech.lignes.map(x=>`<tr><td>${escapeHtml(x.nom)}</td><td style="text-align:right">${pr.mode==='vol'?fmt(x.pct)+' %':fmt(x.vol)+' hL'}</td><td style="text-align:right"><b>${fmt(x.ml,0)} ml</b></td></tr>`).join('')}</tbody>
+      </table>
+    </div>`:''}
+  `;
+
+  const sel = document.getElementById('add-cuve');
+  if (sel) sel.onchange = () => { if(sel.value){ addLigneById(sel.value); } };
+}
+
+function _ligneRow(l, i, pr){
+  const c = _cuves.find(x=>x.contenant_id===l.contenant_id);
+  const dispoHl = c ? (c.volume_total_hl||0) : l.volume_hl;
+  const valField = pr.mode==='vol'
+    ? `<input class="input" type="number" min="0" step="0.1" value="${l.volume_hl!=null?l.volume_hl:''}" oninput="setLigne(${i},'volume_hl',parseFloat(this.value))">`
+    : `<input class="input" type="number" min="0" max="100" step="0.1" value="${l.ratio_pct!=null?l.ratio_pct:''}" oninput="setLigne(${i},'ratio_pct',parseFloat(this.value))">`;
+  return `<tr>
+    <td style="font-weight:600">${escapeHtml(l.contenant_nom||'?')}</td>
+    <td style="font-size:var(--text-caption)">${escapeHtml(l.lot_nom||'—')}</td>
+    <td style="text-align:right;color:var(--color-ink-tertiary)">${fmt(dispoHl)}</td>
+    <td style="text-align:right">${valField}</td>
+    ${PARAMS_ANA.map(a=>`<td style="text-align:right;color:var(--color-ink-tertiary)">${l.analyses&&l.analyses[a.k]!=null?fmt(l.analyses[a.k],a.d):'—'}</td>`).join('')}
+    <td><button class="op-row-del" onclick="removeLigne(${i})">✕</button></td>
+  </tr>`;
+}
+
+// ── Lignes : ajout/suppression (snapshot des analyses à l'ajout) ──
+function addLigne(){ const sel=document.getElementById('add-cuve'); if(sel&&sel.value) addLigneById(sel.value); }
+function addLigneById(cid){
+  const c = _cuves.find(x=>x.contenant_id===cid);
+  if(!c) return;
+  // snapshot : on fige volume + lot + dernières analyses connues de la vue
+  const ligne = {
+    contenant_id: c.contenant_id, contenant_nom: c.contenant_nom,
+    lot_id: c.lot_id || null, lot_nom: c.lot_nom || null,
+    volume_hl: c.volume_total_hl || 0,
+    ratio_pct: null,
+    analyses: { tav:c.tav ?? null, ph:c.ph ?? null,
+                so2_libre:c.so2_libre ?? null, so2_total:c.so2_total ?? null },
+  };
+  _curEssai.lignes.push(ligne);
+  _dirty = true;
+  renderPanel();
+}
+function setLigne(i, field, val){ _curEssai.lignes[i][field] = isNaN(val)?null:val; _dirty=true;
+  // recalcul léger sans re-render complet du champ actif
+  const res=_calcResultat(_curEssai); _refreshTotals(res); }
+function removeLigne(i){ _curEssai.lignes.splice(i,1); _dirty=true; renderPanel(); }
+
+function _refreshTotals(){ renderPanel(); }  // simple : re-render (les inputs gardent le focus via oninput natif court)
+
+// ── Calcul du résultat (mélange pondéré + échantillons) ───────
+function _calcResultat(e){
+  const pr = e.params||{}; const lignes = e.lignes||[];
+  // Poids de pondération = volume effectif de chaque ligne
+  let weights = [];
+  if (pr.mode==='vol') {
+    weights = lignes.map(l => Number(l.volume_hl)||0);
+  } else {
+    weights = lignes.map(l => Number(l.ratio_pct)||0);
+  }
+  const wTotal = weights.reduce((s,w)=>s+w,0);
+  // Volume total
+  let volume_total;
+  if (pr.mode==='vol') volume_total = wTotal;
+  else volume_total = pr.volume_cible_hl || lignes.reduce((s,l)=>s+(Number(l.volume_hl)||0),0);
+  const ratio_total = pr.mode==='vol' ? (volume_total>0?100:0) : wTotal;
+
+  // Analyses pondérées
+  const ana = {};
+  PARAMS_ANA.forEach(a => {
+    let num=0, den=0;
+    lignes.forEach((l,idx) => {
+      const v = l.analyses && l.analyses[a.k];
+      if (v!=null && weights[idx]>0){ num += v*weights[idx]; den += weights[idx]; }
+    });
+    ana[a.k] = den>0 ? num/den : null;
+  });
+
+  // Échantillons : volume par ligne × bouteilles
+  const totalBts = (Number(pr.nb_lots)||1) * (Number(pr.bts_par_lot)||1);
+  const volBtsMl = Number(pr.vol_bts_ml)||750;
+  const totalMl  = totalBts * volBtsMl;
+  const echLignes = lignes.map((l,idx) => {
+    const part = wTotal>0 ? weights[idx]/wTotal : 0;
+    const pct  = part*100;
+    const vol  = pr.mode==='vol' ? (Number(l.volume_hl)||0) : volume_total*part;
+    return { nom: (l.contenant_nom||'?')+(l.lot_nom?' · '+l.lot_nom:''), pct, vol, ml: totalMl*part };
+  });
+
+  return { volume_total, ratio_total, ana,
+           ech:{ total_bts:totalBts, total_ml:totalMl, lignes:echLignes } };
+}
+
+// ── Sauvegarde ────────────────────────────────────────────────
+async function saveEssai(){
+  if(!_canAsm){ toast('Lecture seule : réservé aux responsables.','error'); return; }
+  const e = _curEssai; if(!e) return;
+  e.resultat = _calcResultat(e);
+  try {
+    if (e.id) {
+      await WB3DB.updateEssai(e.id, { nom:e.nom, dossier_id:e.dossier_id, lignes:e.lignes, params:e.params, resultat:e.resultat, notes:e.notes||null });
+      const idx=_essais.findIndex(x=>x.id===e.id); if(idx>=0) _essais[idx]={..._essais[idx],nom:e.nom,updated_at:new Date().toISOString()};
+    } else {
+      const created = await WB3DB.createEssai({ nom:e.nom, dossier_id:e.dossier_id, lignes:e.lignes, params:e.params, resultat:e.resultat });
+      e.id = created.id; e.created_by = created.created_by; _essais.push(created);
+    }
+    _dirty=false; renderTree(); toast('Essai enregistré','success');
+  } catch(err){ toast('Erreur : '+err.message,'error'); }
+}
+async function copyEssai(){
+  if(!_canAsm){ toast('Lecture seule : réservé aux responsables.','error'); return; }
+  if(!_curEssai||!_curEssai.id) return;
+  try { const c = await WB3DB.copyEssai(_curEssai.id); _essais.push(c); await openEssai(c.id); toast('Copie créée','success'); }
+  catch(e){ toast('Erreur : '+e.message,'error'); }
+}
+async function delEssai(){
+  if(!_canAsm){ toast('Lecture seule : réservé aux responsables.','error'); return; }
+  if(!_curEssai||!_curEssai.id) return;
+  if(!(await WB3UI.confirm('Supprimer cet essai ?', { title:'Supprimer l\'essai', okText:'Supprimer', danger:true }))) return;
+  try { await WB3DB.deleteEssai(_curEssai.id);
+    _essais=_essais.filter(x=>x.id!==_curEssai.id); _curEssai=null;
+    renderTree(); document.getElementById('panel').innerHTML='<div class="empty-state"><div class="icon">🧪</div><div class="title">Essai supprimé</div></div>';
+  } catch(e){ toast(/policy|permission|row-level/i.test(e.message)?'Droits insuffisants (créateur ou admin/œnologue)':('Erreur : '+e.message),'error'); }
+}
+
+window.addEventListener('beforeunload', ev => { if(_dirty){ ev.preventDefault(); ev.returnValue=''; } });
+</script>
+</body>
+</html>

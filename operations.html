@@ -1,0 +1,2863 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Opérations — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  /* Drawer opération : élargi par rapport au défaut 420px (theme.css) pour
+     accueillir le sélecteur produit + Qté + unité + Dose cible + sélecteur
+     unité dose sans clipper. */
+  #drawer.drawer { width: 640px; max-width: 95vw; }
+  /* 9.1bis — tablette/mobile : l'override id ci-dessus battait la règle plein
+     écran de theme.css (≤820). On rétablit le plein écran au pouce. */
+  @media (max-width: 820px) { #drawer.drawer { width: 100vw; max-width: 100vw; } }
+
+  .contenant-card-pro { position:relative; overflow:hidden; }
+  .op-strip { position:absolute; top:0; left:0; right:0; height:4px; }
+
+  .op-badge {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:3px 9px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+    white-space:nowrap; flex-shrink:0;
+  }
+  .statut-badge {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:2px 8px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.3px;
+    white-space:nowrap;
+  }
+  .statut-realise  { background:#e6f4ea; color:#2e7d32; }
+  .statut-planifie { background:#e3f2fd; color:#1565c0; }
+  .statut-annule   { background:#f2f2f2; color:#6d6d6d; }
+
+  .pagination-bar  { display:flex; align-items:center; justify-content:center; gap:var(--space-3); padding:var(--space-4) 0 var(--space-2); }
+  .pagination-info { font-size:var(--text-callout); color:var(--color-ink-tertiary); min-width:180px; text-align:center; }
+
+  .col-filter-btn {
+    display:inline-flex; align-items:center; background:none; border:none; cursor:pointer;
+    padding:2px 3px; border-radius:3px; font-size:10px; color:var(--color-ink-tertiary);
+    transition:color .15s,background .15s; vertical-align:middle; margin-left:3px;
+  }
+  .col-filter-btn:hover  { color:var(--color-ink-secondary); background:var(--color-bg-subtle); }
+  .col-filter-btn.active { color:var(--color-primary); }
+  .col-filter-dropdown {
+    position:fixed; background:var(--color-bg-elevated); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); box-shadow:0 8px 32px rgba(0,0,0,.22);
+    padding:var(--space-2); min-width:230px; max-width:290px; z-index:2000; display:none;
+  }
+  .col-filter-dropdown.open { display:block; }
+  .col-filter-title  { font-weight:600; font-size:var(--text-caption); margin-bottom:var(--space-1); color:var(--color-ink-secondary); }
+  .col-filter-search { width:100%; box-sizing:border-box; margin-bottom:var(--space-1); }
+  .col-filter-values {
+    max-height:200px; overflow-y:auto; border:1px solid var(--color-border);
+    border-radius:var(--radius-sm); margin-bottom:var(--space-1); background:var(--color-bg);
+  }
+  .col-filter-value-item {
+    display:flex; align-items:center; gap:var(--space-2); padding:5px 8px; cursor:pointer;
+    font-size:var(--text-caption); color:var(--color-ink);
+  }
+  .col-filter-value-item:hover { background:var(--color-bg-subtle); }
+  .col-filter-range { display:flex; gap:var(--space-1); align-items:center; margin-bottom:var(--space-1); }
+  .col-filter-range input { flex:1; min-width:0; }
+  .col-filter-footer {
+    display:flex; justify-content:space-between; align-items:center;
+    padding-top:var(--space-1); border-top:1px solid var(--color-border); gap:var(--space-1);
+  }
+
+  .op-row-wrap { border-bottom:1px solid var(--color-border); }
+  .op-row-wrap:last-child { border-bottom:none; }
+  .op-row {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:6px 0;
+  }
+  .op-cc:not(:empty) { padding:0 0 8px; }
+  .op-row select { flex:1; min-width:0; }
+  .op-row input  { width:90px; flex-shrink:0; }
+  .op-row .role-sel { width:130px; flex-shrink:0; }
+
+  .role-zone { margin-bottom:var(--space-3); }
+  .role-zone-head {
+    font-size:var(--text-caption); font-weight:700; letter-spacing:.3px;
+    padding:4px 0; margin-bottom:var(--space-1);
+    border-bottom:2px solid; display:flex; align-items:center; gap:6px;
+  }
+  .role-zone-head.source { color:#bd4800; border-color:#ffe4d0; }
+  .role-zone-head.dest   { color:#2e7d32; border-color:#c8f0cc; }
+
+  .meta-row {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:4px 0; border-bottom:1px solid var(--color-border);
+  }
+  .meta-row:last-child { border-bottom:none; }
+  .meta-key { width:110px; flex-shrink:0; }
+
+  /* ===== Sélecteur de type d'opération ===== */
+  .op-type-grid {
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(82px, 1fr));
+    gap:var(--space-2); margin-bottom:var(--space-1);
+  }
+  .op-type-card {
+    display:flex; flex-direction:column; align-items:center; gap:var(--space-1);
+    padding:10px 6px; border-radius:var(--radius-md);
+    border:1.5px solid var(--color-border); background:var(--color-bg);
+    cursor:pointer; font-family:inherit; transition:all .13s; text-align:center;
+    user-select:none;
+  }
+  .op-type-card:hover { border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 6%, transparent); }
+  .op-type-card.selected {
+    border-color:var(--color-primary);
+    background:color-mix(in srgb, var(--color-primary) 10%, transparent);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  }
+  .op-type-card .ot-icon  { font-size:var(--text-title-1); line-height:1; }
+  .op-type-card .ot-label { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:var(--color-ink-secondary); line-height:1.2; }
+  .op-type-card.selected .ot-label { color:var(--color-primary); }
+  .op-type-card.ajust-type { border-style:dashed; }
+  .op-type-card.ajust-type.selected { border-style:solid; }
+
+  /* ── Groupe "Ajustements de cave" dans le type-grid ── */
+  .op-type-group-sep {
+    grid-column: 1 / -1;
+    display:flex; align-items:center; gap:var(--space-2);
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--color-ink-tertiary); padding:var(--space-2) 0 0;
+  }
+  .op-type-group-sep::after {
+    content:''; flex:1; height:1px; background:var(--color-border);
+  }
+
+  /* ── Panneau ajustement ── */
+  .ajust-preview-box {
+    background:var(--color-bg-subtle); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); padding:var(--space-3);
+    margin:var(--space-2) 0;
+  }
+  .ajust-preview-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:3px 0; border-bottom:1px solid var(--color-border-light,#eee);
+    font-size:var(--text-caption);
+  }
+  .ajust-preview-row:last-child { border-bottom:none; }
+  .ajust-val { font-weight:700; font-family:monospace; }
+  .ajust-val.up   { color:#2e7d32; }
+  .ajust-val.down { color:#c62828; }
+
+  .seuil-badge {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:2px 8px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:700;
+  }
+  .seuil-ok       { background:#e8f5e9; color:#2e7d32; }
+  .seuil-modere   { background:#fff8e1; color:#e65100; }
+  .seuil-important{ background:#fff3e0; color:#c62828; }
+  .seuil-critique { background:#fce8e8; color:#c62828; border:1px solid #f5b4b4; }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1>⚙️ Opérations cave</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+
+  <div class="stats-grid" id="stats">
+    <div class="stat-card"><div class="label">Chargement…</div><div class="value">—</div></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="all">📋 Toutes <span class="count" data-count="all">0</span></button>
+    <button class="tab" data-tab="today">📅 Aujourd'hui <span class="count" data-count="today">0</span></button>
+    <button class="tab" data-tab="week">📆 Cette semaine <span class="count" data-count="week">0</span></button>
+    <button class="tab" data-tab="planifie">🗓 Planifiées <span class="count" data-count="planifie">0</span></button>
+    <button class="tab" data-tab="annule">🚫 Annulées <span class="count" data-count="annule">0</span></button>
+    <button class="tab" data-tab="epingles">📌 Épinglées <span class="count" data-count="epingles">0</span></button>
+  </div>
+
+  <div class="action-bar">
+    <div class="group" id="view-mode">
+      <button data-view="grid">▦ Grille</button>
+      <button class="active" data-view="table">☰ Tableau</button>
+    </div>
+    <div class="group" id="group-mode">
+      <button class="active" data-group="none">— Plat</button>
+      <button data-group="type">⚙️ Type</button>
+      <button data-group="date">📅 Date</button>
+    </div>
+    <div class="group" id="sort-mode">
+      <button class="active" data-sort="date_operation">📅 Date</button>
+      <button data-sort="type_operation">A→Z</button>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn btn--secondary btn--sm" id="btn-clear-filters" onclick="clearAllColumnFilters()" style="display:none">✕ Filtres actifs</button>
+    <button class="btn btn--secondary btn--sm" onclick="exportCSV()">📤 CSV</button>
+  </div>
+
+  <div class="filters-bar">
+    <span id="ops-date-filter"></span>
+    <div class="search-input">
+      <input type="text" id="search" placeholder="Rechercher type, lot, contenant, opérateur, note…" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="type-chips">
+      <button class="chip active" data-type="all">Tous types</button>
+    </div>
+  </div>
+
+  <div id="list-header"></div>
+
+  <div id="pinned-section" style="display:none"></div>
+
+  <div id="content">
+    <div class="skel-wrap">
+      <table class="skel-table"><tbody>
+        <tr><td><span class="skel" style="height:12px;width:72px"></span></td><td><span class="skel" style="height:12px;width:110px"></span></td><td><span class="skel" style="height:12px;width:90px"></span></td><td><span class="skel" style="height:20px;width:64px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:68px"></span></td><td><span class="skel" style="height:12px;width:130px"></span></td><td><span class="skel" style="height:12px;width:70px"></span></td><td><span class="skel" style="height:20px;width:60px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:80px"></span></td><td><span class="skel" style="height:12px;width:95px"></span></td><td><span class="skel" style="height:12px;width:110px"></span></td><td><span class="skel" style="height:20px;width:70px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:65px"></span></td><td><span class="skel" style="height:12px;width:120px"></span></td><td><span class="skel" style="height:12px;width:85px"></span></td><td><span class="skel" style="height:20px;width:58px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:76px"></span></td><td><span class="skel" style="height:12px;width:100px"></span></td><td><span class="skel" style="height:12px;width:95px"></span></td><td><span class="skel" style="height:20px;width:66px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:70px"></span></td><td><span class="skel" style="height:12px;width:115px"></span></td><td><span class="skel" style="height:12px;width:80px"></span></td><td><span class="skel" style="height:20px;width:62px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:82px"></span></td><td><span class="skel" style="height:12px;width:105px"></span></td><td><span class="skel" style="height:12px;width:100px"></span></td><td><span class="skel" style="height:20px;width:68px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:67px"></span></td><td><span class="skel" style="height:12px;width:88px"></span></td><td><span class="skel" style="height:12px;width:75px"></span></td><td><span class="skel" style="height:20px;width:60px;border-radius:10px"></span></td></tr>
+      </tbody></table>
+    </div>
+  </div>
+  <div class="pagination-bar" id="pagination-bar" style="display:none"></div>
+
+</main>
+
+<button class="fab" onclick="openDrawer()" title="Nouvelle opération">+</button>
+
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 id="drawer-title">Nouvelle opération</h3>
+    <button class="close-btn" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body" id="drawer-body">
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Type & planification</div>
+      <div class="field">
+        <label class="field-label">Type d'opération *</label>
+        <input type="hidden" id="f-type">
+        <div class="op-type-grid" id="op-type-grid"></div>
+        <div class="field-help" id="f-type-hint" style="margin-top:var(--space-1);font-size:var(--text-footnote);color:var(--color-ink-tertiary)"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Date *</label>
+          <input class="input" type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label class="field-label">Heure</label>
+          <input class="input" type="time" id="f-heure">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Référence</label>
+          <input class="input" type="text" id="f-reference" placeholder="N° libre…">
+        </div>
+        <div class="field">
+          <label class="field-label">Opérateur</label>
+          <input class="input" type="text" id="f-operateur" placeholder="Prénom, initiales…">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Statut</label>
+        <select class="select" id="f-statut">
+          <option value="realise">✅ Réalisé</option>
+          <option value="planifie">🗓 Planifié</option>
+          <option value="annule">🚫 Annulé</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Quantités <span style="font-size:var(--text-caption);font-weight:400;color:var(--color-ink-tertiary)">(optionnel)</span></div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Volume traité (hL)</label>
+          <input class="input" type="number" id="f-volume" min="0" step="0.1" placeholder="250">
+        </div>
+        <div class="field">
+          <label class="field-label">Qté ajoutée</label>
+          <input class="input" type="number" id="f-quantite" min="0" step="0.001" placeholder="ex : 50">
+        </div>
+        <div class="field" style="flex:0 0 90px">
+          <label class="field-label">Unité</label>
+          <input class="input" list="unites-list" id="f-unite" placeholder="g/hL">
+          <datalist id="unites-list">
+            <option value="g"><option value="g/hL"><option value="kg">
+            <option value="mL"><option value="L"><option value="cL">
+            <option value="mg/L"><option value="NTU">
+          </datalist>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Panneau ajustement cave (visible uniquement pour les types d'ajustement) ── -->
+    <div class="drawer-section" id="ajust-section" style="display:none">
+      <div class="drawer-section-title">⚖️ Ajustement de cave</div>
+
+      <div class="field">
+        <label class="field-label">Lot concerné *</label>
+        <select class="select" id="ajust-lot-id" onchange="onAjustLotChange()">
+          <option value="">— Sélectionner un lot —</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Cuve concernée</label>
+        <select class="select" id="ajust-cont-id" onchange="onAjustContChange()">
+          <option value="">— Toutes cuves (volume global) —</option>
+        </select>
+        <div class="field-help" id="ajust-vol-avant-hint" style="margin-top:var(--space-1);font-size:var(--text-caption);color:var(--color-ink-secondary);font-weight:500"></div>
+      </div>
+
+      <div id="ajust-delta-field" class="field">
+        <label class="field-label" id="ajust-delta-label">Écart de volume (hL) *</label>
+        <input class="input" type="number" id="ajust-delta" step="0.01"
+               placeholder="Ex : +2.50 pour ajouter, -1.20 pour retirer"
+               oninput="renderAjustPreview()">
+        <div class="field-help" style="margin-top:3px;font-size:var(--text-footnote);color:var(--color-ink-tertiary)">
+          Positif = ajout · Négatif = retrait
+        </div>
+      </div>
+
+      <div id="ajust-cible-field" class="field" style="display:none">
+        <label class="field-label">Volume cible (hL) *</label>
+        <input class="input" type="number" id="ajust-cible" step="0.01" min="0"
+               placeholder="Ex : 125.50 — volume souhaité après correction"
+               oninput="renderAjustPreview()">
+      </div>
+
+      <div id="ajust-mode-toggle" style="margin-bottom:var(--space-2);display:none">
+        <button type="button" class="btn btn--sm btn--secondary" onclick="toggleAjustMode()">
+          <span id="ajust-mode-label">Passer en mode valeur cible</span>
+        </button>
+      </div>
+
+      <!-- Prévisualisation impact -->
+      <div id="ajust-preview"></div>
+
+      <div class="field">
+        <label class="field-label" id="ajust-motif-label">Motif *</label>
+        <input class="input" type="text" id="ajust-motif"
+               placeholder="Ex : Ouillage annuel, évaporation, correction relevé de jauge…"
+               oninput="renderAjustPreview()">
+      </div>
+
+      <div class="field" id="ajust-justif-field" style="display:none">
+        <label class="field-label" style="color:#c62828">Justification détaillée requise *</label>
+        <textarea class="input" id="ajust-justif" rows="2"
+                  placeholder="Expliquer la cause de cet écart important (> seuil) …"></textarea>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Lots impliqués <span style="font-size:var(--text-caption);font-weight:400;color:var(--color-ink-tertiary)">(optionnel)</span></div>
+      <div id="f-lots-rows"></div>
+      <button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addLotRow()">+ Ajouter un lot</button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Contenants impliqués <span style="font-size:var(--text-caption);font-weight:400;color:var(--color-ink-tertiary)">(optionnel)</span></div>
+      <div id="f-cont-rows"></div>
+      <div id="f-cont-footer"><button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addContRow()">+ Ajouter un contenant</button></div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Champs libres <span style="font-size:var(--text-caption);font-weight:400;color:var(--color-ink-tertiary)">(données complémentaires)</span></div>
+      <div id="f-meta-rows"></div>
+      <button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addMetaRow()">+ Ajouter un champ</button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Produits utilisés <span style="font-size:var(--text-caption);font-weight:400;color:var(--color-ink-tertiary)">(intrants œnologiques)</span></div>
+      <div id="f-produit-rows"></div>
+      <button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addProduitRow()">+ Ajouter un produit</button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Notes</div>
+      <div class="field">
+        <textarea class="input" id="f-notes" rows="3" placeholder="Observations libres…" style="resize:vertical"></textarea>
+      </div>
+    </div>
+
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn--danger" id="btn-delete" onclick="deleteCurrent()" style="display:none">Supprimer</button>
+    <button class="btn btn--secondary" id="btn-corrective" onclick="createCorrective()" style="display:none" title="Créer une opération corrective inverse (annulation propre via chemin durci)">↩️ Annulation propre</button>
+    <div class="actions-right">
+      <button class="btn btn--secondary" onclick="closeDrawer()">Annuler</button>
+      <button class="btn" onclick="saveOperation()">Enregistrer</button>
+    </div>
+  </div>
+</aside>
+
+<div id="col-filter-dropdown" class="col-filter-dropdown" onclick="event.stopPropagation()"></div>
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="wb3-vitals.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+<script src="list-date-filter.js"></script>
+<script src="list-pager.js"></script>
+<script src="list-header.js"></script>
+<script src="chrono.js"></script>
+<script src="row-popover.js"></script>
+<script src="pins.js"></script>
+<script src="multiselect-touch.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// Catalogue types
+// ============================================================
+const OP_TYPES = {
+  pressoir:         { icon:'🍇', label:'Pressoir',           color:'#7b1fa2', bg:'#f3e5f5' },
+  ecoulage:         { icon:'🍷', label:'Écoulage',           color:'#6d4c41', bg:'#efebe9' },
+  soutirage:        { icon:'🔄', label:'Soutirage',          color:'#1565c0', bg:'#ddeeff' },
+  relogement:       { icon:'📦', label:'Relogement',         color:'#0277bd', bg:'#e1f5fe' },
+  transfert:        { icon:'➡️', label:'Transfert',          color:'#00838f', bg:'#e0f7fa' },
+  assemblage:       { icon:'🔀', label:'Assemblage',         color:'#6a1b9a', bg:'#f0e6fa' },
+  filtration:       { icon:'🔬', label:'Filtration',         color:'#00695c', bg:'#e0f2ef' },
+  levurage:         { icon:'🦠', label:'Levurage',           color:'#f57f17', bg:'#fffde7' },
+  malo:             { icon:'🦠', label:'MLF / Malo',         color:'#4527a0', bg:'#ede7f6' },
+  enzymage:         { icon:'⚗️',  label:'Enzymage',           color:'#795548', bg:'#efebe9' },
+  sulfitage:        { icon:'🧪', label:'Sulfitage',          color:'#e65100', bg:'#fff0e0' },
+  collage:          { icon:'🧹', label:'Collage',            color:'#2e7d32', bg:'#e6f4ea' },
+  chaptalisation:   { icon:'🍬', label:'Chaptalisation',     color:'#ad1457', bg:'#fce4ec' },
+  acidification:    { icon:'⬆️', label:'Acidification',      color:'#558b2f', bg:'#f1f8e9' },
+  desacidification: { icon:'⬇️', label:'Désacidification',   color:'#0277bd', bg:'#e1f5fe' },
+  mise_en_bouteille:{ icon:'🍾', label:'Mise en bouteille',  color:'#1b5e20', bg:'#e8f5e9' },
+  sortie_lot:       { icon:'📤', label:'Sortie lot',         color:'#c62828', bg:'#ffebee' },
+  autre:            { icon:'⚙️', label:'Autre',               color:'#546e7a', bg:'#eceff1' },
+  // ── Ajustements de cave ──────────────────────────────────────
+  complement_de_plein:       { icon:'💧', label:'Complément plein',    color:'#01579b', bg:'#e1f5fe', ajust:true },
+  ouillage:                  { icon:'🪣', label:'Ouillage',             color:'#0277bd', bg:'#e3f2fd', ajust:true },
+  ajustement_volume:         { icon:'⚖️', label:'Ajust. volume',       color:'#4527a0', bg:'#ede7f6', ajust:true },
+  correction_jauge:          { icon:'📏', label:'Correc. jauge',        color:'#311b92', bg:'#e8eaf6', ajust:true },
+  perte_technique:           { icon:'📉', label:'Perte technique',      color:'#bf360c', bg:'#fbe9e7', ajust:true },
+  correction_administrative: { icon:'📋', label:'Correc. admin.',       color:'#546e7a', bg:'#eceff1', ajust:true },
+};
+function getOpType(key) { return OP_TYPES[key] || { icon:'⚙️', label:key||'—', color:'#546e7a', bg:'#eceff1' }; }
+
+// Sous-ensemble des types qui déclenchent le panneau d'ajustement
+const OP_TYPES_AJUSTEMENT = new Set([
+  'complement_de_plein','ouillage','ajustement_volume',
+  'correction_jauge','perte_technique','correction_administrative',
+]);
+
+const STATUT_LABELS = { realise:'✅ Réalisé', planifie:'🗓 Planifié', annule:'🚫 Annulé' };
+
+const CAT_ICONS_OP = { so2:'🧪', levure:'🦠', enzyme:'⚗️', colle:'🧹', tanin:'🍂',
+  acidifiant:'⬆️', desacidifiant:'⬇️', nutriment:'💊', correcteur_alcool:'🔢',
+  filtre:'🔬', autre:'📦' };
+
+// Types pour lesquels la distinction source / destination a du sens
+const OP_TYPES_AVEC_ROLE = new Set(['soutirage','relogement','transfert','filtration','ecoulage','assemblage','pressoir','mise_en_bouteille']);
+
+const COLUMNS = [
+  { key:'date_operation',  label:'Date',       numeric:false, sortKey:'date_operation', defaultVisible:true  },
+  { key:'type_operation',  label:'Type',       numeric:false, sortKey:'type_operation', defaultVisible:true  },
+  { key:'lots',            label:'Lots',       numeric:false, sortKey:null,             defaultVisible:true  },
+  { key:'contenants',      label:'Contenants', numeric:false, sortKey:null,             defaultVisible:true  },
+  { key:'volume_hl',       label:'Vol. (hL)',  numeric:true,  sortKey:'volume_hl',      defaultVisible:true  },
+  { key:'quantite',        label:'Qté',        numeric:true,  sortKey:null,             defaultVisible:false },
+  { key:'operateur',       label:'Opérateur',  numeric:false, sortKey:'operateur',      defaultVisible:true  },
+  { key:'statut',          label:'Statut',     numeric:false, sortKey:null,             defaultVisible:true  },
+  { key:'notes',           label:'Notes',      numeric:false, sortKey:null,             defaultVisible:false },
+];
+
+// ============================================================
+// État
+// ============================================================
+let operations    = [];
+let lots          = [];
+let contenants    = [];
+let produitLots   = [];  // produits_lots avec infos catalogue
+let activeTab     = 'all';
+// Défaut tableau. Source de vérité : userPrefs ('operations_vue') via Supabase,
+// cache local localStorage pour rendu instantané.
+let viewMode      = (() => { try { return localStorage.getItem('wb3_operations_view') || 'table'; } catch(_) { return 'table'; } })();
+let groupMode     = 'none';
+let sortBy        = 'date_operation';
+let sortAsc       = false;
+let filterType    = 'all';
+let searchQuery   = '';
+let currentPage   = 1;
+let PAGE_SIZE   = 25;        // L3 : défaut 25, réglable 25/50/100 (persisté)
+let _showAll    = false;     // L3 : « Tout afficher » (rend tout le jeu filtré)
+let _mode       = 'continuous';   // L4 : 'continuous' (Charger plus) | 'paginated' (L3)
+let _loaded     = 25;             // L4 : nb de lignes accumulées en mode continu
+let _datePreset = '30j';          // L5 : preset date courant (pour le chip)
+let _dateSetPreset = function () {};   // L5 : pilote la période (chips / réinit.)
+let _density = 'confort';         // L10 : 'confort' | 'compact' (persisté)
+let _grouped = false;             // L7 : vue groupée par période (chrono), persisté
+let _pinned  = [];                // L8 : ids épinglés (≤ 5), persistés
+let editingId     = null;
+let columnFilters = {};
+let _dateRange    = {};   // période serveur (filtre liste) — voir list-date-filter.js
+let activeFilterCol = null;
+
+const today   = new Date().toISOString().slice(0, 10);
+const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+const TAB_FILTERS = {
+  all:      () => true,
+  today:    (o) => o.date_operation === today,
+  week:     (o) => o.date_operation >= weekAgo,
+  planifie: (o) => o.statut === 'planifie',
+  annule:   (o) => o.statut === 'annule',
+  epingles: (o) => _isPinned(o.id),            // L8 : onglet « Épinglées »
+};
+
+// ============================================================
+// Toast
+// ============================================================
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+
+// ============================================================
+// Auth & init
+// ============================================================
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+(async function init() {
+  if (typeof window.supabase === 'undefined' || typeof window.WB3DB === 'undefined' ||
+      typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>`;
+    return;
+  }
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>`;
+    document.querySelector('.fab').style.display = 'none'; return;
+  }
+  const { tenant } = ctx;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+  // Filtre période (défaut 30 j) — chargé AVANT le 1er fetch (scope serveur).
+  const _dc = await WB3ListDateFilter.init({
+    module: 'operations', defaultPreset: '30j', mount: 'ops-date-filter',
+    onChange: async (r) => { _dateRange = r; _datePreset = r.preset; _loaded = 25; currentPage = 1; await loadOperations(); render(); },
+  });
+  _dateRange = _dc; _datePreset = _dc.preset; _dateSetPreset = _dc.setPreset;   // L5
+  PAGE_SIZE = await WB3ListPager.loadSize('operations');   // L3 : taille de page persistée (défaut 25)
+  _mode     = await WB3ListPager.loadMode('operations');   // L4 : mode continu / paginé (persisté)
+  _density  = await WB3ListPager.loadDensity('operations'); _applyDensity();   // L10
+  _grouped  = await WB3ListPager.loadGrouped('operations');                    // L7
+  _pinned   = await WB3Pins.load('operations');                                // L8
+  await loadOperations();
+  // Pref user (Supabase) écrase localStorage si présente. Source de vérité.
+  try {
+    const p = await WB3DB.getUserPref('operations_vue');
+    if (p && p.view_mode) {
+      viewMode = p.view_mode;
+      try { localStorage.setItem('wb3_operations_view', viewMode); } catch(_) {}
+    }
+  } catch (e) { console.warn('[WB3 operations] getUserPref:', e); }
+  subscribeRealtime();
+  buildTypeChips();
+  setupEventListeners();
+  _initRowPopover();   // L11 : mini-fiche au survol (données déjà chargées)
+  // 9.2A — multi-sélection tactile (tap long) : bandeau + coche/décoche (tactile only).
+  if (window.WB3MultiSelect) WB3MultiSelect.attach('content', { onChange: function () {} });
+  render();
+  applyPrefill();
+})();
+
+// L11 — aperçu au survol d'une ligne (aucune requête : données en mémoire).
+function _initRowPopover() {
+  if (!window.WB3RowPopover) return;
+  WB3RowPopover.attach('content', {
+    resolve: id => operations.find(o => String(o.id) === String(id)),
+    fields: o => {
+      const op = getOpType(o.type_operation);
+      const lots  = (o.operation_lots || []).map(ol => ol.lots?.nom).filter(Boolean).join(', ');
+      const conts = (o.operation_contenants || []).map(oc => oc.contenants?.nom).filter(Boolean).join(', ');
+      const qte = o.volume_hl != null ? fmt(o.volume_hl) + ' hL'
+        : (o.quantite != null ? fmtNum(o.quantite) + (o.unite ? ' ' + o.unite : '') : '');
+      return { title: ((op.icon || '') + ' ' + (op.label || o.type_operation || 'Opération')).trim(), rows: [
+        ['Date', o.date_operation ? (o.date_operation + (o.heure_operation ? ' ' + o.heure_operation.slice(0, 5) : '')) : ''],
+        ['Statut', STATUT_LABELS[o.statut] || o.statut],
+        ['Contenants', conts],
+        ['Lots', lots],
+        ['Volume', qte],
+        ['Opérateur', o.operateur],
+      ] };
+    },
+  });
+}
+
+// ── Chargement différé des données du drawer ──────────────────
+// lots, contenants, produitLots ne sont nécessaires qu'à l'ouverture du drawer.
+// On les charge en une fois à la première ouverture pour ne pas bloquer le rendu initial.
+let _drawerDataReady = false;
+let _drawerDataPromise = null;
+async function ensureDrawerData() {
+  if (_drawerDataReady) return;
+  if (!_drawerDataPromise) {
+    _drawerDataPromise = Promise.all([loadLots(), loadContenants(), loadProduitLots()])
+      .then(() => { _drawerDataReady = true; _drawerDataPromise = null; });
+  }
+  return _drawerDataPromise;
+}
+
+// Pré-remplissage depuis la cuverie (sélection multi-contenants → Créer opération)
+async function applyPrefill() {
+  if (new URLSearchParams(window.location.search).get('new') !== '1') return;
+  const raw = sessionStorage.getItem('wb3_op_prefill');
+  sessionStorage.removeItem('wb3_op_prefill');
+  await ensureDrawerData();
+  openDrawer(); // ouvre le drawer vierge (données prêtes)
+  if (!raw) return;
+  try {
+    const prefill = JSON.parse(raw);
+    contRows = (prefill.contenants || []).map(c => ({ contenant_id: c.id, role: 'source', volume_hl: null }));
+    const lotsSeen = new Set();
+    lotRows = [];
+    (prefill.contenants || []).forEach(c => {
+      (c.lots || []).forEach(l => {
+        if (!lotsSeen.has(l.id)) {
+          lotsSeen.add(l.id);
+          lotRows.push({ lot_id: l.id, role: 'source', volume_hl: null });
+        }
+      });
+    });
+    (prefill.lots || []).forEach(l => {
+      if (!lotsSeen.has(l.id)) {
+        lotsSeen.add(l.id);
+        lotRows.push({ lot_id: l.id, role: 'traite', volume_hl: null });
+      }
+    });
+    if (prefill.type) {
+      document.getElementById('f-type').value = prefill.type;
+      renderTypeGrid();
+      updateTypeHint();
+      if (prefill.type === 'traitement') {
+        produitRows = [{ produit_lot_id: null, quantite: null, unite: '' }];
+      }
+    }
+    renderLotRows();
+    renderContRows();
+    renderProduitRows();
+  } catch(e) { console.warn('[WB3] applyPrefill:', e); }
+}
+
+// ============================================================
+// Chargement
+// ============================================================
+async function loadOperations() {
+  try {
+    operations = await WB3DB.queryOperations({ ascending: false, date_from: _dateRange.date_from, date_to: _dateRange.date_to });
+  } catch(e) {
+    console.error('[WB3 operations]', e);
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Erreur de chargement</div><div class="desc">${escapeHtml(e.message)}</div></div>`;
+  }
+}
+async function loadLots()       { try { lots       = await WB3DB.listTable('lots',       { order:'nom' }); } catch(e) { lots = []; } }
+async function loadContenants() { try { contenants = await WB3DB.listTable('contenants', { order:'nom' }); } catch(e) { contenants = []; } }
+async function loadProduitLots() {
+  try {
+    produitLots = await WB3DB.getProduitLots();
+  } catch(e) { produitLots = []; }
+}
+
+// Rafraîchit une seule opération dans le tableau local
+async function refreshOperationLocal(id) {
+  if (!id) { await loadOperations(); return; }
+  try {
+    const rows = await WB3DB.queryOperations({ id });
+    if (rows.length) {
+      const idx = operations.findIndex(o => o.id === id);
+      if (idx >= 0) operations[idx] = rows[0];
+      else operations.unshift(rows[0]);
+    }
+  } catch(e) { await loadOperations(); }
+}
+
+const _recentlySaved = new Set();
+function _markRecentlySaved(id) {
+  if (!id) return;
+  _recentlySaved.add(id);
+  setTimeout(() => _recentlySaved.delete(id), 500);
+}
+
+function subscribeRealtime() {
+  WB3DB.subscribeTable('operations', async (payload) => {
+    if (payload.eventType === 'DELETE') {
+      operations = operations.filter(o => o.id !== payload.old.id);
+    } else if (!_recentlySaved.has(payload.new.id)) {
+      await refreshOperationLocal(payload.new.id);
+    }
+    buildTypeChips(); render();
+  });
+  WB3DB.subscribeTable('produits_lots', async () => { await loadProduitLots(); });
+}
+
+// ============================================================
+// Chips types (dynamiques depuis les données)
+// ============================================================
+function buildTypeChips() {
+  const types = [...new Set(operations.map(o => o.type_operation).filter(Boolean))].sort();
+  const bar   = document.getElementById('type-chips');
+  bar.innerHTML = `<button class="chip active" data-type="all">Tous types</button>` +
+    types.map(t => { const op = getOpType(t); return `<button class="chip" data-type="${escapeHtml(t)}">${op.icon} ${escapeHtml(op.label)}</button>`; }).join('');
+  bar.querySelectorAll('.chip').forEach(chip =>
+    chip.addEventListener('click', () => {
+      bar.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active'); filterType = chip.dataset.type; currentPage = 1; render();
+    })
+  );
+}
+
+// ============================================================
+// Filtrage / tri
+// ============================================================
+function getFiltered() {
+  const btnCF = document.getElementById('btn-clear-filters');
+  if (btnCF) btnCF.style.display = (viewMode === 'table' && hasActiveColumnFilters()) ? '' : 'none';
+  return operations
+    .filter(o => TAB_FILTERS[activeTab](o))
+    .filter(o => filterType === 'all' || o.type_operation === filterType)
+    .filter(o => {
+      if (!searchQuery) return true;
+      const lots_txt  = (o.operation_lots||[]).map(ol => ol.lots?.nom||'').join(' ');
+      const conts_txt = (o.operation_contenants||[]).map(oc => oc.contenants?.nom||'').join(' ');
+      const hay = [o.type_operation, o.operateur, o.reference, o.notes, lots_txt, conts_txt].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(searchQuery);
+    })
+    .filter(o => passesColumnFilters(o))
+    .sort((a, b) => {
+      let av = a[sortBy], bv = b[sortBy];
+      if (typeof av === 'string' || typeof bv === 'string') {
+        const c = String(av||'').localeCompare(String(bv||''), 'fr'); return sortAsc ? c : -c;
+      }
+      av = Number(av)||0; bv = Number(bv)||0; return sortAsc ? av - bv : bv - av;
+    });
+}
+
+// ============================================================
+// Rendu principal
+// ============================================================
+function render() {
+  renderStats(); renderTabCounts();
+  _renderPinned();                    // L8 : section « Épinglées » en tête (sibling persistant)
+  const filtered  = getFiltered();
+  const container = document.getElementById('content');
+  if (!filtered.length) {
+    document.getElementById('pagination-bar').style.display = 'none';
+    container.innerHTML = !operations.length
+      ? `<div class="empty-state"><div class="icon">⚙️</div><div class="title">Aucune opération pour l'instant</div>
+         <div class="desc">Enregistre ta première opération cave.</div>
+         <div class="actions"><button class="btn" onclick="openDrawer()">+ Nouvelle opération</button></div></div>`
+      : `<div class="empty-state"><div class="icon">🔍</div>
+           <div class="title">Aucun résultat sur ces filtres</div>
+           <div class="desc">Aucune opération ne correspond aux filtres actifs (affichés en haut).</div>
+           <div class="actions"><button class="btn btn--secondary" onclick="_l5Reset()">↺ Réinitialiser les filtres</button></div></div>`;
+    _l5Update();
+    return;
+  }
+  // L8 : hors onglet « Épinglées », les épinglées sont remontées → retirées du flux.
+  const mainList = (activeTab === 'epingles') ? filtered : filtered.filter(o => !_isPinned(o.id));
+  if (groupMode !== 'none') {
+    document.getElementById('pagination-bar').style.display = 'none';
+    if (viewMode === 'grid') renderGroupedGrid(mainList); else renderGroupedTable(mainList);
+  } else {
+    const total = mainList.length;
+    let paged;
+    if (_mode === 'continuous') {
+      paged = mainList.slice(0, _loaded);            // L4 : tranches accumulées (0..loaded)
+    } else if (_showAll) {
+      paged = mainList;
+    } else {
+      const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (currentPage > pages) currentPage = pages;
+      paged = mainList.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+    }
+    if (_grouped) renderChrono(paged);                 // L7 : groupé par période (sur la fenêtre paginée)
+    else if (viewMode === 'grid') renderGrid(paged); else renderTable(paged);
+    renderPagination(total);
+  }
+  WB3Pins.decorate(container, { isPinned: _isPinned, onToggle: _togglePin });   // L8
+  _l5Update();
+}
+
+// ── L8 — épinglage (lignes en tête, ≤ 5, persistées par tenant) ──
+function _isPinned(id) { return _pinned.includes(String(id)); }
+function _togglePin(id) {
+  id = String(id);
+  const i = _pinned.indexOf(id);
+  if (i >= 0) { _pinned.splice(i, 1); }
+  else {
+    if (_pinned.length >= WB3Pins.MAX) { WB3Pins.toast('Maximum ' + WB3Pins.MAX + ' lignes épinglées (retirez-en une d\'abord)'); return; }
+    _pinned.push(id);
+  }
+  WB3Pins.save('operations', _pinned);
+  render();
+}
+function _pinnedExisting() {
+  const present = new Set(operations.map(o => String(o.id)));
+  if (_datePreset === 'all') {
+    const kept = _pinned.filter(id => present.has(id));
+    if (kept.length !== _pinned.length) { _pinned = kept; WB3Pins.save('operations', _pinned); }
+  }
+  return _pinned.map(id => operations.find(o => String(o.id) === id)).filter(Boolean);
+}
+function _renderPinned() {
+  const host = document.getElementById('pinned-section');
+  if (!host) return;
+  const items = (activeTab === 'epingles') ? [] : _pinnedExisting();
+  if (!items.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
+  const cols = COLUMNS.filter(c => c.defaultVisible);
+  host.style.display = '';
+  host.className = 'pinned-section';
+  host.innerHTML = `<div class="pinned-head">📌 Épinglées <span class="meta">(${items.length})</span></div>
+    <div style="overflow-x:auto"><table class="data-table">
+      <thead><tr>${cols.map(renderColHeader).join('')}</tr></thead><tbody></tbody></table></div>`;
+  const tbody = host.querySelector('tbody');
+  items.forEach(o => tbody.appendChild(makeTableRow(o, cols)));
+  WB3Pins.decorate(host, { isPinned: _isPinned, onToggle: _togglePin });
+}
+
+// ── L7 — vue groupée par tranche de temps (sur la fenêtre paginée / chargée) ──
+function _toggleGroup() {
+  _grouped = !_grouped;
+  if (_grouped) groupMode = 'none';   // la vue chrono L7 prime sur le group-by interne (type/date)
+  WB3ListPager.saveGrouped('operations', _grouped); render();
+}
+function renderChrono(items) {
+  const sections = WB3Chrono.bucket(items, o => o.date_operation);
+  const container = document.getElementById('content');
+  if (sections.length <= 1) {   // une seule période → pas de plus-value à grouper
+    if (viewMode === 'grid') renderGrid(items); else renderTable(items); return;
+  }
+  if (viewMode === 'grid') { renderChronoGrid(sections); return; }
+  const cols = COLUMNS.filter(c => c.defaultVisible);
+  container.innerHTML = `<div style="overflow-x:auto"><table class="data-table">
+    <thead><tr>${cols.map(renderColHeader).join('')}</tr></thead><tbody></tbody></table></div>`;
+  const tbody = container.querySelector('tbody');
+  const collapsed = WB3Chrono.getCollapsed('operations');
+  sections.forEach(g => {
+    const isCol = collapsed.has(g.key);
+    const hr = document.createElement('tr'); hr.className = 'row-group-header' + (isCol ? ' collapsed' : '');
+    hr.innerHTML = `<td colspan="${cols.length}"><span class="chevron">▼</span> ${g.label}
+      <span class="meta">${g.items.length} op${g.items.length > 1 ? 's' : ''}</span></td>`;
+    tbody.appendChild(hr);
+    g.items.forEach(o => { const r = makeTableRow(o, cols); if (isCol) r.style.display = 'none'; tbody.appendChild(r); });
+    hr.addEventListener('click', () => {
+      const nowCol = hr.classList.toggle('collapsed');
+      let next = hr.nextElementSibling;
+      while (next && !next.classList.contains('row-group-header')) { next.style.display = nowCol ? 'none' : ''; next = next.nextElementSibling; }
+      const c = WB3Chrono.getCollapsed('operations');
+      if (nowCol) c.add(g.key); else c.delete(g.key);
+      WB3Chrono.setCollapsed('operations', c);
+    });
+  });
+  bindHeaderSort(container);
+}
+function renderChronoGrid(sections) {
+  const container = document.getElementById('content'); container.innerHTML = '';
+  const collapsed = WB3Chrono.getCollapsed('operations');
+  sections.forEach(g => {
+    const section = document.createElement('div'); section.className = 'group-section' + (collapsed.has(g.key) ? ' collapsed' : '');
+    section.innerHTML = `
+      <div class="group-header"><span class="chevron">▼</span><h3>${g.label}</h3>
+        <span class="meta"><b>${g.items.length}</b> op${g.items.length > 1 ? 's' : ''}</span></div>
+      <div class="group-content"><div class="cuverie-grid"></div></div>`;
+    const grid = section.querySelector('.cuverie-grid');
+    g.items.forEach(o => grid.appendChild(renderCard(o)));
+    section.querySelector('.group-header').addEventListener('click', () => {
+      const nowCol = section.classList.toggle('collapsed');
+      const c = WB3Chrono.getCollapsed('operations');
+      if (nowCol) c.add(g.key); else c.delete(g.key);
+      WB3Chrono.setCollapsed('operations', c);
+    });
+    container.appendChild(section);
+  });
+}
+
+// ── L5 — bandeau « tableau de bord » (compteur + chips + réinitialiser) ──
+function _l5ColLabel(k) { const c = (typeof COLUMNS !== 'undefined' ? COLUMNS : []).find(x => x.key === k); return c ? c.label : k; }
+function _l5ColChip(k) {
+  const f = columnFilters[k], lbl = _l5ColLabel(k);
+  if (f && f.type === 'values' && Array.isArray(f.values) && f.values.length)
+    return lbl + ' = ' + f.values.slice(0, 2).join(', ') + (f.values.length > 2 ? '…' : '');
+  return lbl + ' (filtré)';
+}
+function _l5Counter() {
+  const t = getFiltered().length;
+  if (_mode === 'continuous') return Math.min(_loaded, t) + ' / ' + t + ' affichés';
+  const pg = Math.max(1, Math.ceil(t / PAGE_SIZE));
+  return 'Page ' + Math.min(currentPage, pg) + ' / ' + pg + ' · ' + t + ' résultat' + (t > 1 ? 's' : '');
+}
+function _l5Update() {
+  const chips = [];
+  if (_datePreset && _datePreset !== 'all')
+    chips.push({ label: 'Période : ' + WB3ListHeader.presetLabel(_datePreset), onRemove: () => _dateSetPreset('all') });
+  if (searchQuery)
+    chips.push({ label: 'Recherche : ' + searchQuery, onRemove: () => { searchQuery = ''; const s = document.getElementById('search'); if (s) s.value = ''; currentPage = 1; _loaded = 25; render(); } });
+  Object.keys(columnFilters || {}).forEach(k => {
+    const active = (typeof isFilterActive === 'function') ? isFilterActive(k) : !!columnFilters[k];
+    if (active) chips.push({ label: _l5ColChip(k), onRemove: () => { delete columnFilters[k]; currentPage = 1; _loaded = 25; render(); } });
+  });
+  WB3ListHeader.update('list-header', { counter: _l5Counter(), chips, onReset: _l5Reset, density: _density, onToggleDensity: _toggleDensity, grouped: _grouped, onToggleGroup: _toggleGroup });
+}
+function _l5Reset() {
+  searchQuery = ''; const s = document.getElementById('search'); if (s) s.value = '';
+  columnFilters = {}; currentPage = 1; _loaded = 25;
+  _dateSetPreset('30j');   // défaut L1 (onglet Récents) → reload + render → _l5Update
+}
+// L10 — densité d'affichage (confort / compact), persistée par module.
+function _applyDensity() { const c = document.getElementById('content'); if (c) c.classList.toggle('wb3-compact', _density === 'compact'); }
+function _toggleDensity() { _density = _density === 'compact' ? 'confort' : 'compact'; _applyDensity(); WB3ListPager.saveDensity('operations', _density); _l5Update(); }
+
+// ============================================================
+// Groupement
+// ============================================================
+function groupItems(items) {
+  const groups = new Map();
+  if (groupMode === 'type') {
+    items.forEach(o => {
+      const k = o.type_operation || 'autre'; const op = getOpType(k);
+      if (!groups.has(k)) groups.set(k, { key:k, label:`${op.icon} ${op.label}`, items:[] });
+      groups.get(k).items.push(o);
+    });
+    return [...groups.values()].sort((a,b) => a.label.localeCompare(b.label, 'fr'));
+  } else {
+    items.forEach(o => {
+      const k = o.date_operation || '—';
+      if (!groups.has(k)) groups.set(k, { key:k, label:`📅 ${k}`, items:[] });
+      groups.get(k).items.push(o);
+    });
+    return [...groups.values()].sort((a,b) => b.key.localeCompare(a.key));
+  }
+}
+
+function renderGroupedGrid(items) {
+  const container = document.getElementById('content'); container.innerHTML = '';
+  groupItems(items).forEach(g => {
+    const section = document.createElement('div'); section.className = 'group-section';
+    section.innerHTML = `
+      <div class="group-header"><h3>${g.label}</h3>
+        <span class="meta"><b>${g.items.length}</b> opération${g.items.length>1?'s':''}</span>
+        <span class="chevron">▼</span></div>
+      <div class="group-content"><div class="cuverie-grid"></div></div>`;
+    const grid = section.querySelector('.cuverie-grid');
+    g.items.forEach(o => grid.appendChild(renderCard(o)));
+    section.querySelector('.group-header').addEventListener('click', () => section.classList.toggle('collapsed'));
+    container.appendChild(section);
+  });
+}
+
+function renderGroupedTable(items) {
+  const cols = COLUMNS.filter(c => c.defaultVisible);
+  const container = document.getElementById('content');
+  container.innerHTML = `<div style="overflow-x:auto"><table class="data-table">
+    <thead><tr>${cols.map(renderColHeader).join('')}</tr></thead><tbody></tbody></table></div>`;
+  const tbody = container.querySelector('tbody');
+  groupItems(items).forEach(g => {
+    const hr = document.createElement('tr'); hr.className = 'row-group-header';
+    hr.innerHTML = `<td colspan="${cols.length}">▼ ${g.label} <span class="meta">${g.items.length} opération${g.items.length>1?'s':''}</span></td>`;
+    hr.addEventListener('click', () => {
+      let next = hr.nextElementSibling;
+      while (next && !next.classList.contains('row-group-header')) {
+        next.style.display = next.style.display === 'none' ? '' : 'none'; next = next.nextElementSibling;
+      }
+    });
+    tbody.appendChild(hr);
+    g.items.forEach(o => tbody.appendChild(makeTableRow(o, cols)));
+  });
+  bindHeaderSort(container);
+}
+
+// ============================================================
+// Vue Grille
+// ============================================================
+function renderGrid(items) {
+  const container = document.getElementById('content');
+  container.innerHTML = '<div class="cuverie-grid" id="op-grid"></div>';
+  document.getElementById('op-grid').append(...items.map(renderCard));
+}
+
+function renderCard(o) {
+  const el  = document.createElement('div'); el.className = 'contenant-card-pro';
+  const op  = getOpType(o.type_operation);
+  const lotsLinks = (o.operation_lots||[])
+    .filter(ol=>ol.lots?.nom)
+    .map(ol => `<button class="nav-chip" onclick="event.stopPropagation();WB3Nav.navigate('lot-detail.html?id=${ol.lots.id}')"
+                        title="Fiche lot">${escapeHtml(ol.lots.nom)}${ol.lots.numero_lot?' ['+escapeHtml(ol.lots.numero_lot)+']':''}</button>`)
+    .join('') || null;
+  const contLinks = (o.operation_contenants||[])
+    .filter(oc=>oc.contenants?.nom)
+    .map(oc => `<button class="nav-chip" onclick="event.stopPropagation();WB3Nav.navigate('contenant-detail.html?id=${oc.contenants.id}')"
+                        title="Fiche cuve">${escapeHtml(oc.contenants.nom)}</button>`)
+    .join('') || null;
+  const qteStr  = o.volume_hl != null ? `${fmt(o.volume_hl)} hL`
+    : o.quantite != null ? `${fmtNum(o.quantite)}${o.unite?' '+escapeHtml(o.unite):''}` : null;
+  el.innerHTML = `
+    <div class="op-strip" style="background:${op.color}"></div>
+    <div class="card-head" style="margin-top:var(--space-1)">
+      <div>
+        <div class="nom">${op.icon} ${escapeHtml(op.label)}</div>
+        <div class="meta">${o.date_operation||'—'}${o.heure_operation?' · '+o.heure_operation.slice(0,5):''}${o.reference?' · <em>'+escapeHtml(o.reference)+'</em>':''}</div>
+      </div>
+      <span class="statut-badge statut-${o.statut}">${STATUT_LABELS[o.statut]||o.statut}</span>
+    </div>
+    ${lotsLinks ? `<div class="meta chips-row" style="margin-top:var(--space-1);display:flex;flex-wrap:wrap;gap:var(--space-1)">🍷 ${lotsLinks}</div>` : ''}
+    ${contLinks ? `<div class="meta chips-row" style="display:flex;flex-wrap:wrap;gap:var(--space-1)">🛢 ${contLinks}</div>` : ''}
+    ${(() => { const ps=(o.operation_produits||[]).map(op=>{const pc=op.produits_lots?.produits_catalogue;return pc?`${CAT_ICONS_OP[pc.categorie]||'📦'} ${pc.nom}`:'';}).filter(Boolean).join(', '); return ps?`<div class="meta">🧪 ${escapeHtml(ps)}</div>`:''; })()}
+    ${o.notes ? `<div class="meta" style="font-style:italic;opacity:.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${escapeHtml(o.notes)}</div>` : ''}
+    <div class="footer-row">
+      <span class="meta">${o.operateur?'👤 '+escapeHtml(o.operateur):'<span style="opacity:.4">—</span>'}</span>
+      <span class="vol">${qteStr||'—'}</span>
+    </div>`;
+  el.addEventListener('click', () => openDrawer(o.id));
+  return el;
+}
+
+// ============================================================
+// Vue Tableau
+// ============================================================
+function renderColHeader(col) {
+  const active    = isFilterActive(col.key);
+  const filterBtn = `<button class="col-filter-btn${active?' active':''}" onclick="openFilterDropdown(event,'${col.key}')">▾</button>`;
+  if (!col.sortKey) return `<th${col.numeric?' class="num"':''}>${escapeHtml(col.label)}${filterBtn}</th>`;
+  const isSorted = sortBy === col.sortKey;
+  const cls = ['sortable',...(col.numeric?['num']:[]),...(isSorted?['sorted']:[]),isSorted&&sortAsc?'asc':''].filter(Boolean).join(' ');
+  return `<th class="${cls}" data-sort="${col.sortKey}">${escapeHtml(col.label)}${filterBtn}</th>`;
+}
+
+function renderTable(items) {
+  const cols = COLUMNS.filter(c => c.defaultVisible);
+  const container = document.getElementById('content');
+  container.innerHTML = `<div style="overflow-x:auto"><table class="data-table">
+    <thead><tr>${cols.map(renderColHeader).join('')}</tr></thead><tbody></tbody></table></div>`;
+  const tbody = container.querySelector('tbody');
+  items.forEach(o => tbody.appendChild(makeTableRow(o, cols)));
+  bindHeaderSort(container);
+}
+
+function makeTableRow(o, cols) {
+  const op = getOpType(o.type_operation);
+  const tr = document.createElement('tr'); tr.dataset.id = o.id; tr.style.cursor = 'pointer';
+  tr.innerHTML = cols.map(col => {
+    switch(col.key) {
+      case 'date_operation':
+        return `<td>${o.date_operation||'—'}${o.heure_operation?'<br><small style="opacity:.6">'+o.heure_operation.slice(0,5)+'</small>':''}</td>`;
+      case 'type_operation':
+        return `<td><span class="op-badge" style="background:${op.bg};color:${op.color}">${op.icon} ${escapeHtml(op.label)}</span></td>`;
+      case 'lots':
+        return `<td style="font-size:var(--text-caption)">${
+          (o.operation_lots||[]).filter(ol=>ol.lots?.nom).map(ol=>
+            `<button class="nav-chip" onclick="event.stopPropagation();WB3Nav.navigate('lot-detail.html?id=${ol.lots.id}')">${escapeHtml(ol.lots.nom)}${ol.lots.numero_lot?' ['+escapeHtml(ol.lots.numero_lot)+']':''}</button>`
+          ).join(' ')||'—'
+        }</td>`;
+      case 'contenants':
+        return `<td style="font-size:var(--text-caption)">${
+          (o.operation_contenants||[]).filter(oc=>oc.contenants?.nom).map(oc=>
+            `<button class="nav-chip" onclick="event.stopPropagation();WB3Nav.navigate('contenant-detail.html?id=${oc.contenants.id}')">${escapeHtml(oc.contenants.nom)}</button>`
+          ).join(' ')||'—'
+        }</td>`;
+      case 'volume_hl':    return `<td class="num">${o.volume_hl!=null?fmt(o.volume_hl):'—'}</td>`;
+      case 'quantite':     return `<td class="num">${o.quantite!=null?fmtNum(o.quantite)+(o.unite?' '+escapeHtml(o.unite):''):'—'}</td>`;
+      case 'operateur':    return `<td>${escapeHtml(o.operateur||'—')}</td>`;
+      case 'statut':       return `<td><span class="statut-badge statut-${o.statut}">${STATUT_LABELS[o.statut]||o.statut}</span></td>`;
+      case 'notes':        return `<td style="font-size:var(--text-caption);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(o.notes||'—')}</td>`;
+      default:             return `<td>—</td>`;
+    }
+  }).join('');
+  tr.addEventListener('click', () => openDrawer(o.id));
+  return tr;
+}
+
+function bindHeaderSort(container) {
+  container.querySelectorAll('th.sortable').forEach(th =>
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort; if (!k) return;
+      if (sortBy === k) sortAsc = !sortAsc; else { sortBy = k; sortAsc = true; }
+      currentPage = 1; render();
+    })
+  );
+}
+
+// ============================================================
+// Filtres colonnes
+// ============================================================
+function getRawValue(key, o) {
+  switch(key) {
+    case 'date_operation':  return o.date_operation || '';
+    case 'type_operation':  return getOpType(o.type_operation).label;
+    case 'lots':            return (o.operation_lots||[]).map(ol=>ol.lots?.nom||'').join(', ');
+    case 'contenants':      return (o.operation_contenants||[]).map(oc=>oc.contenants?.nom||'').join(', ');
+    case 'volume_hl':       return o.volume_hl;
+    case 'quantite':        return o.quantite;
+    case 'operateur':       return o.operateur || '';
+    case 'statut':          return STATUT_LABELS[o.statut] || o.statut || '';
+    case 'notes':           return o.notes || '';
+    default:                return '';
+  }
+}
+function isNumericCol(key) { return ['volume_hl','quantite'].includes(key); }
+function getUniqueValues(key) {
+  const vals = new Set();
+  operations.forEach(o => { const r = getRawValue(key, o); vals.add(r==null?'':String(r)); });
+  return [...vals].sort((a,b)=>(!a&&b)?1:(a&&!b)?-1:a.localeCompare(b,'fr'));
+}
+function isFilterActive(key) {
+  const f = columnFilters[key]; if (!f) return false;
+  if (f.type==='values') return f.values?.length>0;
+  if (f.type==='range')  return (f.min!=null&&f.min!=='') || (f.max!=null&&f.max!=='');
+  return false;
+}
+function hasActiveColumnFilters() { return Object.keys(columnFilters).some(k=>isFilterActive(k)); }
+function passesColumnFilters(o) {
+  for (const [key, filter] of Object.entries(columnFilters)) {
+    if (!isFilterActive(key)) continue;
+    const raw = getRawValue(key, o);
+    if (filter.type==='values') { if (!filter.values.includes(raw==null?'':String(raw))) return false; }
+    else if (filter.type==='range') {
+      const num = Number(raw);
+      if (filter.min!=null&&filter.min!==''&&num<Number(filter.min)) return false;
+      if (filter.max!=null&&filter.max!==''&&num>Number(filter.max)) return false;
+    }
+  }
+  return true;
+}
+function openFilterDropdown(event, colKey) {
+  event.stopPropagation();
+  if (activeFilterCol===colKey) { closeFilterDropdown(); return; }
+  activeFilterCol = colKey;
+  const dd = document.getElementById('col-filter-dropdown');
+  dd.innerHTML = buildFilterContent(colKey); dd.classList.add('open');
+  const rect = event.currentTarget.getBoundingClientRect();
+  let left = rect.left;
+  if (left+260>window.innerWidth-8) left=window.innerWidth-268;
+  if (left<8) left=8;
+  dd.style.left=left+'px'; dd.style.top=(rect.bottom+4)+'px';
+}
+function closeFilterDropdown() { activeFilterCol=null; document.getElementById('col-filter-dropdown').classList.remove('open'); }
+function buildFilterContent(key) {
+  const col=COLUMNS.find(c=>c.key===key), filter=columnFilters[key]||{};
+  if (isNumericCol(key)) {
+    const minV=filter.type==='range'&&filter.min!=null?filter.min:'';
+    const maxV=filter.type==='range'&&filter.max!=null?filter.max:'';
+    return `<div class="col-filter-title">🔢 ${escapeHtml(col?.label||key)}</div>
+      <div class="col-filter-range">
+        <input class="input" type="number" id="cf-min" placeholder="Min" value="${minV}">
+        <span style="color:var(--color-ink-tertiary);flex-shrink:0">→</span>
+        <input class="input" type="number" id="cf-max" placeholder="Max" value="${maxV}">
+      </div>
+      <div class="col-filter-footer">
+        <button class="btn btn--ghost btn--sm" onclick="clearColumnFilter('${key}')">✕ Effacer</button>
+        <button class="btn btn--sm" onclick="applyRangeFilter('${key}')">Appliquer</button>
+      </div>`;
+  }
+  const uv=getUniqueValues(key), av=filter.type==='values'&&Array.isArray(filter.values)?filter.values:[];
+  const valItems=uv.length===0
+    ?`<div style="padding:var(--space-2);color:var(--color-ink-tertiary);font-size:var(--text-caption)">Aucune valeur</div>`
+    :uv.map(v=>`<label class="col-filter-value-item">
+      <input type="checkbox" value="${escapeHtml(v)}" ${av.includes(v)?'checked':''} onchange="toggleFilterValue('${key}',this.value,this.checked)">
+      <span>${v===''?'<em style="color:var(--color-ink-tertiary)">vide</em>':escapeHtml(v)}</span>
+    </label>`).join('');
+  return `<div class="col-filter-title">🔡 ${escapeHtml(col?.label||key)}</div>
+    <input class="input col-filter-search" type="text" placeholder="Rechercher…" oninput="filterValuesSearch(this.value)">
+    <div class="col-filter-values" id="cf-values-list">${valItems}</div>
+    <div class="col-filter-footer">
+      <button class="btn btn--ghost btn--sm" onclick="clearColumnFilter('${key}')">✕ Effacer</button>
+      <button class="btn btn--ghost btn--sm" onclick="selectAllFilterValues()">Tout décocher</button>
+    </div>`;
+}
+function toggleFilterValue(key,value,checked) {
+  if (!columnFilters[key]||columnFilters[key].type!=='values') columnFilters[key]={type:'values',values:[]};
+  const vals=columnFilters[key].values;
+  if (checked&&!vals.includes(value)) vals.push(value);
+  else if (!checked) columnFilters[key].values=vals.filter(v=>v!==value);
+  render();
+}
+function applyRangeFilter(key) {
+  const min=document.getElementById('cf-min')?.value.trim(), max=document.getElementById('cf-max')?.value.trim();
+  if (!min&&!max) delete columnFilters[key];
+  else columnFilters[key]={type:'range',min:min!==''?Number(min):null,max:max!==''?Number(max):null};
+  closeFilterDropdown(); render();
+}
+function clearColumnFilter(key)  { delete columnFilters[key]; closeFilterDropdown(); render(); }
+function clearAllColumnFilters() { columnFilters={}; render(); }
+function selectAllFilterValues() {
+  const list=document.getElementById('cf-values-list'); if (!list||!activeFilterCol) return;
+  list.querySelectorAll('input[type=checkbox]').forEach(cb=>{cb.checked=false;});
+  if (columnFilters[activeFilterCol]) columnFilters[activeFilterCol].values=[];
+  render();
+}
+function filterValuesSearch(query) {
+  const list=document.getElementById('cf-values-list'); if (!list) return;
+  const q=query.toLowerCase();
+  list.querySelectorAll('.col-filter-value-item').forEach(item=>{
+    const text=item.querySelector('span')?.textContent.toLowerCase()||'';
+    item.style.display=q===''||text.includes(q)?'':'none';
+  });
+}
+
+// ============================================================
+// Pagination
+// ============================================================
+function renderPagination(total) {
+  WB3ListPager.renderBar(document.getElementById('pagination-bar'), {
+    mode: _mode, total, page: currentPage, pageSize: PAGE_SIZE, loaded: _loaded, showAll: _showAll,
+    onPage: goToPage, onSize: setPageSize, onToggleAll: toggleShowAll,
+    onLoadMore: loadMore, onToggleMode: toggleMode,
+  });
+}
+function loadMore() { const y = window.scrollY; _loaded += WB3ListPager.STEP; render(); window.scrollTo(0, y); }
+function toggleMode() {
+  _mode = _mode === 'continuous' ? 'paginated' : 'continuous';
+  _loaded = WB3ListPager.STEP; currentPage = 1; _showAll = false;
+  WB3ListPager.saveMode('operations', _mode); render();
+}
+function setPageSize(n) { PAGE_SIZE = n; _showAll = false; currentPage = 1; WB3ListPager.saveSize('operations', n); render(); }
+async function toggleShowAll() {
+  if (!_showAll) {
+    const total = getFiltered().length;
+    if (total > WB3ListPager.CONFIRM_OVER &&
+        !(await WB3UI.confirm(`Afficher ${total} lignes peut ralentir l'interface. Continuer ?`, { title:'Tout afficher', okText:'Afficher' }))) return;
+  }
+  _showAll = !_showAll; currentPage = 1; render();
+}
+function goToPage(p) {
+  const pages=Math.max(1,Math.ceil(getFiltered().length/PAGE_SIZE));
+  currentPage=Math.max(1,Math.min(p,pages)); render();
+  document.getElementById('content')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ============================================================
+// Stats
+// ============================================================
+function renderStats() {
+  const actives  = operations.filter(o=>o.statut!=='annule');
+  const todayArr = actives.filter(o=>o.date_operation===today);
+  const planifie = operations.filter(o=>o.statut==='planifie');
+  const types    = new Set(actives.map(o=>o.type_operation));
+  const volTot   = actives.reduce((s,o)=>s+(Number(o.volume_hl)||0), 0);
+  document.getElementById('stats').innerHTML=`
+    <div class="stat-card"><div class="label">Opérations total</div><div class="value">${actives.length}</div></div>
+    <div class="stat-card"><div class="label">Aujourd'hui</div><div class="value">${todayArr.length}</div></div>
+    <div class="stat-card"><div class="label">Planifiées</div><div class="value">${planifie.length}</div></div>
+    <div class="stat-card"><div class="label">Types différents</div><div class="value">${types.size}</div></div>
+    <div class="stat-card"><div class="label">Volume traité</div><div class="value">${fmt(volTot)}</div><div class="sub">hL</div></div>`;
+}
+function renderTabCounts() {
+  Object.keys(TAB_FILTERS).forEach(tab=>{
+    const el=document.querySelector(`[data-count="${tab}"]`);
+    if (el) el.textContent=operations.filter(TAB_FILTERS[tab]).length;
+  });
+}
+
+// ============================================================
+// Event listeners
+// ============================================================
+function setupEventListeners() {
+  document.querySelectorAll('#tabs .tab').forEach(tab=>
+    tab.addEventListener('click',()=>{
+      document.querySelectorAll('#tabs .tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active'); activeTab=tab.dataset.tab; currentPage=1; render();
+    })
+  );
+  document.querySelectorAll('#view-mode button[data-view]').forEach(btn=>
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('#view-mode button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); viewMode=btn.dataset.view;
+      try { localStorage.setItem('wb3_operations_view', viewMode); } catch(_) {}
+      WB3DB.setUserPref('operations_vue', { view_mode: viewMode })
+        .catch(e => console.warn('[WB3 operations] setUserPref:', e));
+      render();
+    })
+  );
+  // Sync visuel du toggle avec viewMode courant
+  document.querySelectorAll('#view-mode button[data-view]').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === viewMode));
+  document.querySelectorAll('#group-mode button[data-group]').forEach(btn=>
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('#group-mode button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); groupMode=btn.dataset.group; currentPage=1; render();
+    })
+  );
+  document.querySelectorAll('#sort-mode button[data-sort]').forEach(btn=>
+    btn.addEventListener('click',()=>{
+      if (sortBy===btn.dataset.sort) sortAsc=!sortAsc;
+      else { document.querySelectorAll('#sort-mode button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); sortBy=btn.dataset.sort; sortAsc=false; }
+      currentPage=1; render();
+    })
+  );
+  document.getElementById('search').addEventListener('input',e=>{
+    searchQuery=e.target.value.trim().toLowerCase(); currentPage=1; render();
+  });
+  document.addEventListener('keydown',e=>{ if (e.key==='Escape') { closeFilterDropdown(); closeDrawer(); } });
+  document.addEventListener('click',()=>{ if (activeFilterCol) closeFilterDropdown(); });
+}
+
+// ============================================================
+// Drawer — A3
+// ============================================================
+
+function renderTypeGrid() {
+  const grid = document.getElementById('op-type-grid');
+  if (!grid) return;
+  const cur = document.getElementById('f-type')?.value || '';
+
+  const stdEntries  = Object.entries(OP_TYPES).filter(([, t]) => !t.ajust);
+  const ajustEntries= Object.entries(OP_TYPES).filter(([, t]) =>  t.ajust);
+
+  const makeCard = ([key, t]) => `
+    <button type="button" class="op-type-card${cur === key ? ' selected' : ''}${t.ajust ? ' ajust-type' : ''}"
+            onclick="setOpType('${key}')">
+      <span class="ot-icon">${t.icon}</span>
+      <span class="ot-label">${t.label}</span>
+    </button>`;
+
+  grid.innerHTML =
+    stdEntries.map(makeCard).join('') +
+    `<div class="op-type-group-sep">Ajustements de cave</div>` +
+    ajustEntries.map(makeCard).join('');
+}
+
+function setOpType(key) {
+  const inp = document.getElementById('f-type');
+  if (inp) inp.value = key;
+  renderTypeGrid();
+  updateTypeHint();
+}
+
+let lotRows     = [];   // [{ lot_id, role, volume_hl }]
+let contRows    = [];   // [{ contenant_id, role, volume_hl }]
+let metaRows    = [];   // [{ key, value }]
+let produitRows = [];   // [{ produit_lot_id, quantite, unite }]
+
+// État du panneau d'ajustement
+let _ajustVolAvant = null;   // volume chargé depuis DB pour la cuve/lot sélectionné
+let _ajustMode     = 'delta'; // 'delta' | 'cible'
+
+// P1-3 : types réversibles via createCorrectiveOperation (chemin durci).
+// Doit rester aligné avec REVERSIBLE dans db.js createCorrectiveOperation.
+// Inclut les types avec produits (sulfitage, etc.) qui se "corrigent" par
+// ré-incrément stock uniquement (pas d'inversion physique du SO2 ajouté
+// — l'opération source reste tracée, la corrective est une annulation
+// administrative + cohérence stock).
+const _CORRECTIVE_TYPES = new Set([
+  'relogement', 'soutirage', 'transfert', 'ecoulage', 'filtration', 'assemblage',
+  'sulfitage', 'levurage', 'enzymage', 'malo', 'collage',
+]);
+
+// ============================================================
+// 9.3 — Wizard de saisie d'opération (mobile-first).
+// Couche de PRÉSENTATION par-dessus le formulaire drawer existant : sous 820 px
+// (ou tactile), paginate les .drawer-section en 6 étapes et réutilise tel quel
+// saveOperation() / closeDrawer() (zéro duplication de la sauvegarde). Détecté
+// via MutationObserver sur la classe .open du drawer → AUCUNE modif d'openDrawer/
+// closeDrawer. Desktop > 820 px = formulaire normal, strictement inchangé.
+// ============================================================
+let _wizActive = false, _wizStep = 1;
+const _WIZ_TOTAL = 6;
+const _WIZ_LABELS = ['Type & date', 'Contenants', 'Lots', 'Produits', 'Volume & notes', 'Récap'];
+const _WIZ_OPTIONAL = { 3: true, 4: true };   // lots, produits = ignorables
+function _wizEnabled() { try { return window.matchMedia('(max-width: 820px), (pointer: coarse)').matches; } catch (_) { return false; } }
+function _wizStepOf(t) {
+  if (t.includes('contenant')) return 2;
+  if (t.includes('lots')) return 3;
+  if (t.includes('produits')) return 4;
+  if (t.includes('quantit') || t.includes('champs libres') || t.includes('notes')) return 5;
+  return 1;   // « Type & planification » (+ « Ajustement de cave »)
+}
+function _wizCount(id) { const c = document.getElementById(id); return c ? c.children.length : 0; }
+function _wizDirty() {
+  return !!(document.getElementById('f-type')?.value || document.getElementById('f-volume')?.value ||
+    document.getElementById('f-notes')?.value || _wizCount('f-cont-rows') || _wizCount('f-lots-rows') || _wizCount('f-produit-rows'));
+}
+function _wizEnter() {
+  const drawer = document.getElementById('drawer'), body = document.getElementById('drawer-body');
+  if (!drawer || !body || _wizActive) return;
+  _wizActive = true;
+  drawer.classList.add('drawer--wizard');
+  body.querySelectorAll('.drawer-section').forEach(sec => {
+    if (sec.id === 'wiz-recap') return;
+    const t = (sec.querySelector('.drawer-section-title')?.textContent || '').toLowerCase();
+    sec.dataset.wstep = String(_wizStepOf(t));
+  });
+  // Stepper (haut), récap (bas), barre nav (avant le foot) — injectés une fois.
+  if (!document.getElementById('wiz-stepper')) {
+    const st = document.createElement('div'); st.id = 'wiz-stepper'; st.className = 'wiz-stepper';
+    st.innerHTML = Array.from({ length: _WIZ_TOTAL }, (_, i) =>
+      '<button type="button" class="wiz-dot" data-s="' + (i + 1) + '" title="' + _WIZ_LABELS[i] + '" aria-label="Étape ' + (i + 1) + ' : ' + _WIZ_LABELS[i] + '"><span></span></button>').join('');
+    body.insertBefore(st, body.firstChild);
+    st.querySelectorAll('.wiz-dot').forEach(d => d.addEventListener('click', () => { const s = +d.dataset.s; if (s < _wizStep) _wizGo(s); }));
+  }
+  if (!document.getElementById('wiz-recap')) {
+    const rc = document.createElement('div'); rc.id = 'wiz-recap'; rc.className = 'drawer-section wiz-recap'; rc.dataset.wstep = '6';
+    body.appendChild(rc);
+  }
+  if (!document.getElementById('wiz-nav')) {
+    const nav = document.createElement('div'); nav.id = 'wiz-nav'; nav.className = 'wiz-nav';
+    nav.innerHTML =
+      '<button type="button" class="btn btn--secondary wiz-prev">← Précédent</button>' +
+      '<button type="button" class="btn btn--ghost wiz-skip">Ignorer</button>' +
+      '<button type="button" class="btn wiz-next">Suivant →</button>';
+    drawer.insertBefore(nav, drawer.querySelector('.drawer-foot'));
+    nav.querySelector('.wiz-prev').addEventListener('click', () => _wizGo(_wizStep - 1));
+    nav.querySelector('.wiz-next').addEventListener('click', () => _wizGo(_wizStep + 1));
+    nav.querySelector('.wiz-skip').addEventListener('click', () => _wizGo(_wizStep + 1));
+  }
+  const cb = drawer.querySelector('.close-btn');
+  if (cb && !cb._wizGuard) {
+    cb._wizGuard = true;
+    cb.addEventListener('click', e => {
+      if (_wizActive && _wizDirty() && !confirm('Abandonner la saisie en cours ?')) { e.stopImmediatePropagation(); e.preventDefault(); }
+    }, true);
+  }
+  _wizGo(1);
+}
+function _wizGo(step) {
+  step = Math.max(1, Math.min(_WIZ_TOTAL, step));
+  _wizStep = step;
+  const body = document.getElementById('drawer-body'); if (!body) return;
+  body.querySelectorAll('.drawer-section').forEach(sec => {
+    sec.classList.toggle('wiz-hidden', +(sec.dataset.wstep || 1) !== step);
+  });
+  if (step === _WIZ_TOTAL) _wizBuildRecap();
+  document.querySelectorAll('#wiz-stepper .wiz-dot').forEach((d, i) => {
+    d.classList.toggle('is-on', (i + 1) === step); d.classList.toggle('is-done', (i + 1) < step);
+  });
+  const nav = document.getElementById('wiz-nav'), foot = document.querySelector('#drawer .drawer-foot');
+  if (nav) {
+    nav.querySelector('.wiz-prev').style.visibility = step === 1 ? 'hidden' : '';
+    nav.querySelector('.wiz-next').style.display = step === _WIZ_TOTAL ? 'none' : '';
+    nav.querySelector('.wiz-skip').style.display = (_WIZ_OPTIONAL[step]) ? '' : 'none';
+  }
+  if (foot) foot.style.display = step === _WIZ_TOTAL ? '' : 'none';   // « Enregistrer » seulement au récap
+  body.scrollTop = 0;
+}
+function _wizBuildRecap() {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  const op = (typeof getOpType === 'function') ? getOpType(g('f-type')) : null;
+  const r = (lbl, val) => '<div class="wiz-rc-row"><span>' + lbl + '</span><b>' + (val || '—') + '</b></div>';
+  const rc = document.getElementById('wiz-recap'); if (!rc) return;
+  rc.innerHTML = '<div class="drawer-section-title">Récapitulatif</div>' +
+    r('Type', op ? (op.icon + ' ' + op.label) : (g('f-type') || '—')) +
+    r('Date', (g('f-date') || '—') + (g('f-heure') ? ' · ' + g('f-heure') : '')) +
+    r('Contenants', _wizCount('f-cont-rows') + ' sélectionné(s)') +
+    r('Lots', _wizCount('f-lots-rows') + ' sélectionné(s)') +
+    r('Produits', _wizCount('f-produit-rows') + ' ajouté(s)') +
+    r('Volume', g('f-volume') ? g('f-volume') + ' hL' : '—') +
+    r('Notes', g('f-notes') ? '✓ saisies' : '—') +
+    '<p class="wiz-rc-hint">Vérifiez puis « Enregistrer » ci-dessous. En cas d\'erreur, un message s\'affiche et vous pouvez revenir corriger une étape.</p>';
+}
+function _wizExit() {
+  if (!_wizActive) return;
+  _wizActive = false;
+  const drawer = document.getElementById('drawer'); if (!drawer) return;
+  drawer.classList.remove('drawer--wizard');
+  drawer.querySelectorAll('.wiz-hidden').forEach(e => e.classList.remove('wiz-hidden'));
+  document.getElementById('wiz-stepper')?.remove();
+  document.getElementById('wiz-nav')?.remove();
+  document.getElementById('wiz-recap')?.remove();
+  const foot = drawer.querySelector('.drawer-foot'); if (foot) foot.style.display = '';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && _wizActive) { e.stopPropagation(); e.preventDefault(); _wizGo(_wizStep - 1); }   // Esc = précédent
+}, true);
+(function _wizObserve() {
+  const d = document.getElementById('drawer'); if (!d) return;
+  new MutationObserver(() => {
+    const open = d.classList.contains('open');
+    if (open && _wizEnabled() && !_wizActive) _wizEnter();
+    else if (!open && _wizActive) _wizExit();
+  }).observe(d, { attributes: true, attributeFilter: ['class'] });
+})();
+
+async function openDrawer(id = null) {
+  if (!_drawerDataReady) await ensureDrawerData();
+  editingId = id;
+  document.getElementById('drawer-title').textContent = id ? 'Modifier l\'opération' : 'Nouvelle opération';
+
+  // Fix T4 : sur op realise, le DELETE est bloqué par le trigger immuable
+  // lot_mouvements (mig 035). Inutile d'exposer le bouton Supprimer aux
+  // privileged → confusion garantie. On le réserve aux statuts planifie /
+  // annule (la suppression y est sûre, pas d'effets cave à inverser).
+  // Pour realise, la seule voie propre est « Annulation propre » qui crée
+  // une opération corrective via wb3_save_operation_graph (chemin durci).
+  const _o = id ? operations.find(x => x.id === id) : null;
+  const _isRealise = !!(_o && _o.statut === 'realise');
+  document.getElementById('btn-delete').style.display =
+    (id && WB3DB.isPrivileged() && !_isRealise) ? '' : 'none';
+  // Annulation propre : visible UNIQUEMENT sur op realise de type inversible.
+  const _showCorr = _isRealise && _CORRECTIVE_TYPES.has(_o.type_operation);
+  document.getElementById('btn-corrective').style.display = _showCorr ? '' : 'none';
+
+  const opEl = document.getElementById('f-type');
+  if (id) {
+    const o = operations.find(x => x.id === id);
+    if (!o) return;
+    opEl.value                                        = o.type_operation || '';
+    document.getElementById('f-date').value           = o.date_operation || '';
+    document.getElementById('f-heure').value          = o.heure_operation ? o.heure_operation.slice(0,5) : '';
+    document.getElementById('f-reference').value      = o.reference || '';
+    document.getElementById('f-operateur').value      = o.operateur || '';
+    document.getElementById('f-statut').value         = o.statut || 'realise';
+    document.getElementById('f-volume').value         = o.volume_hl != null ? o.volume_hl : '';
+    document.getElementById('f-quantite').value       = o.quantite != null ? o.quantite : '';
+    document.getElementById('f-unite').value          = o.unite || '';
+    document.getElementById('f-notes').value          = o.notes || '';
+    lotRows     = (o.operation_lots||[]).map(ol  => ({ lot_id: ol.lots?.id || ol.lot_id, role: ol.role, volume_hl: ol.volume_hl }));
+    contRows    = (o.operation_contenants||[]).map(oc => ({ contenant_id: oc.contenants?.id || oc.contenant_id, role: oc.role, volume_hl: oc.volume_hl }));
+    metaRows    = Object.entries(o.meta || {}).filter(([k]) => k !== 'effects_applied_at').map(([k,v]) => ({ key:k, value:v }));
+    produitRows = (o.operation_produits||[]).map(op => ({ produit_lot_id: op.produit_lot_id, quantite: op.quantite, unite: op.unite||'' }));
+  } else {
+    opEl.value = '';
+    document.getElementById('f-date').value      = today;
+    document.getElementById('f-heure').value     = new Date().toTimeString().slice(0,5);
+    document.getElementById('f-reference').value = '';
+    document.getElementById('f-operateur').value = '';
+    document.getElementById('f-statut').value    = 'realise';
+    document.getElementById('f-volume').value    = '';
+    document.getElementById('f-quantite').value  = '';
+    document.getElementById('f-unite').value     = '';
+    document.getElementById('f-notes').value     = '';
+    lotRows = []; contRows = []; metaRows = []; produitRows = [];
+  }
+  renderTypeGrid();
+  updateTypeHint();
+  renderLotRows(); renderContRows(); renderMetaRows(); renderProduitRows();
+
+  // Verrou opération réalisée
+  const isLocked = id && operations.find(x => x.id === id)?.statut === 'realise';
+  _applyLockUI(isLocked);
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  setTimeout(() => {
+    if (isLocked) document.getElementById('f-notes')?.focus();
+    else document.getElementById('f-date')?.focus();
+  }, 200);
+}
+
+function _applyLockUI(isLocked) {
+  // Banner
+  const existing = document.getElementById('op-lock-banner');
+  if (existing) existing.remove();
+  if (isLocked) {
+    const banner = document.createElement('div');
+    banner.id = 'op-lock-banner';
+    banner.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:10px;background:#fff3e0;
+                  border:1.5px solid #f9a825;border-radius:8px;padding:12px 16px;margin-bottom:var(--space-3)">
+        <span style="font-size:18px;flex-shrink:0;line-height:1.2">🔒</span>
+        <div>
+          <div style="font-weight:700;color:#e65100;font-size:var(--text-callout)">Opération réalisée verrouillée</div>
+          <div style="font-size:var(--text-caption);color:var(--color-ink-secondary);margin-top:3px;line-height:1.4">
+            Les effets cave sont figés. Seules les <b>notes</b>, la <b>référence</b>
+            et l'<b>opérateur</b> restent modifiables.<br>
+            Pour corriger une erreur, créez une opération corrective.
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('drawer-body').prepend(banner);
+  }
+
+  // Champs physiques
+  const physicalIds = ['f-date','f-heure','f-statut','f-volume','f-quantite','f-unite'];
+  physicalIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = isLocked;
+  });
+
+  // Type grid
+  document.querySelectorAll('.op-type-card').forEach(btn => {
+    btn.disabled = isLocked;
+    btn.style.pointerEvents = isLocked ? 'none' : '';
+    btn.style.opacity = isLocked ? '0.55' : '';
+  });
+
+  // Boutons ajout lots / contenants / meta / produits
+  const addBtns = ['f-lots-rows','f-cont-rows','f-meta-rows','f-produit-rows','f-cont-footer'];
+  addBtns.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.querySelectorAll('button,select,input').forEach(inp => {
+      if (!['f-notes','f-reference','f-operateur'].includes(inp.id)) inp.disabled = isLocked;
+    });
+  });
+  document.querySelectorAll('#drawer-body .btn--ghost').forEach(btn => {
+    if (btn.textContent.trim().startsWith('+')) btn.disabled = isLocked;
+  });
+
+  // Bouton save
+  const saveBtn = document.querySelector('.drawer-foot .actions-right .btn:not(.btn--secondary)');
+  if (saveBtn) saveBtn.textContent = isLocked ? 'Mettre à jour' : 'Enregistrer';
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+  document.getElementById('op-lock-banner')?.remove();
+  editingId = null;
+}
+
+// Mise à jour du hint + affichage conditionnel du panneau ajustement
+function updateTypeHint() {
+  const val  = document.getElementById('f-type').value.trim();
+  const hint = document.getElementById('f-type-hint');
+
+  const isAjust = OP_TYPES_AJUSTEMENT.has(val);
+
+  // Hint standard (source/dest)
+  hint.textContent = !isAjust && OP_TYPES_AVEC_ROLE.has(val)
+    ? '← Contenants : sélectionner source et destination →'
+    : '';
+
+  // Panneau ajustement
+  const ajustSection = document.getElementById('ajust-section');
+  if (ajustSection) ajustSection.style.display = isAjust ? '' : 'none';
+
+  // Sections standard (masquées quand ajustement)
+  ['f-lots-rows','f-cont-rows','f-meta-rows','f-produit-rows'].forEach(id => {
+    const sec = document.getElementById(id)?.closest('.drawer-section');
+    if (sec) sec.style.display = isAjust ? 'none' : '';
+  });
+  const qteSection = document.getElementById('f-volume')?.closest('.drawer-section');
+  if (qteSection) qteSection.style.display = isAjust ? 'none' : '';
+
+  // Configuration spécifique par type d'ajustement
+  if (isAjust) {
+    _configAjustPanel(val);
+    populateAjustSelects();
+  }
+
+  renderContRows();
+}
+
+function _configAjustPanel(type) {
+  const deltaField  = document.getElementById('ajust-delta-field');
+  const cibleField  = document.getElementById('ajust-cible-field');
+  const modeToggle  = document.getElementById('ajust-mode-toggle');
+  const deltaLabel  = document.getElementById('ajust-delta-label');
+  const preview     = document.getElementById('ajust-preview');
+
+  // Réinitialiser le mode
+  _ajustMode = 'delta';
+  if (document.getElementById('ajust-delta')) document.getElementById('ajust-delta').value = '';
+  if (document.getElementById('ajust-cible')) document.getElementById('ajust-cible').value = '';
+  if (document.getElementById('ajust-motif')) document.getElementById('ajust-motif').value = '';
+  if (document.getElementById('ajust-justif')) document.getElementById('ajust-justif').value = '';
+  if (document.getElementById('ajust-justif-field')) document.getElementById('ajust-justif-field').style.display = 'none';
+  if (preview) preview.innerHTML = '';
+  _ajustVolAvant = null;
+
+  if (type === 'complement_de_plein' || type === 'ouillage') {
+    if (deltaLabel) deltaLabel.textContent = 'Volume ajouté (hL) *';
+    if (deltaField) deltaField.style.display = '';
+    if (cibleField) cibleField.style.display = 'none';
+    if (modeToggle) modeToggle.style.display = 'none';
+  } else if (type === 'perte_technique') {
+    if (deltaLabel) deltaLabel.textContent = 'Volume perdu (hL, positif) *';
+    if (deltaField) deltaField.style.display = '';
+    if (cibleField) cibleField.style.display = 'none';
+    if (modeToggle) modeToggle.style.display = 'none';
+  } else if (type === 'correction_jauge') {
+    if (deltaField) deltaField.style.display = 'none';
+    if (cibleField) cibleField.style.display = '';
+    if (modeToggle) modeToggle.style.display = '';
+    _ajustMode = 'cible';
+    if (document.getElementById('ajust-mode-label')) document.getElementById('ajust-mode-label').textContent = 'Passer en mode delta';
+  } else if (type === 'correction_administrative') {
+    if (deltaField) deltaField.style.display = 'none';
+    if (cibleField) cibleField.style.display = 'none';
+    if (modeToggle) modeToggle.style.display = 'none';
+  } else {
+    // ajustement_volume : delta avec option cible
+    if (deltaLabel) deltaLabel.textContent = 'Écart de volume (hL) *';
+    if (deltaField) deltaField.style.display = '';
+    if (cibleField) cibleField.style.display = 'none';
+    if (modeToggle) modeToggle.style.display = '';
+    if (document.getElementById('ajust-mode-label')) document.getElementById('ajust-mode-label').textContent = 'Passer en mode valeur cible';
+  }
+}
+
+function populateAjustSelects() {
+  const lotSel  = document.getElementById('ajust-lot-id');
+  const contSel = document.getElementById('ajust-cont-id');
+  if (!lotSel) return;
+
+  const curLot  = lotSel.value;
+  const curCont = contSel?.value;
+
+  lotSel.innerHTML = '<option value="">— Sélectionner un lot —</option>' +
+    lots.filter(l => l.actif !== false).map(l =>
+      `<option value="${l.id}"${l.id === curLot ? ' selected' : ''}>${escapeHtml(l.nom)}${l.millesime ? ' ' + l.millesime : ''}${l.numero_lot ? ' [' + escapeHtml(l.numero_lot) + ']' : ''}</option>`
+    ).join('');
+
+  if (!curCont) {
+    if (contSel) contSel.innerHTML = '<option value="">— Toutes cuves (volume global) —</option>';
+  }
+}
+
+async function onAjustLotChange() {
+  const lotSel  = document.getElementById('ajust-lot-id');
+  const contSel = document.getElementById('ajust-cont-id');
+  if (!contSel) return;
+
+  _ajustVolAvant = null;
+  contSel.innerHTML = '<option value="">— Toutes cuves (volume global) —</option>';
+  document.getElementById('ajust-vol-avant-hint').textContent = '';
+
+  const lotId = lotSel?.value;
+  if (!lotId) { renderAjustPreview(); return; }
+
+  // Charger les lot_contenants pour ce lot
+  try {
+    const { data } = await WB3DB.client
+      .from('lot_contenants')
+      .select('contenant_id, volume_hl, contenants(id,nom,type)')
+      .eq('lot_id', lotId)
+      .eq('tenant_id', WB3DB.getCurrentTenantId());
+
+    (data || []).forEach(lc => {
+      if (!lc.contenants) return;
+      const opt = document.createElement('option');
+      opt.value = lc.contenants.id;
+      opt.textContent = `${lc.contenants.nom} (${Number(lc.volume_hl || 0).toFixed(2)} hL)`;
+      opt.dataset.volume = lc.volume_hl || 0;
+      contSel.appendChild(opt);
+    });
+
+    if (contSel.options.length === 2) {
+      contSel.selectedIndex = 1;
+      onAjustContChange();
+    } else {
+      // Volume global du lot comme fallback
+      const lot = lots.find(l => l.id === lotId);
+      if (lot && lot.volume_actuel_hl != null) {
+        _ajustVolAvant = Number(lot.volume_actuel_hl);
+        document.getElementById('ajust-vol-avant-hint').textContent =
+          `Volume actuel total du lot : ${_ajustVolAvant.toFixed(2)} hL`;
+      }
+      renderAjustPreview();
+    }
+  } catch(e) {
+    console.error('[WB3 ajust] lot change', e);
+  }
+}
+
+function onAjustContChange() {
+  const contSel = document.getElementById('ajust-cont-id');
+  const opt     = contSel?.options[contSel.selectedIndex];
+  const hint    = document.getElementById('ajust-vol-avant-hint');
+
+  if (opt?.value && opt.dataset.volume != null) {
+    _ajustVolAvant = parseFloat(opt.dataset.volume);
+    if (hint) hint.textContent = `Volume actuel dans cette cuve : ${_ajustVolAvant.toFixed(2)} hL`;
+  } else {
+    // Fallback : volume global du lot
+    const lotId = document.getElementById('ajust-lot-id')?.value;
+    const lot   = lots.find(l => l.id === lotId);
+    if (lot?.volume_actuel_hl != null) {
+      _ajustVolAvant = Number(lot.volume_actuel_hl);
+      if (hint) hint.textContent = `Volume actuel du lot (toutes cuves) : ${_ajustVolAvant.toFixed(2)} hL`;
+    } else {
+      _ajustVolAvant = null;
+      if (hint) hint.textContent = '';
+    }
+  }
+  renderAjustPreview();
+}
+
+function toggleAjustMode() {
+  _ajustMode = _ajustMode === 'delta' ? 'cible' : 'delta';
+  const label      = document.getElementById('ajust-mode-label');
+  const deltaField = document.getElementById('ajust-delta-field');
+  const cibleField = document.getElementById('ajust-cible-field');
+  if (_ajustMode === 'delta') {
+    if (label)      label.textContent = 'Passer en mode valeur cible';
+    if (deltaField) deltaField.style.display = '';
+    if (cibleField) cibleField.style.display = 'none';
+  } else {
+    if (label)      label.textContent = 'Passer en mode delta';
+    if (deltaField) deltaField.style.display = 'none';
+    if (cibleField) cibleField.style.display = '';
+  }
+  renderAjustPreview();
+}
+
+function _getAjustSeuilLevel(pctAbs) {
+  if (pctAbs <= WB3DB.AJUSTEMENT_SEUILS.MINEUR)    return 'ok';
+  if (pctAbs <= WB3DB.AJUSTEMENT_SEUILS.MODERE)    return 'modere';
+  if (pctAbs <= WB3DB.AJUSTEMENT_SEUILS.IMPORTANT) return 'important';
+  return 'critique';
+}
+
+function renderAjustPreview() {
+  const preview = document.getElementById('ajust-preview');
+  const typeVal = document.getElementById('f-type')?.value;
+  if (!preview || !OP_TYPES_AJUSTEMENT.has(typeVal)) return;
+
+  if (typeVal === 'correction_administrative') {
+    preview.innerHTML = `<div class="ajust-preview-box" style="text-align:center;color:var(--color-ink-tertiary)">
+      📋 Aucun changement de volume — événement d'audit uniquement</div>`;
+    document.getElementById('ajust-justif-field').style.display = 'none';
+    return;
+  }
+
+  const rawDelta = parseFloat(document.getElementById('ajust-delta')?.value);
+  const rawCible = parseFloat(document.getElementById('ajust-cible')?.value);
+
+  let delta = null, apres = null;
+  if (_ajustMode === 'cible' && !isNaN(rawCible) && _ajustVolAvant != null) {
+    apres = rawCible; delta = rawCible - _ajustVolAvant;
+  } else if (!isNaN(rawDelta)) {
+    // perte_technique : l'utilisateur entre une valeur positive, le delta est négatif
+    delta = typeVal === 'perte_technique' ? -Math.abs(rawDelta) : rawDelta;
+    apres = _ajustVolAvant != null ? _ajustVolAvant + delta : null;
+  }
+
+  if (delta === null) { preview.innerHTML = ''; return; }
+
+  const sign    = delta >= 0 ? '+' : '';
+  const cls     = delta >= 0 ? 'up' : 'down';
+  const pctAbs  = (_ajustVolAvant && _ajustVolAvant > 0) ? Math.abs(delta / _ajustVolAvant * 100) : 0;
+  const pct     = (_ajustVolAvant && _ajustVolAvant > 0) ? (delta / _ajustVolAvant * 100) : 0;
+  const level   = _getAjustSeuilLevel(pctAbs);
+
+  const SEUIL_CFG = {
+    ok:        { badge:'✅ Ajustement mineur', cls:'seuil-ok',        justifReq:false },
+    modere:    { badge:'🟡 Commentaire requis', cls:'seuil-modere',    justifReq:false },
+    important: { badge:'⚠️ Justification requise', cls:'seuil-important', justifReq:true  },
+    critique:  { badge:'🔴 Écart critique',     cls:'seuil-critique',  justifReq:true  },
+  };
+  const cfg = SEUIL_CFG[level];
+
+  document.getElementById('ajust-motif-label').textContent = 'Motif *';
+  document.getElementById('ajust-justif-field').style.display = cfg.justifReq ? '' : 'none';
+
+  const negatifWarn = apres != null && apres < 0
+    ? `<div style="color:#c62828;font-weight:600;font-size:var(--text-caption);margin-top:var(--space-2)">
+        ⛔ Volume final négatif — impossible de valider cette correction.
+       </div>` : '';
+
+  preview.innerHTML = `<div class="ajust-preview-box">
+    ${_ajustVolAvant != null ? `<div class="ajust-preview-row">
+      <span>Volume avant</span>
+      <span class="ajust-val">${_ajustVolAvant.toFixed(2)} hL</span>
+    </div>` : ''}
+    ${apres != null ? `<div class="ajust-preview-row">
+      <span>Volume après</span>
+      <span class="ajust-val ${cls}">${apres.toFixed(2)} hL</span>
+    </div>` : ''}
+    <div class="ajust-preview-row">
+      <span>Écart</span>
+      <span class="ajust-val ${cls}">${sign}${delta.toFixed(2)} hL${pctAbs > 0 ? ` (${sign}${pct.toFixed(2)}%)` : ''}</span>
+    </div>
+    <div class="ajust-preview-row" style="padding-top:var(--space-1)">
+      <span>Niveau de justification</span>
+      <span class="seuil-badge ${cfg.cls}">${cfg.badge}</span>
+    </div>
+    ${negatifWarn}
+  </div>`;
+}
+
+// ── Lignes lots ──────────────────────────────────────────────
+function renderLotRows() {
+  const container = document.getElementById('f-lots-rows');
+  if (!lotRows.length) { container.innerHTML = ''; return; }
+  const lotsOpts = lots.filter(l=>l.actif).map(l =>
+    `<option value="${l.id}">${escapeHtml(l.nom)}${l.millesime?' '+l.millesime:''}${l.numero_lot?' ['+escapeHtml(l.numero_lot)+']':''}</option>`).join('');
+  container.innerHTML = lotRows.map((row, i) => `
+    <div class="op-row">
+      <select class="select" onchange="lotRows[${i}].lot_id=this.value">
+        <option value="">— Choisir —</option>${lotsOpts.replace(`value="${row.lot_id}"`,`value="${row.lot_id}" selected`)}
+      </select>
+      <select class="select role-sel" onchange="lotRows[${i}].role=this.value">
+        <option value="traite"${row.role==='traite'?' selected':''}>Traité</option>
+        <option value="source"${row.role==='source'?' selected':''}>Source</option>
+        <option value="destination"${row.role==='destination'?' selected':''}>Destination</option>
+      </select>
+      <input class="input" type="number" min="0" step="0.1" placeholder="Vol. hL"
+        value="${row.volume_hl??''}" oninput="lotRows[${i}].volume_hl=parseFloat(this.value)||null">
+      <button class="btn btn--ghost btn--sm" onclick="removeLotRow(${i})">✕</button>
+    </div>`).join('');
+}
+function addLotRow()      { lotRows.push({ lot_id:null, role:'traite', volume_hl:null }); renderLotRows(); }
+function removeLotRow(i)  { lotRows.splice(i,1); renderLotRows(); }
+
+// ── Lignes produits ──────────────────────────────────────────
+function renderProduitRows() {
+  const container = document.getElementById('f-produit-rows');
+  if (!produitRows.length) { container.innerHTML = ''; return; }
+  const today = new Date().toISOString().slice(0, 10);
+  const opts = produitLots.map(pl => {
+    const pc = pl.produits_catalogue || {};
+    const icon = CAT_ICONS_OP[pc.categorie] || '📦';
+    const conc = pc.concentration_libelle || (pc.concentration != null ? pc.concentration + ' g/' + (pc.unite_stock||'u') : '');
+    // R1 - DLUO expirée signalée explicitement dans le label
+    const isExpired = pl.dluo && pl.dluo < today;
+    const dluoLabel = pl.dluo ? (isExpired ? ' ⚠ DLUO EXPIRÉE ' + pl.dluo : ' – DLUO ' + pl.dluo) : '';
+    const label = `${icon} ${pc.nom||'—'}${conc?' ('+conc+')':''}${pl.numero_lot?' [lot '+pl.numero_lot+']':''}${dluoLabel}`;
+    return `<option value="${pl.id}" data-dluo="${pl.dluo||''}">${label}</option>`;
+  }).join('');
+
+  container.innerHTML = produitRows.map((row, i) => {
+    const pl  = produitLots.find(x => x.id === row.produit_lot_id);
+    const pc  = pl?.produits_catalogue;
+    const hasConc = pc && pc.concentration != null;
+    // R5 — Unité forcée à pc.unite_stock pour éviter décrément incohérent
+    // (saisie libre permettait de taper "g" sur un produit stocké en kg →
+    // décrément à tort de 200 kg au lieu de 0.2). On force la valeur dans
+    // le payload + on désactive le champ. Si pas de catalogue (pl orphelin),
+    // on laisse la saisie libre comme fallback.
+    const forcedUnit = pc?.unite_stock || row.unite || '';
+    if (pc?.unite_stock && row.unite !== pc.unite_stock) {
+      row.unite = pc.unite_stock;  // sync mémoire au render
+    }
+    // Catalogue incomplet : signale les champs manquants à l'opérateur
+    const missingFields = [];
+    if (!pc?.unite_stock)              missingFields.push('unité');
+    if (pc?.concentration == null)     missingFields.push('concentration');
+    if (pc?.dose_max == null)          missingFields.push('dose max');
+    const catWarn = (pc && missingFields.length)
+      ? `<div style="font-size:var(--text-caption);color:#92400e;background:#fef3c7;padding:3px 8px;border-radius:var(--radius-sm);margin-top:var(--space-1)">⚠ Catalogue incomplet : ${missingFields.join(', ')} non défini${missingFields.length>1?'s':''} — éditer dans Produits pour activer les calculs/garde-fous.</div>`
+      : '';
+    return `
+    <div class="op-row" id="produit-row-${i}">
+      <select class="select" onchange="produitRows[${i}].produit_lot_id=this.value;produitRows[${i}].unite='';renderProduitRows()">
+        <option value="">— Choisir un lot produit —</option>
+        ${opts.replace(`value="${row.produit_lot_id}"`, `value="${row.produit_lot_id}" selected`)}
+      </select>
+      <input class="input" type="number" min="0" step="0.001" placeholder="Qté" style="width:80px;flex-shrink:0"
+        id="pr-qty-${i}" value="${row.quantite??''}"
+        oninput="produitRows[${i}].quantite=parseFloat(this.value)||null;_liveQtyToConc(${i})">
+      <input class="input" placeholder="Unité" style="width:70px;flex-shrink:0;background:var(--color-bg-subtle);color:var(--color-ink-secondary);cursor:not-allowed"
+        id="pr-unit-${i}" value="${escapeHtml(forcedUnit)}" readonly
+        title="Unité forcée par le catalogue produit (pc.unite_stock) pour éviter toute incohérence de stock.">
+      ${hasConc ? `
+      <input class="input" type="number" min="0" step="any" placeholder="Dose cible" style="width:90px;flex-shrink:0"
+        id="pr-conc-${i}" title="Dose cible — calcule la quantité automatiquement"
+        oninput="_liveConcToQty(${i})">
+      <select class="select" id="pr-conc-unit-${i}" style="width:80px;flex-shrink:0"
+        onchange="_liveConcToQty(${i})" title="Unité de la dose cible">
+        <option value="mg_l">mg/L</option>
+        <option value="g_hl" selected>g/hL</option>
+        <option value="cl_hl">cL/hL</option>
+        <option value="ml_hl">mL/hL</option>
+      </select>
+      ` : ''}
+      <button class="btn btn--ghost btn--sm" onclick="removeProduitRow(${i})">✕</button>
+    </div>
+    ${catWarn}
+    ${hasConc ? `
+    <div id="pr-hint-${i}" style="font-size:var(--text-caption);color:var(--color-ink-tertiary);padding:2px 0 4px;min-height:18px;display:flex;gap:var(--space-3);flex-wrap:wrap">
+      <span id="pr-hint-actif-${i}"></span>
+      <span id="pr-hint-dose-${i}"></span>
+    </div>
+    <div id="calc-panel-${i}" style="display:none;background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:var(--space-2);margin-bottom:var(--space-1);font-size:var(--text-caption)">
+      <div style="font-weight:600;margin-bottom:6px">⚗️ Calculateur — ${escapeHtml(pc.concentration_libelle||pc.concentration+' g/'+(pc.unite_stock||'u'))}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <label style="color:var(--color-ink-tertiary)">Dose cible</label>
+        <input class="input" type="number" min="0" step="any" placeholder="ex : 3" id="calc-dose-${i}" style="width:80px">
+        <select class="select" id="calc-dunit-${i}" style="width:110px">
+          <option value="g_hl">g/hL</option>
+          <option value="mg_l">mg/L</option>
+        </select>
+        <label style="color:var(--color-ink-tertiary)">Volume</label>
+        <input class="input" type="number" min="0" step="any" id="calc-vol-${i}" style="width:80px"
+          placeholder="hL" value="${document.getElementById('f-volume')?.value||''}">
+        <span style="color:var(--color-ink-tertiary)">hL</span>
+        <button class="btn btn--sm" onclick="applyCalc(${i})">→ Calculer</button>
+      </div>
+      <div id="calc-result-${i}" style="margin-top:6px;color:var(--color-primary);font-weight:600"></div>
+    </div>` : ''}`;
+  }).join('');
+}
+
+function toggleCalc(i) {
+  const panel = document.getElementById(`calc-panel-${i}`);
+  if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+function applyCalc(i) {
+  const pl = produitLots.find(x => x.id === produitRows[i]?.produit_lot_id);
+  const pc = pl?.produits_catalogue;
+  if (!pc || pc.concentration == null) return;
+
+  const doseInput = parseFloat(document.getElementById(`calc-dose-${i}`)?.value);
+  const dunit     = document.getElementById(`calc-dunit-${i}`)?.value;
+  const vol_hl    = parseFloat(document.getElementById(`calc-vol-${i}`)?.value);
+  const result    = document.getElementById(`calc-result-${i}`);
+
+  if (isNaN(doseInput) || doseInput <= 0) { result.textContent = 'Entrez une dose cible valide.'; return; }
+  if (isNaN(vol_hl)    || vol_hl    <= 0) { result.textContent = 'Entrez un volume valide.'; return; }
+
+  // Convertir dose en g/hL
+  const dose_g_hl = dunit === 'mg_l' ? doseInput / 10 : doseInput;  // mg/L ÷ 10 = g/hL
+
+  // Total actif nécessaire (g)
+  const total_g = dose_g_hl * vol_hl;
+
+  // Quantité de produit = total_g / concentration  (concentration = g actif / 1 unite_stock)
+  let qte = total_g / pc.concentration;
+  const unite = pc.unite_stock || 'u';
+
+  // Ajuster l'unité si besoin (ex : L → mL si qte < 0.1)
+  let qteAff = qte, uniteAff = unite;
+  if (unite === 'L' && qte < 0.1)      { qteAff = qte * 1000; uniteAff = 'mL'; }
+  else if (unite === 'kg' && qte < 0.1){ qteAff = qte * 1000; uniteAff = 'g'; }
+
+  const qteRound = Math.round(qteAff * 100) / 100;
+  result.textContent = `Résultat : ${qteRound.toLocaleString('fr-FR')} ${uniteAff} pour ${vol_hl} hL à ${doseInput} ${dunit==='mg_l'?'mg/L':'g/hL'}`;
+
+  // Appliquer dans la ligne
+  produitRows[i].quantite = Math.round(qte * 10000) / 10000;
+  produitRows[i].unite    = unite;
+  const qtyEl  = document.getElementById(`pr-qty-${i}`);
+  const unitEl = document.getElementById(`pr-unit-${i}`);
+  if (qtyEl)  qtyEl.value  = produitRows[i].quantite;
+  if (unitEl) unitEl.value = unite;
+}
+
+// Arrondit n à `sig` chiffres significatifs (ex 0.04567 → 0.046 avec sig=2).
+function _toSigFig(n, sig) {
+  if (!Number.isFinite(n) || n === 0) return 0;
+  const mag = Math.pow(10, sig - 1 - Math.floor(Math.log10(Math.abs(n))));
+  return Math.round(n * mag) / mag;
+}
+
+function _liveQtyToConc(i) {
+  const pl = produitLots.find(x => x.id === produitRows[i]?.produit_lot_id);
+  const pc = pl?.produits_catalogue;
+  if (!pc || pc.concentration == null) return;
+  const qty = produitRows[i]?.quantite;
+  const hintActif = document.getElementById(`pr-hint-actif-${i}`);
+  const hintDose  = document.getElementById(`pr-hint-dose-${i}`);
+  const concEl    = document.getElementById(`pr-conc-${i}`);
+  if (!hintActif || !hintDose) return;
+  if (!qty) { hintActif.textContent = ''; hintDose.textContent = ''; if (concEl) concEl.value = ''; return; }
+  const gActif = qty * pc.concentration;
+  hintActif.textContent = gActif >= 1000
+    ? `⚗️ ${(gActif/1000).toLocaleString('fr-FR',{maximumFractionDigits:3})} kg actif`
+    : `⚗️ ${gActif.toLocaleString('fr-FR',{maximumFractionDigits:2})} g actif`;
+  const volHl = parseFloat(document.getElementById('f-volume')?.value);
+  if (!isNaN(volHl) && volHl > 0) {
+    const mgL = (gActif / (volHl * 100)) * 1000;
+    // T5+ : remplir le champ dose cible automatiquement, dans l'unité
+    // sélectionnée par le select (mg/L, g/hL, cL/hL ou mL/hL).
+    // Conversions :
+    //   - g/hL  : mgL / 10
+    //   - cL/hL : qty (L) × 100 / volHl    (formule directe sans concentration)
+    //   - mL/hL : qty (L) × 1000 / volHl
+    //   - mg/L  : tel quel
+    if (concEl && document.activeElement !== concEl) {
+      const concUnit = document.getElementById(`pr-conc-unit-${i}`)?.value || 'g_hl';
+      let displayValue;
+      if      (concUnit === 'g_hl')  displayValue = mgL / 10;
+      else if (concUnit === 'cl_hl') displayValue = qty * 100 / volHl;
+      else if (concUnit === 'ml_hl') displayValue = qty * 1000 / volHl;
+      else                            displayValue = mgL;
+      concEl.value = _toSigFig(displayValue, 3);
+    }
+    // R2 - Hint rouge si dose_max dépassée
+    const maxOk = pc.dose_max == null || mgL <= Number(pc.dose_max);
+    const color = maxOk ? 'var(--color-ink-tertiary)' : 'var(--color-danger)';
+    const weight = maxOk ? '' : 'font-weight:700;';
+    const sufx = !maxOk ? ` ⚠ > max ${pc.dose_max}` : '';
+    // T8 - Si l'op concerne plusieurs cuves, afficher la dose effective
+    // par cuve (volume_hl divisé par N). Information uniquement, n'altère
+    // pas le payload qui reste global. Compromis pragmatique avant un
+    // mode "saisie par cuve" complet.
+    const nCuves = (contRows || []).filter(r => r.contenant_id).length;
+    const perCuveHint = (nCuves > 1)
+      ? ` <span style="color:var(--color-ink-tertiary);opacity:.85">· ${nCuves} cuves → ~${(mgL / nCuves).toFixed(1)} mg/L/cuve si répartition égale</span>`
+      : '';
+    hintDose.innerHTML = `<span style="color:${color};${weight}">= ${mgL.toLocaleString('fr-FR',{maximumFractionDigits:1})} mg/L sur ${volHl} hL${sufx}</span>${perCuveHint}`;
+  } else { hintDose.textContent = ''; if (concEl && document.activeElement !== concEl) concEl.value = ''; }
+}
+
+function _liveConcToQty(i) {
+  const pl = produitLots.find(x => x.id === produitRows[i]?.produit_lot_id);
+  const pc = pl?.produits_catalogue;
+  if (!pc || pc.concentration == null) return;
+  const doseInput = parseFloat(document.getElementById(`pr-conc-${i}`)?.value);
+  const doseUnit  = document.getElementById(`pr-conc-unit-${i}`)?.value || 'g_hl';
+  const volHl = parseFloat(document.getElementById('f-volume')?.value);
+  const hintActif = document.getElementById(`pr-hint-actif-${i}`);
+  if (!hintActif) return;
+  if (isNaN(doseInput) || doseInput <= 0 || isNaN(volHl) || volHl <= 0) return;
+  // Convertir dose en mg/L (forme canonique pour le calcul) :
+  //   - g/hL  → mg/L : ×10        (1 g/hL = 10 mg/L)
+  //   - mg/L  : tel quel
+  //   - cL/hL : 1 cL = 0.01 L stockage. La conversion en mg/L dépend de
+  //             la concentration (g actif / L) du produit liquide :
+  //             1 cL/hL = 0.01 × concentration g/hL = 0.1 × concentration mg/L
+  //   - mL/hL : 1 mL = 0.001 L. Pareil : 0.001 × concentration g/hL
+  //             = 0.01 × concentration mg/L
+  // Ces 2 dernières unités ne sont valables QUE pour produit liquide
+  // (unite_stock = L). Pour les solides, l'utilisateur doit choisir g/hL ou mg/L.
+  let mgL;
+  if      (doseUnit === 'g_hl')  mgL = doseInput * 10;
+  else if (doseUnit === 'cl_hl') mgL = doseInput * pc.concentration / 10;
+  else if (doseUnit === 'ml_hl') mgL = doseInput * pc.concentration / 100;
+  else                            mgL = doseInput;  // mg_l ou défaut
+
+  // qty (en unité_stock) = (mgL × volHl × 100) / (concentration × 1000)
+  // 3 chiffres significatifs : compromis lisibilité × précision dosage cave
+  // (ex 2.78 L au lieu de 2.8 L pour SO2 P18 5 g/hL sur 100 hL).
+  const qty = (mgL * volHl * 100) / (pc.concentration * 1000);
+  produitRows[i].quantite = _toSigFig(qty, 3);
+  produitRows[i].unite    = pc.unite_stock || '';
+  const qtyEl  = document.getElementById(`pr-qty-${i}`);
+  const unitEl = document.getElementById(`pr-unit-${i}`);
+  if (qtyEl)  qtyEl.value  = produitRows[i].quantite;
+  if (unitEl) unitEl.value = produitRows[i].unite;
+  _liveQtyToConc(i);
+}
+
+function addProduitRow()      { produitRows.push({ produit_lot_id:null, quantite:null, unite:'' }); renderProduitRows(); }
+function removeProduitRow(i)  { produitRows.splice(i,1); renderProduitRows(); }
+
+// ── Lignes contenants ────────────────────────────────────────
+function renderContRows() {
+  const container = document.getElementById('f-cont-rows');
+  const footer    = document.getElementById('f-cont-footer');
+  if (!container || !footer) return;
+
+  const typeVal  = document.getElementById('f-type')?.value.trim().toLowerCase() || '';
+  const avecRole = OP_TYPES_AVEC_ROLE.has(typeVal);
+
+  const contOpts = contenants.map(c =>
+    `<option value="${c.id}">${escapeHtml(c.nom)}${c.capacite_hl?' ('+fmt(c.capacite_hl)+' hL)':''}</option>`).join('');
+
+  const rowHtml = (row, i, showRole) => `
+    <div class="op-row-wrap">
+      <div class="op-row">
+        <select class="select" onchange="contRows[${i}].contenant_id=this.value;WB3CuveInfo.show(this.value,'op-cc-${i}')">
+          <option value="">— Choisir —</option>${contOpts.replace(`value="${row.contenant_id}"`,`value="${row.contenant_id}" selected`)}
+        </select>
+        ${showRole ? `<select class="select role-sel" onchange="contRows[${i}].role=this.value">
+          <option value="implique"${row.role==='implique'?' selected':''}>Impliqué</option>
+          <option value="source"${row.role==='source'?' selected':''}>Source</option>
+          <option value="destination"${row.role==='destination'?' selected':''}>Destination</option>
+        </select>` : ''}
+        <input class="input" type="number" min="0" step="0.1" placeholder="Vol. hL"
+          value="${row.volume_hl??''}" oninput="contRows[${i}].volume_hl=parseFloat(this.value)||null">
+        <button class="btn btn--ghost btn--sm" onclick="removeContRow(${i})">✕</button>
+      </div>
+      <div id="op-cc-${i}" class="op-cc"></div>
+    </div>`;
+
+  if (avecRole) {
+    // Mode source / destination : deux zones visuelles séparées
+    const srcIdxs = contRows.reduce((a, r, i) => r.role !== 'destination' ? [...a, i] : a, []);
+    const dstIdxs = contRows.reduce((a, r, i) => r.role === 'destination' ? [...a, i] : a, []);
+    container.innerHTML = `
+      <div class="role-zone">
+        <div class="role-zone-head source">← Depuis (source)</div>
+        ${srcIdxs.map(i => rowHtml(contRows[i], i, false)).join('')}
+      </div>
+      <div class="role-zone">
+        <div class="role-zone-head dest">→ Vers (destination)</div>
+        ${dstIdxs.map(i => rowHtml(contRows[i], i, false)).join('')}
+      </div>`;
+    footer.innerHTML = `
+      <div style="display:flex;gap:var(--space-2);margin-top:var(--space-2)">
+        <button class="btn btn--ghost btn--sm" onclick="addContRow('source')">+ Source</button>
+        <button class="btn btn--ghost btn--sm" onclick="addContRow('destination')">+ Destination</button>
+      </div>`;
+  } else {
+    // Mode générique : liste plate avec dropdown de rôle
+    container.innerHTML = contRows.map((row, i) => rowHtml(row, i, true)).join('');
+    footer.innerHTML = `<button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addContRow()">+ Ajouter un contenant</button>`;
+  }
+  // Cartes info-cuve pour les lignes déjà renseignées (édition / pré-remplissage)
+  if (window.WB3CuveInfo) contRows.forEach((r, i) => { if (r.contenant_id) WB3CuveInfo.show(r.contenant_id, 'op-cc-' + i); });
+}
+function addContRow(role = 'implique') { contRows.push({ contenant_id:null, role, volume_hl:null }); renderContRows(); }
+function removeContRow(i) { contRows.splice(i,1); renderContRows(); }
+
+// ── Lignes meta ──────────────────────────────────────────────
+function renderMetaRows() {
+  const container = document.getElementById('f-meta-rows');
+  if (!metaRows.length) { container.innerHTML = ''; return; }
+  container.innerHTML = metaRows.map((row, i) => `
+    <div class="meta-row">
+      <input class="input meta-key" type="text" placeholder="Clé" value="${escapeHtml(row.key)}"
+        oninput="metaRows[${i}].key=this.value">
+      <input class="input" type="text" placeholder="Valeur" value="${escapeHtml(String(row.value??''))}"
+        oninput="metaRows[${i}].value=this.value">
+      <button class="btn btn--ghost btn--sm" onclick="removeMetaRow(${i})">✕</button>
+    </div>`).join('');
+}
+function addMetaRow()      { metaRows.push({ key:'', value:'' }); renderMetaRows(); }
+function removeMetaRow(i)  { metaRows.splice(i,1); renderMetaRows(); }
+
+function buildMeta() {
+  const obj = {};
+  metaRows.forEach(r => { if (r.key.trim()) obj[r.key.trim()] = r.value; });
+  return obj;
+}
+
+// ============================================================
+// Machine à états — Transitions de statut des lots
+// ============================================================
+const LOT_STATUT_LABELS = {
+  vendange:      'Vendange',
+  mout:          'Moût',
+  mout_stabule:  'Moût (stabulation)',
+  mout_debourbe: 'Moût (débourbage)',
+  fa:            'Fermentation alcoolique',
+  vin:           'Vin jeune',
+  fml:           'FML en cours',
+  elevage:       'Élevage',
+  vin_filtre:    'Vin filtré',
+  pre_mise:      'Pré-mise',
+  conditionne:   'Conditionné',
+  sorti:         'Sorti',
+};
+
+// type_operation → { from: Set<statut>, to, toLabel }
+// Transitions automatiquement proposées à la fin de l'enregistrement
+const LOT_TRANSITIONS = {
+  pressoir:          { from: new Set(['vendange']),                                                    to: 'mout',          toLabel: 'Moût'                   },
+  enzymage:          { from: new Set(['vendange', 'mout']),                                            to: 'mout_debourbe', toLabel: 'Moût (débourbage)'       },
+  levurage:          { from: new Set(['mout', 'mout_stabule', 'mout_debourbe']),                       to: 'fa',            toLabel: 'Fermentation alcoolique' },
+  ecoulage:          { from: new Set(['fa']),                                                           to: 'vin',           toLabel: 'Vin jeune'               },
+  malo:              { from: new Set(['vin', 'elevage']),                                               to: 'fml',           toLabel: 'FML en cours'            },
+  soutirage:         { from: new Set(['fml', 'vin', 'mout', 'fa']),                                    to: 'elevage',       toLabel: 'Élevage'                 },
+  filtration:        { from: new Set(['vin', 'fml', 'elevage']),                                       to: 'vin_filtre',    toLabel: 'Vin filtré'              },
+  mise_en_bouteille: { from: new Set(['vin', 'fml', 'elevage', 'vin_filtre', 'pre_mise']),             to: 'conditionne',   toLabel: 'Conditionné'             },
+  sortie_lot:        { from: new Set(['vin','elevage','vin_filtre','conditionne','pre_mise','mout']),   to: 'sorti',         toLabel: 'Sorti'                   },
+};
+
+// Choix alternatifs (par type d'opération + statut courant du lot). Quand
+// défini, le modal affiche des radios à la place de la suggestion par
+// défaut de LOT_TRANSITIONS. La cible par défaut (radio sélectionné)
+// est la PREMIÈRE entrée. Demande utilisateur : soutirage d'un lot en FA
+// = signal de fin de fermentation alcoolique. Métier :
+//   • FA → FML : si la fermentation malolactique est prévue (rouge, certains blancs)
+//   • FA → Élevage : si on saute la FML (saute = blanc sec rapide, ou cas particulier)
+const LOT_TRANSITION_CHOICES = {
+  soutirage: {
+    fa: [
+      { to: 'fml',     toLabel: 'FML en cours'  },
+      { to: 'elevage', toLabel: 'Élevage (sans FML)' },
+    ],
+  },
+};
+
+function _findStatutTransitions(typeVal, currentLotRows) {
+  const rule = LOT_TRANSITIONS[typeVal];
+  if (!rule) return [];
+  return currentLotRows
+    .filter(row => row.lot_id && row.role !== 'destination')
+    .map(row => {
+      const lot = lots.find(l => l.id === row.lot_id);
+      if (!lot || !rule.from.has(lot.statut)) return null;
+      // Si on a des choix alternatifs pour ce (type, statut), on les expose.
+      const choices = LOT_TRANSITION_CHOICES[typeVal]?.[lot.statut];
+      if (choices && choices.length) {
+        return { lot, choices };
+      }
+      return { lot, to: rule.to, toLabel: rule.toLabel };
+    })
+    .filter(Boolean);
+}
+
+function _showTransitionModal(suggestions, opLabel) {
+  document.getElementById('wb3-transition-modal')?.remove();
+
+  const rows = suggestions.map(s => {
+    // Cas avec choix alternatifs (ex: soutirage sur FA → FML ou Élevage).
+    // Premier choix = défaut. Radio par lot, l'utilisateur choisit avant
+    // de cocher la case (cochée par défaut).
+    if (s.choices && s.choices.length) {
+      const lotId = s.lot.id;
+      const fromStatut = escapeHtml(LOT_STATUT_LABELS[s.lot.statut] || s.lot.statut);
+      const radios = s.choices.map((c, i) => `
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:var(--text-caption);
+                      padding:4px 9px;background:var(--color-bg-subtle);border-radius:var(--radius-pill);
+                      cursor:pointer;border:1px solid var(--color-border)">
+          <input type="radio" name="tr-choice-${lotId}" value="${c.to}"
+            data-to-label="${escapeHtml(c.toLabel)}" ${i === 0 ? 'checked' : ''}>
+          ${escapeHtml(c.toLabel)}
+        </label>`).join(' ');
+      return `
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;
+                    border:1px solid var(--color-border);border-radius:var(--radius-md);
+                    background:var(--color-bg-elevated);cursor:pointer;margin-bottom:6px">
+        <input type="checkbox" data-lot-id="${lotId}" data-choice-group="tr-choice-${lotId}"
+               checked style="flex-shrink:0;margin-top:3px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:var(--text-callout)">${escapeHtml(s.lot.nom)}</div>
+          <div style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin-bottom:6px">
+            ${fromStatut} <span style="margin:0 4px">→</span>
+            <span style="color:var(--color-primary);font-weight:600">choisir :</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">${radios}</div>
+        </div>
+      </label>`;
+    }
+    // Cas standard (cible unique).
+    return `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+                  border:1px solid var(--color-border);border-radius:var(--radius-md);
+                  background:var(--color-bg-elevated);cursor:pointer;margin-bottom:6px">
+      <input type="checkbox" data-lot-id="${s.lot.id}" data-to="${s.to}" checked style="flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:var(--text-callout)">${escapeHtml(s.lot.nom)}</div>
+        <div style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">
+          ${escapeHtml(LOT_STATUT_LABELS[s.lot.statut] || s.lot.statut)}
+          <span style="margin:0 4px">→</span>
+          <span style="color:var(--color-primary);font-weight:600">${escapeHtml(s.toLabel)}</span>
+        </div>
+      </div>
+    </label>`;
+  }).join('');
+
+  const el = document.createElement('div');
+  el.id = 'wb3-transition-modal';
+  el.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;
+                display:flex;align-items:flex-end;justify-content:center"
+         onclick="if(event.target===this)document.getElementById('wb3-transition-modal')?.remove()">
+      <div style="background:var(--color-bg-elevated);border-radius:16px 16px 0 0;padding:var(--space-6);max-width:520px;
+                  width:100%;box-shadow:0 -8px 32px rgba(0,0,0,.18);max-height:80vh;overflow-y:auto">
+        <div style="font-weight:700;font-size:16px;margin-bottom:var(--space-1)">🔄 Transition de statut suggérée</div>
+        <div style="font-size:var(--text-callout);color:var(--color-ink-secondary);margin-bottom:var(--space-4)">
+          Opération « ${escapeHtml(opLabel)} » — cochez les lots à mettre à jour :
+        </div>
+        <div>${rows}</div>
+        <div style="display:flex;gap:var(--space-2);justify-content:flex-end;
+                    padding-top:var(--space-4);border-top:1px solid var(--color-border);margin-top:var(--space-2)">
+          <button class="btn btn--secondary"
+                  onclick="document.getElementById('wb3-transition-modal')?.remove()">Ignorer</button>
+          <button class="btn" onclick="_applyTransitions()">✅ Appliquer</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function _applyTransitions() {
+  const modal = document.getElementById('wb3-transition-modal');
+  if (!modal) return;
+  const checked = [...modal.querySelectorAll('input[type="checkbox"]:checked')];
+  if (!checked.length) { modal.remove(); return; }
+
+  let ok = 0;
+  for (const cb of checked) {
+    try {
+      // Cible : si la checkbox référence un groupe de radios (cas choix
+      // multiple, soutirage FA → FML/Élevage), on lit le radio coché.
+      // Sinon (cas standard), on lit dataset.to directement.
+      let to = cb.dataset.to;
+      if (!to && cb.dataset.choiceGroup) {
+        const r = modal.querySelector(`input[name="${cb.dataset.choiceGroup}"]:checked`);
+        to = r?.value;
+      }
+      if (!to) continue;
+      const row = await WB3DB.updateRow('lots', cb.dataset.lotId, { statut: to });
+      if (row) {
+        const i = lots.findIndex(l => l.id === cb.dataset.lotId);
+        if (i >= 0) lots[i] = { ...lots[i], statut: to };
+      }
+      ok++;
+    } catch(e) {
+      console.error('[WB3 transition]', e);
+      toast(`Erreur mise à jour statut : ${WB3DB.errMsg ? WB3DB.errMsg(e) : e.message}`, 'error');
+    }
+  }
+  modal.remove();
+  if (ok) toast(`${ok} lot${ok > 1 ? 's' : ''} mis à jour`, 'success');
+}
+
+// ── Sauvegarde ajustement cave ────────────────────────────────
+async function _saveAjustementOperation(typeVal) {
+  const dateVal    = document.getElementById('f-date').value;
+  const operateur  = document.getElementById('f-operateur').value.trim();
+  const reference  = document.getElementById('f-reference').value.trim();
+  const notes      = document.getElementById('f-notes').value.trim();
+  const lotId      = document.getElementById('ajust-lot-id')?.value;
+  const contId     = document.getElementById('ajust-cont-id')?.value || null;
+  const motif      = document.getElementById('ajust-motif')?.value.trim();
+  const justif     = document.getElementById('ajust-justif')?.value.trim();
+  const rawDelta   = parseFloat(document.getElementById('ajust-delta')?.value);
+  const rawCible   = parseFloat(document.getElementById('ajust-cible')?.value);
+
+  // ── Validations ────────────────────────────────────────────────
+  if (!dateVal) { toast('Date obligatoire', 'error'); return; }
+
+  const needsVol = typeVal !== 'correction_administrative';
+  if (needsVol && !lotId) { toast('Sélectionner un lot', 'error'); return; }
+
+  let delta = null, volumeCible = null;
+  if (needsVol) {
+    if (_ajustMode === 'cible') {
+      if (isNaN(rawCible) || rawCible < 0) { toast('Indiquer une valeur cible valide (≥ 0)', 'error'); return; }
+      volumeCible = rawCible;
+      delta = _ajustVolAvant != null ? rawCible - _ajustVolAvant : null;
+    } else {
+      const rawVal = parseFloat(document.getElementById('ajust-delta')?.value);
+      if (isNaN(rawVal)) { toast('Indiquer un volume de correction', 'error'); return; }
+      delta = typeVal === 'perte_technique' ? -Math.abs(rawVal) : rawVal;
+    }
+
+    if (!motif) { toast('Le motif est obligatoire', 'error'); return; }
+
+    // Garde volume négatif
+    if (_ajustVolAvant != null) {
+      const final = volumeCible != null ? volumeCible : _ajustVolAvant + delta;
+      if (final < 0) { toast('Le volume résultant serait négatif — correction refusée', 'error'); return; }
+    }
+
+    // Seuil justification
+    if (_ajustVolAvant != null && delta != null) {
+      const pctAbs = _ajustVolAvant > 0 ? Math.abs(delta / _ajustVolAvant * 100) : 0;
+      const level  = _getAjustSeuilLevel(pctAbs);
+      if ((level === 'important' || level === 'critique') && !justif) {
+        toast(`Justification détaillée obligatoire pour un écart de ${pctAbs.toFixed(1)}%`, 'error');
+        return;
+      }
+    }
+  } else {
+    if (!motif && !notes) { toast('Motif ou notes obligatoire pour la correction administrative', 'error'); return; }
+  }
+
+  try {
+    // 1. Créer l'opération (avec les lots/contenants comme références)
+    const notesComplet = [motif, justif, notes].filter(Boolean).join(' — ') || null;
+    const opPayload = {
+      type_operation:  typeVal,
+      date_operation:  dateVal,
+      heure_operation: document.getElementById('f-heure').value || null,
+      reference:       reference || null,
+      operateur:       operateur || null,
+      statut:          'realise',
+      notes:           notesComplet,
+    };
+    const lotRowsAjust  = lotId  ? [{ lot_id: lotId,  role: 'source', volume_hl: null }] : [];
+    const contRowsAjust = contId ? [{ contenant_id: contId, role: 'source', volume_hl: null }] : [];
+
+    const savedId = await WB3DB.saveOperationGraphAtomic(opPayload, {
+      opId: null, lots: lotRowsAjust, contenants: contRowsAjust, produits: [],
+    });
+
+    // 2. Appliquer l'effet volume via RPC atomique
+    if (needsVol && lotId) {
+      await WB3DB.applyAjustement({
+        operation_id: savedId,
+        type:         typeVal,
+        lot_id:       lotId,
+        contenant_id: contId || null,
+        delta_hl:     volumeCible == null ? delta : null,
+        volume_cible: volumeCible,
+        motif:        [motif, justif].filter(Boolean).join(' — ') || null,
+        operateur:    operateur || null,
+        date:         dateVal,
+      });
+    }
+
+    toast(`${getOpType(typeVal).label} enregistré et tracé ✓`, 'success');
+    closeDrawer();
+    _markRecentlySaved(savedId);
+    await refreshOperationLocal(savedId);
+    buildTypeChips();
+    render();
+
+  } catch(e) {
+    console.error('[WB3 ajust save]', e);
+    toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+  }
+}
+
+// ── Sauvegarde ───────────────────────────────────────────────
+async function saveOperation() {
+  const typeVal  = document.getElementById('f-type').value.trim();
+
+  // ── Chemin ajustement de cave ─────────────────────────────────
+  if (OP_TYPES_AJUSTEMENT.has(typeVal) && !editingId) {
+    await _saveAjustementOperation(typeVal);
+    return;
+  }
+
+  const isLocked = editingId && operations.find(x => x.id === editingId)?.statut === 'realise';
+
+  // ── Chemin verrouillé : notes / référence / opérateur seulement ──
+  if (isLocked) {
+    const payload = {
+      notes:     document.getElementById('f-notes').value.trim() || null,
+      reference: document.getElementById('f-reference').value.trim() || null,
+      operateur: document.getElementById('f-operateur').value.trim() || null,
+    };
+    try {
+      await WB3DB.saveOperationGraphAtomic(payload, { opId: editingId, lots: [], contenants: [], produits: [] });
+      toast('Notes mises à jour', 'success');
+      closeDrawer();
+      _markRecentlySaved(editingId);
+      await refreshOperationLocal(editingId);
+      render();
+    } catch(e) {
+      console.error(e); toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+    }
+    return;
+  }
+
+  // ── Chemin normal ─────────────────────────────────────────────
+  // typeVal est déjà lu en tête de saveOperation() (ligne ~1958) :
+  // pas de redéclaration (sinon SyntaxError « already declared »).
+  if (!typeVal) { toast('Le type est obligatoire', 'error'); return; }
+  const dateVal = document.getElementById('f-date').value;
+  if (!dateVal) { toast('La date est obligatoire', 'error'); return; }
+
+  const vol  = parseFloat(document.getElementById('f-volume').value);
+  const qte  = parseFloat(document.getElementById('f-quantite').value);
+
+  const payload = {
+    type_operation:  typeVal,
+    date_operation:  dateVal,
+    heure_operation: document.getElementById('f-heure').value || null,
+    reference:       document.getElementById('f-reference').value.trim() || null,
+    operateur:       document.getElementById('f-operateur').value.trim() || null,
+    statut:          document.getElementById('f-statut').value,
+    volume_hl:       isNaN(vol) ? null : vol,
+    quantite:        isNaN(qte) ? null : qte,
+    unite:           document.getElementById('f-unite').value.trim() || null,
+    notes:           document.getElementById('f-notes').value.trim() || null,
+    meta:            buildMeta(),
+  };
+
+  // R1+R2 — Garde-fou DLUO expirée et dose > dose_max avant save.
+  // Confirm() défensif non bloquant. Si accepté, la dérogation est TRACÉE
+  // dans les notes de l'op (preuve auditable).
+  {
+    const today = new Date().toISOString().slice(0, 10);
+    const warns = [];
+    for (const pr of (produitRows || [])) {
+      if (!pr.produit_lot_id) continue;
+      const pl = produitLots.find(x => x.id === pr.produit_lot_id);
+      if (!pl) continue;
+      const pc = pl.produits_catalogue;
+      if (pl.dluo && pl.dluo < today) {
+        warns.push(`${pc?.nom||'?'} DLUO expirée (${pl.dluo})`);
+      }
+      if (pc?.dose_max != null && pc.concentration != null && pr.quantite > 0) {
+        const volHl = parseFloat(document.getElementById('f-volume')?.value);
+        if (!isNaN(volHl) && volHl > 0) {
+          const gActif = Number(pr.quantite) * Number(pc.concentration);
+          const mgL = (gActif / (volHl * 100)) * 1000;
+          if (mgL > Number(pc.dose_max)) {
+            warns.push(`${pc.nom} dose ${mgL.toFixed(1)} mg/L > max ${pc.dose_max}`);
+          }
+        }
+      }
+    }
+    if (warns.length) {
+      if (!(await WB3UI.confirm('Points d\'attention sur cette opération :\n\n' + warns.map(w => '⚠ ' + w).join('\n') + '\n\nContinuer quand même ?', { title:'Points d\'attention', okText:'Continuer' }))) return;
+      // Dérogation acceptée → trace auditable dans les notes du payload
+      payload.notes = '[Dérogation acceptée : ' + warns.join(' ; ') + ']'
+                    + (payload.notes ? ' — ' + payload.notes : '');
+    }
+  }
+
+  // Phase 2 multi-lots → assemblage. Détection sur les opérations source/dest
+  // réalisées (soutirage, transfert, relogement, filtration, écoulage) : si
+  // au moins une cuve destination est déjà occupée par un AUTRE lot, on
+  // propose la conversion automatique en assemblage. Le drawer fermé après
+  // save, on redirige vers cuverie.html?conv-asm=<cid> (Phase 0).
+  // Skip si édition (l'op existe déjà), si pas réalisée, si pas de
+  // destinations (op traitée seule).
+  const _PHASE2_TYPES = new Set(['soutirage','transfert','relogement','filtration','ecoulage']);
+  let _pendingConvCid = null;
+  if (!editingId && payload.statut === 'realise' && _PHASE2_TYPES.has(typeVal)) {
+    const destRows = contRows.filter(r => r.role === 'destination' && r.contenant_id);
+    const traiteLotIds = new Set(
+      (lotRows || []).filter(r => r.lot_id && r.role !== 'destination').map(r => r.lot_id)
+    );
+    for (const dest of destRows) {
+      try {
+        const existing = await WB3DB.listTable('lot_contenants', {
+          select: 'id, lot_id, volume_hl, lots(id, nom, statut, millesime)',
+          filter: { contenant_id: dest.contenant_id },
+        });
+        const otherLots = (existing || []).filter(lc =>
+          lc.lots && !traiteLotIds.has(lc.lot_id)
+        );
+        if (otherLots.length) {
+          const cuveNom = (contenants.find(c => c.id === dest.contenant_id) || {}).nom || '?';
+          const lotsTraiteTxt = [...traiteLotIds].map(id =>
+            (lots.find(l => l.id === id) || {}).nom || id
+          ).join(', ') || '?';
+          const lotsExistTxt = otherLots.map(lc =>
+            lc.lots.nom + (lc.lots.millesime ? ' ' + lc.lots.millesime : '') + ` (${lc.volume_hl ?? '?'} hL)`
+          ).join(', ');
+          const choix = await _opAskAssemblageDecision({
+            cuveNom, lotsTraiteTxt, lotsExistTxt, nbOther: otherLots.length, typeLabel: getOpType(typeVal).label,
+          });
+          if (choix === 'cancel') return;
+          if (choix === 'assemblage') _pendingConvCid = dest.contenant_id;
+          // 'multi' : on continue sans rien faire de spécial (legacy)
+        }
+      } catch (e) {
+        console.warn('[WB3 operations] Phase 2 detect KO :', e);
+      }
+    }
+  }
+
+  try {
+    // Filtre les lignes produit sans quantité réelle : un produit sélectionné
+    // sans quantité > 0 ne doit PAS créer un operation_produits inutile
+    // (bruit dans le journal, aucun décrément stock). Le sync DELETE du
+    // chemin durci retirera aussi ces lignes au prochain save d'une op éditée.
+    const produitRowsClean = (produitRows || []).filter(r => r.produit_lot_id && Number(r.quantite) > 0);
+    const savedId = await WB3DB.saveOperationGraphAtomic(payload, {
+      opId:      editingId,
+      lots:      lotRows,
+      contenants: contRows,
+      produits:  produitRowsClean,
+    });
+
+    // Capturer avant closeDrawer (réinitialise editingId)
+    const snapshotLotRows = [...lotRows];
+    const savedOrEditedId = editingId || savedId;
+    const wasEditing      = !!editingId;
+    const opLabel         = getOpType(typeVal).label;
+
+    toast(wasEditing ? 'Opération mise à jour' : 'Opération enregistrée', 'success');
+    closeDrawer();
+    _markRecentlySaved(savedOrEditedId);
+    await refreshOperationLocal(savedOrEditedId);
+    buildTypeChips();
+    render();
+
+    // Machine à états : proposer les transitions de statut lot.
+    // Fix : rafraîchir lots AVANT la détection — le cache local
+    // `lots` (chargé par ensureDrawerData une seule fois) peut être
+    // périmé si l'utilisateur a changé le statut via cuverie / mini-form
+    // FA / lots.html dans un autre onglet. Sans ce reload, un lot
+    // réellement en FA serait vu comme 'vendange' (statut initial à
+    // l'apport) et la suggestion FML/Élevage ne se déclencherait pas.
+    try { await loadLots(); } catch (_) { /* fallback : cache courant */ }
+    const suggestions = _findStatutTransitions(typeVal, snapshotLotRows);
+    if (suggestions.length) _showTransitionModal(suggestions, opLabel);
+
+    // Phase 2 : redirection auto vers cuverie pour conversion assemblage
+    // (déclenche _openConvertAssemblageModal via param URL).
+    if (_pendingConvCid) {
+      setTimeout(() => {
+        window.location.href = 'cuverie.html?conv-asm=' + encodeURIComponent(_pendingConvCid);
+      }, 600);  // laisse le toast + éventuelle modal transition apparaître
+    }
+
+  } catch(e) {
+    console.error(e); toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+  }
+}
+
+// Phase 2 — mini-modal de décision pour opération vers cuve déjà occupée.
+// Pattern identique à _askAssemblageDecision d'apports.html. Retourne
+// 'assemblage' | 'multi' | 'cancel' via Promise.
+function _opAskAssemblageDecision({ cuveNom, lotsTraiteTxt, lotsExistTxt, nbOther, typeLabel }) {
+  return new Promise((resolve) => {
+    document.getElementById('wb3-op-ask-asm')?.remove();
+    const el = document.createElement('div');
+    el.id = 'wb3-op-ask-asm';
+    const finish = (choix) => { el.remove(); resolve(choix); };
+    el.innerHTML = `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:800;
+                  display:flex;align-items:center;justify-content:center;padding:var(--space-4)">
+        <div style="background:var(--color-bg-elevated, #fff);border-radius:12px;padding:var(--space-5);
+                    max-width:540px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+          <div style="font-weight:700;font-size:var(--text-title-2);margin-bottom:var(--space-2)">🔀 Cuve destination déjà occupée</div>
+          <div style="font-size:var(--text-footnote);color:#555;margin-bottom:14px;line-height:1.55">
+            Opération <b>${escapeHtml(typeLabel)}</b> vers la cuve <b>${escapeHtml(cuveNom)}</b>.<br>
+            Lot(s) traité(s) : <b>${escapeHtml(lotsTraiteTxt)}</b>.<br>
+            La cuve contient déjà ${nbOther} autre${nbOther>1?'s':''} lot${nbOther>1?'s':''} :<br>
+            <span style="color:#6d6d6d">${escapeHtml(lotsExistTxt)}</span><br><br>
+            Comment veux-tu gérer la cohabitation ?
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+            <button class="btn" id="op-ask-go"
+              style="text-align:left;padding:12px 14px;line-height:1.4">
+              <b>🔀 Créer un assemblage</b><br>
+              <span style="font-size:var(--text-caption);opacity:.75">L'opération est enregistrée, puis je propose la fusion automatique (recommandé)</span>
+            </button>
+            <button class="btn btn--secondary" id="op-ask-multi"
+              style="text-align:left;padding:12px 14px;line-height:1.4">
+              <b>⚠ Garder en multi-lots</b><br>
+              <span style="font-size:var(--text-caption);opacity:.75">Cohabitation acceptée. Conversion possible plus tard via cuverie 🔀.</span>
+            </button>
+            <button type="button" id="op-ask-cancel"
+              style="text-align:left;padding:12px 14px;line-height:1.4;border:1.5px solid #b91c1c;background:#fef2f2;color:#7f1d1d;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit">
+              <b>✕ Annuler l'opération</b><br>
+              <span style="font-size:var(--text-caption);opacity:.85">Retour au formulaire, rien n'est sauvegardé.</span>
+            </button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelector('#op-ask-go').onclick     = () => finish('assemblage');
+    el.querySelector('#op-ask-multi').onclick  = () => finish('multi');
+    el.querySelector('#op-ask-cancel').onclick = () => finish('cancel');
+    el.firstElementChild.onclick = (ev) => { if (ev.target === ev.currentTarget) finish('cancel'); };
+  });
+}
+
+// P1-3 — Annulation propre via opération corrective inverse.
+// L'op source RESTE en place (verrou DB 037/038/040 immutable) ; la
+// corrective est créée comme une nouvelle op realise dont les effets
+// physiques annulent la première par somme algébrique. Trace double
+// dans lot_mouvements → tout reste auditable.
+async function createCorrective() {
+  if (!editingId) return;
+  const o = operations.find(x => x.id === editingId);
+  if (!o) return;
+
+  // Récap textuel de ce qui va se passer (lots × contenants swappés).
+  // Idéal pour l'utilisateur avant de valider.
+  const lotsTxt = (o.operation_lots || [])
+    .map(ol => (ol.lots?.nom || ol.lot_id || '?') + ' [' + (ol.role || 'traite') + ']')
+    .join(', ') || '—';
+  const contsTxt = (o.operation_contenants || [])
+    .map(oc => (oc.contenants?.nom || oc.contenant_id || '?') + ' [' + (oc.role || 'traite') + ']')
+    .join(', ') || '—';
+  const typeLbl = (o.type_operation || '').replace(/_/g,' ');
+  const msg = `↩️ Création d'une opération corrective inverse\n\n`
+    + `Op source : ${typeLbl} du ${o.date_operation || '?'}\n`
+    + `Lots :       ${lotsTxt}\n`
+    + `Contenants : ${contsTxt}\n\n`
+    + `La corrective va INVERSER les rôles source ⇄ destination, ce qui `
+    + `rétablit les volumes par somme algébrique.\n`
+    + `L'op source reste en place (verrou DB), la trace double est `
+    + `conservée dans le journal des mouvements.\n\n`
+    + `Créer la corrective maintenant (statut realise immédiat) ?`;
+  if (!(await WB3UI.confirm(msg, { title:'Opération corrective', okText:'Créer la corrective' }))) return;
+
+  try {
+    const newId = await WB3DB.createCorrectiveOperation(editingId, 'apply');
+    toast('Opération corrective créée ✓', 'success');
+    _markRecentlySaved(newId);
+    closeDrawer();
+    // Reload opérations pour faire apparaître la corrective + refléter
+    // les volumes inversés (effets cave appliqués atomiquement par RPC).
+    await loadOperations();
+    buildTypeChips();
+    render();
+  } catch (e) {
+    console.error('[WB3 corrective]', e);
+    toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e.message || e)), 'error');
+  }
+}
+
+async function deleteCurrent() {
+  if (!editingId) return;
+  const o = operations.find(x => x.id === editingId);
+  if (!o) return;
+
+  // P0-2 : confirm() enrichi. Sur opération réalisée, on rappelle que la
+  // suppression ON DELETE CASCADE purge operation_lots/contenants/produits
+  // ET lot_mouvements (FK mig 035), mais NE rétablit PAS les volumes déjà
+  // appliqués par _wb3_apply_op_effects. Recommandation : créer une
+  // opération corrective (bouton dédié sur op realise).
+  let msg;
+  if (o.statut === 'realise') {
+    // Bilan volumétrique informatif : Σ volume_hl des operation_contenants
+    // (toutes lignes). C'est une approximation lisible — le détail réel
+    // est dans lot_mouvements, pas pertinent pour un confirm().
+    const vols = (o.operation_contenants || [])
+      .map(oc => Number(oc.volume_hl) || 0).filter(v => v > 0);
+    const totalVol = vols.reduce((s, v) => s + v, 0);
+    const volTxt = totalVol > 0
+      ? `Cette opération a déplacé environ ${totalVol.toLocaleString('fr-FR', {maximumFractionDigits:2})} hL.`
+      : 'Cette opération a affecté les volumes en cuve.';
+    const typeLbl = (o.type_operation || '').replace(/_/g,' ');
+    msg = `⚠️ SUPPRESSION D'UNE OPÉRATION RÉALISÉE\n\n`
+        + `Type : ${typeLbl}\n`
+        + `Date : ${o.date_operation || '?'}\n`
+        + `${volTxt}\n\n`
+        + `La suppression purge la trace (journal de mouvements inclus) mais `
+        + `N'INVERSE PAS les volumes déjà appliqués aux lots et cuves.\n\n`
+        + `Préférez créer une opération corrective (bouton « ↩️ Annulation propre » `
+        + `dans le drawer). Continuer la suppression malgré tout ?`;
+  } else {
+    msg = `Supprimer cette opération ${o.statut === 'planifie' ? 'planifiée' : 'annulée'} ?\nCette action est irréversible.`;
+  }
+  if (!(await WB3UI.confirm(msg, { title:'Supprimer l\'opération', okText:'Supprimer', danger:true }))) return;
+
+  try {
+    await WB3DB.deleteRow('operations', editingId);
+    toast('Opération supprimée', 'success');
+    operations = operations.filter(o => o.id !== editingId);
+    closeDrawer(); buildTypeChips(); render();
+  } catch(e) { toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
+}
+
+// ============================================================
+// Export CSV
+// ============================================================
+function exportCSV() {
+  const items=getFiltered();
+  if (!items.length) { toast('Aucune opération à exporter','error'); return; }
+  const headers=['Date','Heure','Type','Référence','Lots','Contenants','Volume (hL)','Quantité','Unité','Opérateur','Statut','Notes'];
+  const rows=items.map(o=>[
+    o.date_operation||'', o.heure_operation||'',
+    getOpType(o.type_operation).label, o.reference||'',
+    (o.operation_lots||[]).map(ol=>ol.lots?.nom||'').filter(Boolean).join('|'),
+    (o.operation_contenants||[]).map(oc=>oc.contenants?.nom||'').filter(Boolean).join('|'),
+    o.volume_hl??'', o.quantite??'', o.unite||'',
+    o.operateur||'', o.statut||'', o.notes||'',
+  ]);
+  const csv=[headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`operations-${today}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast(`${items.length} opération${items.length>1?'s':''} exportée${items.length>1?'s':''}`, 'success');
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+function fmt(n)    { return Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:1}); }
+function fmtNum(n) { return Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:3}); }
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

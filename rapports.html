@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Rapports — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  /* ── KPIs mini (même pattern que lot-detail) ── */
+  .kpi-row {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:var(--space-3); padding:var(--space-4) var(--space-5);
+  }
+  .kpi-mini {
+    background:var(--color-bg-elevated); border-radius:var(--radius-md);
+    padding:var(--space-4); box-shadow:0 1px 3px rgba(0,0,0,.05);
+    display:flex; align-items:center; gap:var(--space-3);
+  }
+  .kpi-mini .icon { font-size:20px; flex-shrink:0; }
+  .kpi-mini .val  { font-size:var(--text-title-2); font-weight:700; color:var(--color-primary); }
+  .kpi-mini .lbl  { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+
+  /* ── Tables rapport ── */
+  .rpt-table { width:100%; border-collapse:collapse; font-size:var(--text-callout); }
+  .rpt-table th, .rpt-table td {
+    text-align:left; padding:8px 10px; border-bottom:1px solid var(--color-border);
+  }
+  .rpt-table th {
+    font-size:var(--text-caption); text-transform:uppercase; letter-spacing:.4px;
+    color:var(--color-ink-tertiary); font-weight:600; background:var(--color-bg-subtle);
+    position:sticky; top:0;
+  }
+  .rpt-table tbody tr:last-child td { border-bottom:none; }
+  .rpt-table tbody tr:hover td      { background:var(--color-bg-subtle); }
+  .rpt-table .num { text-align:right; }
+  .row-expire td  { background:#fff8f8 !important; }
+  .row-alerte td  { background:#fffdf0 !important; }
+  .row-annule td  { opacity:.55; }
+  .text-danger    { color:var(--color-danger); font-weight:600; }
+
+  /* ── Groupes par catégorie (stock) ── */
+  .rpt-group { margin-bottom:var(--space-5); }
+  .rpt-group-head {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:var(--space-3) var(--space-5);
+    font-size:var(--text-callout); font-weight:600; color:var(--color-ink-secondary);
+    background:var(--color-bg-subtle); border-top:1px solid var(--color-border);
+    border-bottom:1px solid var(--color-border);
+  }
+
+  /* ── Badges DLUO ── */
+  .dluo-badge {
+    display:inline-block; padding:2px 8px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.3px;
+  }
+  .dluo-ok      { background:var(--color-success-soft); color:var(--color-success); }
+  .dluo-alerte  { background:var(--color-warning-soft); color:var(--color-warning); }
+  .dluo-expire  { background:var(--color-danger-soft);  color:var(--color-danger); }
+  .dluo-inconnu { background:var(--color-bg-mute);      color:var(--color-ink-tertiary); }
+
+  /* ── Pills d'alerte ── */
+  .alert-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 14px; border-radius:var(--radius-md);
+    font-size:var(--text-callout); font-weight:600;
+  }
+  .alert-danger { background:var(--color-danger-soft); color:var(--color-danger); }
+  .alert-warn   { background:var(--color-warning-soft); color:var(--color-warning); }
+  .alert-muted  { background:var(--color-bg-mute); color:var(--color-ink-tertiary); }
+
+  /* ── En-tête d'impression (masqué à l'écran) ── */
+  .print-header { display:none; }
+
+  /* ── Impression ── */
+  @media print {
+    .wb-header, .tabs, .action-bar, .no-print { display:none !important; }
+    .wb-main   { padding:0; max-width:none; }
+    body       { background:#fff; font-size:12px; }
+    .print-header { display:block !important; padding:0 0 12px; border-bottom:2px solid #333; margin-bottom:var(--space-4); }
+    .rpt-table th { background:#eee !important; position:static; }
+    .row-expire td { background:#ffe8e8 !important; }
+    .row-alerte td { background:#fffbe0 !important; }
+    .rpt-group { page-break-inside:avoid; }
+    .kpi-row   { gap:var(--space-2); }
+    .kpi-mini  { box-shadow:none; border:1px solid #ddd; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1>📋 Rapports</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+
+  <div class="tabs" id="tabs-bar">
+    <button class="tab active" data-tab="traitements">📋 Registre traitements</button>
+    <button class="tab" data-tab="stock">🧪 Stock &amp; DLUO</button>
+    <button class="tab" data-tab="apports">🍇 Bilan apports</button>
+    <button class="tab" data-tab="suivi_anal">🔬 Suivi analytique</button>
+    <button class="tab" data-tab="synthese_qual">⚗️ Synthèse qualité</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 1 — Registre traitements œnologiques
+       ══════════════════════════════════════════ -->
+  <div id="panel-traitements" class="tab-panel">
+    <div class="action-bar no-print">
+      <label class="field-label" style="white-space:nowrap;margin:0">Du</label>
+      <input class="input" type="date" id="t-from" style="width:148px">
+      <label class="field-label" style="white-space:nowrap;margin:0">Au</label>
+      <input class="input" type="date" id="t-to"   style="width:148px">
+      <select class="select" id="t-cat" style="width:190px">
+        <option value="">Toutes catégories</option>
+        <option value="so2">🧪 SO₂</option>
+        <option value="levure">🦠 Levures</option>
+        <option value="enzyme">⚗️ Enzymes</option>
+        <option value="colle">🧹 Colles</option>
+        <option value="tanin">🍂 Tanins</option>
+        <option value="acidifiant">⬆️ Acidifiants</option>
+        <option value="desacidifiant">⬇️ Désacidifiants</option>
+        <option value="nutriment">💊 Nutriments</option>
+        <option value="correcteur_alcool">🔢 Correcteurs alcool</option>
+        <option value="filtre">🔬 Filtres</option>
+        <option value="autre">📦 Autre</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm" onclick="window.print()">🖨 Imprimer</button>
+      <button class="btn btn--secondary btn--sm" onclick="exportCSV('traitements')">📤 CSV</button>
+    </div>
+    <div id="traitements-content">
+      <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 2 — Stock & DLUO
+       ══════════════════════════════════════════ -->
+  <div id="panel-stock" class="tab-panel" style="display:none">
+    <div class="action-bar no-print">
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm" onclick="loadStock()">↻ Actualiser</button>
+      <button class="btn btn--secondary btn--sm" onclick="window.print()">🖨 Imprimer</button>
+      <button class="btn btn--secondary btn--sm" onclick="exportCSV('stock')">📤 CSV</button>
+    </div>
+    <div id="stock-content">
+      <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 3 — Bilan apports
+       ══════════════════════════════════════════ -->
+  <div id="panel-apports" class="tab-panel" style="display:none">
+    <div class="action-bar no-print">
+      <label class="field-label" style="white-space:nowrap;margin:0">Du</label>
+      <input class="input" type="date" id="a-from" style="width:148px">
+      <label class="field-label" style="white-space:nowrap;margin:0">Au</label>
+      <input class="input" type="date" id="a-to"   style="width:148px">
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm" onclick="window.print()">🖨 Imprimer</button>
+      <button class="btn btn--secondary btn--sm" onclick="exportCSV('apports')">📤 CSV</button>
+    </div>
+    <div id="apports-content">
+      <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 4 — Suivi analytique (workflow 4)
+       ══════════════════════════════════════════ -->
+  <div id="panel-suivi_anal" class="tab-panel" style="display:none">
+    <div class="action-bar no-print">
+      <label class="field-label" style="white-space:nowrap;margin:0">Du</label>
+      <input class="input" type="date" id="sa-from" style="width:148px">
+      <label class="field-label" style="white-space:nowrap;margin:0">Au</label>
+      <input class="input" type="date" id="sa-to"   style="width:148px">
+      <select class="select" id="sa-lot" style="width:220px">
+        <option value="">Tous les lots</option>
+      </select>
+      <select class="select" id="sa-param" style="width:180px" onchange="renderSuiviAnal()">
+        <option value="so2_libre">SO₂ libre (mg/L)</option>
+        <option value="so2_total">SO₂ total (mg/L)</option>
+        <option value="ph">pH</option>
+        <option value="tav">TAV (%vol)</option>
+        <option value="acidite_volatile">AV (g/L)</option>
+        <option value="densite">Densité</option>
+        <option value="temperature">Température (°C)</option>
+        <option value="sucres_residuels">Sucres résiduels (g/L)</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm" onclick="loadSuiviAnal()">↻ Actualiser</button>
+      <button class="btn btn--secondary btn--sm" onclick="exportCSV('suivi_anal')">📤 CSV</button>
+    </div>
+    <div id="suivi-anal-content">
+      <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 5 — Synthèse qualité par lot (workflow 4 phase C)
+       ══════════════════════════════════════════ -->
+  <div id="panel-synthese_qual" class="tab-panel" style="display:none">
+    <div class="action-bar no-print">
+      <select class="select" id="sq-statut" style="width:180px" onchange="renderSyntheseQual()">
+        <option value="">Tous les statuts</option>
+        <option value="fa">FA en cours</option>
+        <option value="elevage">Élevage</option>
+        <option value="fml">FML</option>
+        <option value="pret">Prêt</option>
+        <option value="conditionne">Conditionné</option>
+      </select>
+      <select class="select" id="sq-couleur" style="width:140px" onchange="renderSyntheseQual()">
+        <option value="">Toutes couleurs</option>
+        <option value="rouge">🔴 Rouge</option>
+        <option value="blanc">⚪ Blanc</option>
+        <option value="rose">🌸 Rosé</option>
+      </select>
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm" onclick="loadSyntheseQual()">↻ Actualiser</button>
+      <button class="btn btn--secondary btn--sm" onclick="exportCSV('synthese_qual')">📤 CSV</button>
+    </div>
+    <div id="synthese-qual-content">
+      <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-qualite.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// Constantes
+// ============================================================
+const CAT_LABELS = {
+  so2:'SO₂', levure:'Levures', enzyme:'Enzymes', colle:'Colles', tanin:'Tanins',
+  acidifiant:'Acidifiants', desacidifiant:'Désacidifiants', nutriment:'Nutriments',
+  correcteur_alcool:'Correcteurs alcool', filtre:'Filtres', autre:'Autre',
+};
+const CAT_ICONS = {
+  so2:'🧪', levure:'🦠', enzyme:'⚗️', colle:'🧹', tanin:'🍂',
+  acidifiant:'⬆️', desacidifiant:'⬇️', nutriment:'💊',
+  correcteur_alcool:'🔢', filtre:'🔬', autre:'📦',
+};
+const CAT_ORDER = ['so2','levure','enzyme','colle','tanin','acidifiant','desacidifiant','nutriment','correcteur_alcool','filtre','autre'];
+const DLUO_META = {
+  ok:      { cls:'dluo-ok',      label:'✓ OK' },
+  alerte:  { cls:'dluo-alerte',  label:'⚠ Alerte' },
+  expire:  { cls:'dluo-expire',  label:'✕ Expiré' },
+  inconnu: { cls:'dluo-inconnu', label:'? Inconnu' },
+};
+
+// État
+let traitements   = [];
+let lotsByOpT     = {};   // operation_id → [nom lot vin]
+let stockData     = [];
+let apportsData   = [];
+let suiviAnalData = [];   // analyses pour l'onglet suivi
+
+// Seuils analytiques (workflow 4) — délégués au helper partagé WB3Qualite.
+let _rapTol = WB3Qualite.normalize(null);  // défauts ; rechargé à l'init
+const PARAM_LABELS = {
+  so2_libre:'SO₂ libre (mg/L)', so2_total:'SO₂ total (mg/L)',
+  ph:'pH', tav:'TAV (%vol)', acidite_volatile:'AV (g/L)',
+  densite:'Densité', temperature:'Température (°C)',
+  sucres_residuels:'Sucres résiduels (g/L)',
+};
+const PARAM_DECIMALS = {
+  so2_libre:1, so2_total:1, ph:2, tav:2, acidite_volatile:2,
+  densite:4, temperature:1, sucres_residuels:1,
+};
+// Couleur d'alerte → helper partagé (cohérence inter-pages).
+function _rapAlertColor(param, v) { return WB3Qualite.alertColor(param, v, _rapTol); }
+
+const today     = new Date().toISOString().slice(0, 10);
+const yearStart = today.slice(0, 4) + '-01-01';
+
+// ============================================================
+// Utilitaires
+// ============================================================
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmt(n, decimals = 2) {
+  if (n == null) return '—';
+  const num = parseFloat(n);
+  if (isNaN(num)) return '—';
+  return num % 1 === 0 ? String(num) : num.toFixed(decimals).replace(/\.?0+$/, '');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function fmtDateLong(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+}
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+// ============================================================
+// Init
+// ============================================================
+(async function init() {
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient ||
+      typeof window.WB3DB === 'undefined'    || typeof window.WB3Auth === 'undefined') {
+    document.querySelector('.wb-main').innerHTML =
+      '<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>';
+    return;
+  }
+
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.querySelector('.wb-main').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>';
+    return;
+  }
+  const { tenant } = ctx;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+
+  // Charger les tolérances analytiques (workflow 4) via le helper partagé.
+  _rapTol = await WB3Qualite.load();
+
+  // Dates par défaut
+  document.getElementById('t-from').value  = yearStart;
+  document.getElementById('t-to').value    = today;
+  document.getElementById('a-from').value  = yearStart;
+  document.getElementById('a-to').value    = today;
+  document.getElementById('sa-from').value = yearStart;
+  document.getElementById('sa-to').value   = today;
+
+  // Onglets
+  document.querySelectorAll('#tabs-bar .tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Filtres traitements — rechargement auto
+  document.getElementById('t-from').addEventListener('change', loadTraitements);
+  document.getElementById('t-to').addEventListener('change',   loadTraitements);
+  document.getElementById('t-cat').addEventListener('change',  loadTraitements);
+
+  // Filtres apports — rechargement auto
+  document.getElementById('a-from').addEventListener('change', loadApports);
+  document.getElementById('a-to').addEventListener('change',   loadApports);
+
+  // Filtres suivi analytique — rechargement auto
+  document.getElementById('sa-from').addEventListener('change', loadSuiviAnal);
+  document.getElementById('sa-to').addEventListener('change',   loadSuiviAnal);
+  document.getElementById('sa-lot').addEventListener('change',  renderSuiviAnal);
+
+  // Chargement initial (onglet actif = traitements)
+  await loadTraitements();
+})();
+
+function switchTab(tab) {
+  document.querySelectorAll('#tabs-bar .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = p.id === 'panel-' + tab ? '' : 'none');
+  if (tab === 'stock'           && !stockData.length)        loadStock();
+  if (tab === 'apports'         && !apportsData.length)      loadApports();
+  if (tab === 'suivi_anal'      && !suiviAnalData.length)    loadSuiviAnal();
+  if (tab === 'synthese_qual'   && !syntheseQualData.length) loadSyntheseQual();
+}
+
+// ============================================================
+// TAB 1 — Registre traitements
+// ============================================================
+async function loadTraitements() {
+  document.getElementById('traitements-content').innerHTML =
+    '<div class="loading-state"><div class="spinner"></div>Chargement…</div>';
+  traitements = []; lotsByOpT = {};
+  try {
+    const tenantId = WB3DB.getCurrentTenantId();
+    const from = document.getElementById('t-from').value;
+    const to   = document.getElementById('t-to').value;
+    const cat  = document.getElementById('t-cat').value;
+
+    let q = WB3DB.client
+      .from('v_consommation_produits')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('date_operation', { ascending: false });
+    if (from) q = q.gte('date_operation', from);
+    if (to)   q = q.lte('date_operation', to);
+    if (cat)  q = q.eq('categorie', cat);
+
+    const { data, error } = await q;
+    if (error) throw error;
+    traitements = data || [];
+
+    // Lots de vin liés aux opérations (join secondaire)
+    const opIds = [...new Set(traitements.map(r => r.operation_id))];
+    if (opIds.length) {
+      const { data: olData } = await WB3DB.client
+        .from('operation_lots')
+        .select('operation_id, lots(id,nom)')
+        .in('operation_id', opIds);
+      (olData || []).forEach(ol => {
+        if (!lotsByOpT[ol.operation_id]) lotsByOpT[ol.operation_id] = [];
+        if (ol.lots) lotsByOpT[ol.operation_id].push(ol.lots.nom);
+      });
+    }
+
+    renderTraitements();
+  } catch(e) {
+    console.error('[WB3 rapports traitements]', e);
+    document.getElementById('traitements-content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Erreur de chargement</div>
+       <div class="desc">${escapeHtml(e.message)}</div></div>`;
+  }
+}
+
+function renderTraitements() {
+  const el   = document.getElementById('traitements-content');
+  const from = document.getElementById('t-from').value;
+  const to   = document.getElementById('t-to').value;
+  const cat  = document.getElementById('t-cat').value;
+  const periodLabel = (from && to) ? `Du ${fmtDateLong(from)} au ${fmtDateLong(to)}` : '';
+  const catLabel    = cat ? ` · ${CAT_LABELS[cat] || cat}` : '';
+  const tenant      = WB3DB.getCurrentTenant();
+
+  if (!traitements.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📋</div>
+      <div class="title">Aucun traitement sur cette période</div>
+      <div class="desc">Modifie les filtres ou enregistre des opérations avec des produits.</div></div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="print-header">
+      <h2 style="margin:0 0 4px;font-size:18px">Registre des traitements œnologiques</h2>
+      <div style="font-size:var(--text-footnote);color:#555">${escapeHtml(tenant?.nom || '')} · ${periodLabel}${catLabel}</div>
+      <div style="font-size:12px;color:#888;margin-top:var(--space-1)">Édité le ${fmtDateLong(today)}</div>
+    </div>
+    <div style="padding:var(--space-3) var(--space-5);font-size:var(--text-caption);color:var(--color-ink-tertiary)">
+      ${traitements.length} enregistrement${traitements.length > 1 ? 's' : ''}
+      ${periodLabel ? ` · ${periodLabel}` : ''}${catLabel}
+    </div>
+    <div style="overflow-x:auto">
+    <table class="rpt-table" id="tbl-traitements">
+      <thead><tr>
+        <th>Date</th>
+        <th>Type opération</th>
+        <th>Produit</th>
+        <th>Catégorie</th>
+        <th class="num">Quantité</th>
+        <th>Unité</th>
+        <th class="num">Vol. traité (hL)</th>
+        <th class="num">M. active (g)</th>
+        <th class="num">Dose (mg/L)</th>
+        <th>N° lot produit</th>
+        <th>Lots de vin concernés</th>
+      </tr></thead>
+      <tbody>
+        ${traitements.map(r => {
+          const typeLabel = (r.type_operation || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const lotsVin   = (lotsByOpT[r.operation_id] || []).join(', ') || '—';
+          const gActifStr = r.g_actif != null ? (r.g_actif >= 1000 ? fmt(r.g_actif / 1000) + ' kg' : fmt(r.g_actif) + ' g') : '—';
+          const doseStyle = r.dose_mg_l != null && r.dose_max != null && r.dose_mg_l > r.dose_max ? 'color:var(--color-danger);font-weight:600' : '';
+          return `<tr>
+            <td style="white-space:nowrap">${fmtDate(r.date_operation)}</td>
+            <td>${escapeHtml(typeLabel)}</td>
+            <td><b>${escapeHtml(r.produit_nom)}</b></td>
+            <td>${CAT_ICONS[r.categorie] || ''} ${escapeHtml(CAT_LABELS[r.categorie] || r.categorie)}</td>
+            <td class="num">${r.quantite != null ? fmt(r.quantite, 3) : '—'}</td>
+            <td>${escapeHtml(r.unite || '—')}</td>
+            <td class="num" style="color:var(--color-ink-tertiary)">${r.volume_hl != null ? fmt(r.volume_hl) : '—'}</td>
+            <td class="num">${gActifStr}</td>
+            <td class="num" style="${doseStyle}">${r.dose_mg_l != null ? fmt(r.dose_mg_l) + ' mg/L' : '—'}</td>
+            <td>${escapeHtml(r.numero_lot || '—')}</td>
+            <td style="font-size:var(--text-caption)">${escapeHtml(lotsVin)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+// ============================================================
+// TAB 2 — Stock & DLUO
+// ============================================================
+async function loadStock() {
+  document.getElementById('stock-content').innerHTML =
+    '<div class="loading-state"><div class="spinner"></div>Chargement…</div>';
+  stockData = [];
+  try {
+    const { data, error } = await WB3DB.client
+      .from('v_stock_produits')
+      .select('*')
+      .eq('tenant_id', WB3DB.getCurrentTenantId())
+      .order('categorie')
+      .order('produit_nom');
+    if (error) throw error;
+    stockData = data || [];
+    renderStock();
+  } catch(e) {
+    console.error('[WB3 rapports stock]', e);
+    document.getElementById('stock-content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Erreur de chargement</div>
+       <div class="desc">${escapeHtml(e.message)}</div></div>`;
+  }
+}
+
+function renderStock() {
+  const el     = document.getElementById('stock-content');
+  const tenant = WB3DB.getCurrentTenant();
+
+  if (!stockData.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🧪</div>
+      <div class="title">Aucun lot en stock</div>
+      <div class="desc">Crée des lots dans le module <a href="produits.html">Produits œnologiques</a>.</div></div>`;
+    return;
+  }
+
+  const alertes = stockData.filter(l => l.statut_dluo === 'alerte').length;
+  const expires = stockData.filter(l => l.statut_dluo === 'expire').length;
+  const vides   = stockData.filter(l => (l.quantite_actuelle || 0) <= 0).length;
+
+  // Regrouper par catégorie
+  const bycat = {};
+  stockData.forEach(l => {
+    const k = l.categorie || 'autre';
+    if (!bycat[k]) bycat[k] = [];
+    bycat[k].push(l);
+  });
+  const cats = CAT_ORDER.filter(c => bycat[c])
+    .concat(Object.keys(bycat).filter(c => !CAT_ORDER.includes(c)));
+
+  el.innerHTML = `
+    <div class="print-header">
+      <h2 style="margin:0 0 4px;font-size:18px">État du stock — Produits œnologiques</h2>
+      <div style="font-size:var(--text-footnote);color:#555">${escapeHtml(tenant?.nom || '')} · Édité le ${fmtDateLong(today)}</div>
+    </div>
+    ${(alertes || expires || vides) ? `
+    <div style="display:flex;gap:var(--space-3);padding:var(--space-4) var(--space-5);flex-wrap:wrap">
+      ${expires ? `<span class="alert-pill alert-danger">✕ ${expires} lot${expires > 1 ? 's' : ''} expiré${expires > 1 ? 's' : ''}</span>` : ''}
+      ${alertes ? `<span class="alert-pill alert-warn">⚠ ${alertes} lot${alertes > 1 ? 's' : ''} en alerte DLUO</span>` : ''}
+      ${vides   ? `<span class="alert-pill alert-muted">○ ${vides} lot${vides > 1 ? 's' : ''} épuisé${vides > 1 ? 's' : ''}</span>` : ''}
+    </div>` : ''}
+    ${cats.map(cat => {
+      const rows = bycat[cat];
+      return `
+      <div class="rpt-group">
+        <div class="rpt-group-head">
+          ${CAT_ICONS[cat] || '📦'} ${escapeHtml(CAT_LABELS[cat] || cat)}
+          <span class="section-count">${rows.length}</span>
+        </div>
+        <div style="overflow-x:auto">
+        <table class="rpt-table">
+          <thead><tr>
+            <th>Produit</th><th>Fournisseur</th><th>N° lot</th>
+            <th>DLUO</th><th>Statut</th>
+            <th class="num">Stock initial</th><th class="num">Stock actuel</th><th>Unité</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(l => `<tr class="${l.statut_dluo === 'expire' ? 'row-expire' : l.statut_dluo === 'alerte' ? 'row-alerte' : ''}">
+              <td><b>${escapeHtml(l.produit_nom)}</b></td>
+              <td>${escapeHtml(l.fournisseur || '—')}</td>
+              <td>${escapeHtml(l.numero_lot  || '—')}</td>
+              <td style="white-space:nowrap">${l.dluo ? fmtDate(l.dluo) : '—'}</td>
+              <td><span class="dluo-badge ${DLUO_META[l.statut_dluo]?.cls || ''}">${DLUO_META[l.statut_dluo]?.label || l.statut_dluo}</span></td>
+              <td class="num">${l.quantite_initiale != null ? fmt(l.quantite_initiale) : '—'}</td>
+              <td class="num ${(l.quantite_actuelle || 0) <= 0 ? 'text-danger' : ''}">${l.quantite_actuelle != null ? fmt(l.quantite_actuelle) : '—'}</td>
+              <td>${escapeHtml(l.unite || '—')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+// ============================================================
+// TAB 3 — Bilan apports
+// ============================================================
+async function loadApports() {
+  document.getElementById('apports-content').innerHTML =
+    '<div class="loading-state"><div class="spinner"></div>Chargement…</div>';
+  apportsData = [];
+  try {
+    const tenantId = WB3DB.getCurrentTenantId();
+    const from = document.getElementById('a-from').value;
+    const to   = document.getElementById('a-to').value;
+
+    let q = WB3DB.client
+      .from('apports')
+      .select('*, lots(id,nom,couleur,millesime)')
+      .eq('tenant_id', tenantId)
+      .order('date_apport', { ascending: false });
+    if (from) q = q.gte('date_apport', from);
+    if (to)   q = q.lte('date_apport', to);
+
+    const { data, error } = await q;
+    if (error) throw error;
+    apportsData = data || [];
+    renderApports();
+  } catch(e) {
+    console.error('[WB3 rapports apports]', e);
+    document.getElementById('apports-content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Erreur de chargement</div>
+       <div class="desc">${escapeHtml(e.message)}</div></div>`;
+  }
+}
+
+function renderApports() {
+  const el     = document.getElementById('apports-content');
+  const from   = document.getElementById('a-from').value;
+  const to     = document.getElementById('a-to').value;
+  const tenant = WB3DB.getCurrentTenant();
+  const periodLabel = (from && to) ? `Du ${fmtDateLong(from)} au ${fmtDateLong(to)}` : '';
+
+  if (!apportsData.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🍇</div>
+      <div class="title">Aucun apport sur cette période</div>
+      <div class="desc">Modifie la plage de dates ou <a href="apports.html">enregistre des apports</a>.</div></div>`;
+    return;
+  }
+
+  const totalKg  = apportsData.reduce((s, a) => s + (Number(a.poids_kg)  || 0), 0);
+  const totalHL  = apportsData.reduce((s, a) => s + (Number(a.volume_hl) || 0), 0);
+  const apporteurs = new Set(apportsData.map(a => a.apporteur).filter(Boolean));
+  const lotsSet    = new Set(apportsData.map(a => a.lot_id).filter(Boolean));
+  const recus      = apportsData.filter(a => a.statut === 'recu').length;
+  const annules    = apportsData.filter(a => a.statut === 'annule').length;
+
+  el.innerHTML = `
+    <div class="print-header">
+      <h2 style="margin:0 0 4px;font-size:18px">Bilan des apports vendange</h2>
+      <div style="font-size:var(--text-footnote);color:#555">${escapeHtml(tenant?.nom || '')} · ${periodLabel}</div>
+      <div style="font-size:12px;color:#888;margin-top:var(--space-1)">Édité le ${fmtDateLong(today)}</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-mini">
+        <span class="icon">🍇</span>
+        <div><div class="val">${apportsData.length}</div><div class="lbl">Apports</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">⚖️</span>
+        <div><div class="val">${fmt(totalKg / 1000)} t</div><div class="lbl">Poids total</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">🫙</span>
+        <div><div class="val">${fmt(totalHL)} hL</div><div class="lbl">Volume estimé</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">👤</span>
+        <div><div class="val">${apporteurs.size}</div><div class="lbl">Apporteur${apporteurs.size > 1 ? 's' : ''}</div></div>
+      </div>
+      <div class="kpi-mini">
+        <span class="icon">🍷</span>
+        <div><div class="val">${lotsSet.size}</div><div class="lbl">Lot${lotsSet.size > 1 ? 's' : ''} affecté${lotsSet.size > 1 ? 's' : ''}</div></div>
+      </div>
+    </div>
+    <div style="padding:0 var(--space-5) var(--space-2);font-size:var(--text-caption);color:var(--color-ink-tertiary)">
+      ${recus} reçu${recus > 1 ? 's' : ''}
+      ${annules ? ` · ${annules} annulé${annules > 1 ? 's' : ''}` : ''}
+      ${periodLabel ? ` · ${periodLabel}` : ''}
+    </div>
+    <div style="overflow-x:auto">
+    <table class="rpt-table" id="tbl-apports">
+      <thead><tr>
+        <th>Date</th><th>N°</th><th>Apporteur</th>
+        <th>Provenance / Cépage</th>
+        <th class="num">Poids (kg)</th>
+        <th class="num">Volume (hL)</th>
+        <th class="num">Degré</th>
+        <th>Lot affecté</th>
+        <th>Statut</th>
+      </tr></thead>
+      <tbody>
+        ${apportsData.map(a => `<tr class="${a.statut === 'annule' ? 'row-annule' : ''}">
+          <td style="white-space:nowrap">${fmtDate(a.date_apport)}</td>
+          <td>${escapeHtml(a.numero || '—')}</td>
+          <td>${escapeHtml(a.apporteur || '—')}</td>
+          <td>${escapeHtml(a.provenance || a.cepage_libre || '—')}</td>
+          <td class="num">${a.poids_kg        != null ? fmt(a.poids_kg)        : '—'}</td>
+          <td class="num">${a.volume_hl       != null ? fmt(a.volume_hl)       : '—'}</td>
+          <td class="num">${a.degre_probable  != null ? fmt(a.degre_probable) + '°' : '—'}</td>
+          <td style="font-size:var(--text-caption)">${a.lots ? escapeHtml(a.lots.nom) : '—'}</td>
+          <td>${a.statut === 'annule'
+            ? '<span style="color:var(--color-danger)">✕ Annulé</span>'
+            : '<span style="color:var(--color-success)">✓ Reçu</span>'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+// ============================================================
+// TAB 4 — Suivi analytique (workflow 4)
+// ============================================================
+async function loadSuiviAnal() {
+  const el = document.getElementById('suivi-anal-content');
+  el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Chargement…</div>';
+  const from = document.getElementById('sa-from').value || yearStart;
+  const to   = document.getElementById('sa-to').value   || today;
+  try {
+    const tenantId = WB3DB.getCurrentTenantId();
+    const { data, error } = await WB3DB.client
+      .from('analyses')
+      .select('id,date_analyse,lot_id,so2_libre,so2_total,so2_actif,ph,tav,acidite_volatile,densite,temperature,sucres_residuels,lots(id,nom,couleur,millesime)')
+      .eq('tenant_id', tenantId)
+      .gte('date_analyse', from)
+      .lte('date_analyse', to)
+      .is('archived_at', null)
+      .order('date_analyse', { ascending: true })
+      .limit(2000);
+    if (error) throw error;
+    suiviAnalData = data || [];
+    // Peupler le sélecteur de lots
+    const sel = document.getElementById('sa-lot');
+    const prev = sel.value;
+    const lots = [...new Map((suiviAnalData.filter(a => a.lots)).map(a => [a.lot_id, a.lots])).values()];
+    lots.sort((a, b) => (a.nom||'').localeCompare(b.nom||'', 'fr'));
+    sel.innerHTML = '<option value="">Tous les lots</option>' +
+      lots.map(l => `<option value="${l.id}">${escapeHtml(l.nom)}${l.millesime ? ' · ' + l.millesime : ''}</option>`).join('');
+    if (lots.find(l => l.id === prev)) sel.value = prev;
+    renderSuiviAnal();
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderSuiviAnal() {
+  const el    = document.getElementById('suivi-anal-content');
+  const param = document.getElementById('sa-param').value || 'so2_libre';
+  const lotId = document.getElementById('sa-lot').value   || '';
+  const dec   = PARAM_DECIMALS[param] ?? 2;
+  const label = PARAM_LABELS[param]   || param;
+
+  let rows = suiviAnalData.filter(a => a[param] != null);
+  if (lotId) rows = rows.filter(a => a.lot_id === lotId);
+
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🔬</div>
+      <p>Aucune donnée « ${escapeHtml(label)} » sur la période.</p></div>`;
+    return;
+  }
+
+  // Mini-stats
+  const vals  = rows.map(r => Number(r[param]));
+  const mean  = vals.reduce((s, v) => s + v, 0) / vals.length;
+  const minV  = Math.min(...vals);
+  const maxV  = Math.max(...vals);
+  const alertCount = rows.filter(r => _rapAlertColor(param, r[param])).length;
+
+  // Regroupement par lot pour tableau
+  const byLot = {};
+  rows.forEach(r => {
+    const key = r.lot_id || '__sans';
+    if (!byLot[key]) byLot[key] = { lot: r.lots, rows: [] };
+    byLot[key].rows.push(r);
+  });
+
+  const tableRows = Object.values(byLot).flatMap(({ lot, rows: lr }) =>
+    lr.map((r, i) => {
+      const v = Number(r[param]);
+      const color = _rapAlertColor(param, v);
+      const lotCell = i === 0 && lot
+        ? `<td rowspan="${lr.length}" style="vertical-align:top;font-weight:600">
+            ${escapeHtml(lot.nom)}${lot.millesime ? ` <span style="color:var(--color-ink-tertiary)">${lot.millesime}</span>` : ''}
+           </td>`
+        : (i === 0 && !lot ? '<td rowspan="1" style="color:var(--color-ink-tertiary)">—</td>' : '');
+      return `<tr>
+        ${lotCell}
+        <td style="white-space:nowrap">${fmtDate(r.date_analyse)}</td>
+        <td class="num" style="${color ? `color:${color};font-weight:700` : ''}">${v.toFixed(dec)}${color ? ' ⚠' : ''}</td>
+        <td><a href="analyses.html" title="Voir dans Analyses" style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">→</a></td>
+      </tr>`;
+    })
+  ).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-4) 0 var(--space-3)">
+      <div class="kpi-mini"><span class="icon">📊</span>
+        <div><div class="val">${rows.length}</div><div class="lbl">mesure${rows.length>1?'s':''}</div></div></div>
+      <div class="kpi-mini"><span class="icon">↓</span>
+        <div><div class="val">${minV.toFixed(dec)}</div><div class="lbl">Min</div></div></div>
+      <div class="kpi-mini"><span class="icon">⌀</span>
+        <div><div class="val">${mean.toFixed(dec)}</div><div class="lbl">Moyenne</div></div></div>
+      <div class="kpi-mini"><span class="icon">↑</span>
+        <div><div class="val">${maxV.toFixed(dec)}</div><div class="lbl">Max</div></div></div>
+      ${alertCount ? `<div class="kpi-mini"><span class="icon">⚠</span>
+        <div><div class="val" style="color:#b91c1c">${alertCount}</div>
+        <div class="lbl">hors seuil</div></div></div>` : ''}
+    </div>
+    <div style="overflow-x:auto">
+    <table class="rpt-table">
+      <thead><tr>
+        <th>Lot</th><th>Date</th>
+        <th class="num">${escapeHtml(label)}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+    </div>
+    ${alertCount ? `<p style="font-size:var(--text-caption);color:#b91c1c;margin-top:var(--space-2)">
+      ⚠ ${alertCount} valeur${alertCount>1?'s':''} hors seuil
+      (seuils actuels : ${_tolDesc(param)}).
+      <a href="qualite-traca.html" style="color:#b91c1c">→ Diagnostics qualité</a>
+    </p>` : ''}
+  `;
+}
+
+function _tolDesc(param) {
+  const T = _rapTol;
+  if (param === 'ph')               return `pH entre ${T.ph_min} et ${T.ph_max}`;
+  if (param === 'tav')              return `TAV entre ${T.tav_min} et ${T.tav_max} %vol`;
+  if (param === 'acidite_volatile') return `AV ≤ ${T.av_max} g/L`;
+  if (param === 'so2_libre')        return `SO₂ libre ≤ ${T.so2_libre_max} mg/L`;
+  if (param === 'temperature')      return `T° ≤ ${T.temp_max}°C`;
+  return '';
+}
+
+// ============================================================
+// TAB 5 — Synthèse qualité par lot (workflow 4 phase C)
+// ============================================================
+// Croise : lots actifs × dernière analyse × alertes analytiques
+// × nb opérations × DLUO produits.
+// Source de données : lots + analyses + opérations côté client.
+let syntheseQualData = [];
+
+async function loadSyntheseQual() {
+  const el = document.getElementById('synthese-qual-content');
+  el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Chargement…</div>';
+  const tenantId = WB3DB.getCurrentTenantId();
+  try {
+    // Lots actifs (non archivés, non conditionnés/sortis)
+    const [lotsR, analysesR, opsR] = await Promise.all([
+      WB3DB.client.from('lots')
+        .select('id,nom,couleur,millesime,statut,volume_actuel_hl,numero_lot,lot_contenants(contenants(nom))')
+        .eq('tenant_id', tenantId).is('archived_at', null)
+        .not('statut', 'in', '(sorti)')
+        .order('nom').limit(500),
+      WB3DB.client.from('analyses')
+        .select('lot_id,date_analyse,ph,tav,acidite_volatile,so2_libre,temperature')
+        .eq('tenant_id', tenantId).is('archived_at', null)
+        .order('date_analyse', { ascending: false }),
+      WB3DB.client.from('operation_lots')
+        .select('lot_id,operations(date_operation,statut)')
+        .eq('tenant_id', tenantId)
+        .eq('operations.statut', 'realise'),
+    ]);
+    if (lotsR.error) throw lotsR.error;
+
+    // Dernière analyse par lot
+    const lastAnal = {};
+    (analysesR.data || []).forEach(a => {
+      if (!lastAnal[a.lot_id]) lastAnal[a.lot_id] = a;
+    });
+
+    // Nb opérations réalisées par lot
+    const nbOps = {};
+    (opsR.data || []).forEach(ol => {
+      nbOps[ol.lot_id] = (nbOps[ol.lot_id] || 0) + 1;
+    });
+
+    syntheseQualData = (lotsR.data || []).map(l => {
+      const anal   = lastAnal[l.id] || null;
+      const alerts = [];
+      const T      = _rapTol;
+      if (anal) {
+        if (anal.ph != null && (anal.ph < T.ph_min || anal.ph > T.ph_max))      alerts.push(`pH ${anal.ph}`);
+        if (anal.tav != null && (anal.tav < T.tav_min || anal.tav > T.tav_max)) alerts.push(`TAV ${anal.tav}`);
+        if (anal.acidite_volatile != null && anal.acidite_volatile > T.av_max)  alerts.push(`AV ${anal.acidite_volatile}`);
+        if (anal.so2_libre != null && anal.so2_libre > T.so2_libre_max)         alerts.push(`SO₂L ${anal.so2_libre}`);
+        if (anal.temperature != null && anal.temperature > T.temp_max)          alerts.push(`T° ${anal.temperature}`);
+      }
+      const daysSince = anal ? Math.round((Date.now() - new Date(anal.date_analyse + 'T00:00:00')) / 86400000) : null;
+      const analRetard = daysSince == null || daysSince > 30;
+      const cuves = (l.lot_contenants || []).map(lc => lc.contenants?.nom).filter(Boolean).join(', ') || '—';
+      return { lot: l, anal, alerts, daysSince, analRetard, nbOps: nbOps[l.id] || 0, cuves };
+    });
+    renderSyntheseQual();
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderSyntheseQual() {
+  const el      = document.getElementById('synthese-qual-content');
+  const statut  = document.getElementById('sq-statut').value;
+  const couleur = document.getElementById('sq-couleur').value;
+
+  let rows = syntheseQualData;
+  if (statut)  rows = rows.filter(r => r.lot.statut === statut);
+  if (couleur) rows = rows.filter(r => r.lot.couleur === couleur);
+
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">⚗️</div><p>Aucun lot correspondant.</p></div>`;
+    return;
+  }
+
+  const nbAlerts  = rows.filter(r => r.alerts.length > 0).length;
+  const nbRetards = rows.filter(r => r.analRetard).length;
+  const nbOk      = rows.filter(r => r.alerts.length === 0 && !r.analRetard).length;
+
+  const STATUT_LABELS = { fa:'FA', fml:'FML', elevage:'Élevage', pret:'Prêt',
+    conditionne:'Conditionné', sorti:'Sorti', vendange:'Vendange', vin:'Vin' };
+  const COULEUR_ICONS = { rouge:'🔴', blanc:'⚪', rose:'🌸', gris:'⬛' };
+
+  const tableRows = rows.map(r => {
+    const { lot, anal, alerts, daysSince, analRetard, nbOps, cuves } = r;
+    const hasAlert  = alerts.length > 0;
+    const rowStyle  = hasAlert ? 'background:#fff5f5' : analRetard ? 'background:#fffbeb' : '';
+    const statusCol = hasAlert
+      ? `<td style="text-align:center">🔴</td>`
+      : analRetard
+        ? `<td style="text-align:center">🟡</td>`
+        : `<td style="text-align:center">🟢</td>`;
+    return `<tr style="${rowStyle}">
+      ${statusCol}
+      <td style="padding:6px 10px">
+        <a onclick="WB3Nav.navigate('lot-detail.html?id=${lot.id}')"
+           style="font-weight:600;cursor:pointer;color:var(--color-primary)">
+          ${COULEUR_ICONS[lot.couleur] || '🍷'} ${escapeHtml(lot.nom)}
+          ${lot.millesime ? `<span style="font-weight:400;color:var(--color-ink-tertiary)"> · ${lot.millesime}</span>` : ''}
+        </a>
+        <div style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">${escapeHtml(cuves)}</div>
+      </td>
+      <td style="padding:6px 10px;text-align:center">
+        <span style="padding:1px 7px;border-radius:999px;font-size:var(--text-caption);font-weight:600;background:#f0f0f0">
+          ${escapeHtml(STATUT_LABELS[lot.statut] || lot.statut)}
+        </span>
+      </td>
+      <td class="num">${lot.volume_actuel_hl != null ? fmt(lot.volume_actuel_hl) + ' hL' : '—'}</td>
+      <td style="padding:6px 10px;text-align:center">
+        ${anal
+          ? `<span${analRetard ? ' style="color:#d97706;font-weight:600"' : ''}>${fmtDate(anal.date_analyse)}</span>
+             <span style="font-size:10px;color:var(--color-ink-tertiary);display:block">${daysSince}j</span>`
+          : '<span style="color:var(--color-danger)">Aucune</span>'}
+      </td>
+      <td style="padding:6px 10px">
+        ${hasAlert
+          ? `<span style="color:#b91c1c;font-weight:600">⚠ ${escapeHtml(alerts.join(' · '))}</span>`
+          : '<span style="color:var(--color-success)">✓ OK</span>'}
+      </td>
+      <td class="num">${nbOps}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-4) 0 var(--space-3)">
+      <div class="kpi-mini"><span class="icon">🍷</span>
+        <div><div class="val">${rows.length}</div><div class="lbl">lot${rows.length>1?'s':''}</div></div></div>
+      <div class="kpi-mini"><span class="icon">🟢</span>
+        <div><div class="val">${nbOk}</div><div class="lbl">OK</div></div></div>
+      <div class="kpi-mini"><span class="icon">🟡</span>
+        <div><div class="val">${nbRetards}</div><div class="lbl">analyse en retard</div></div></div>
+      ${nbAlerts ? `<div class="kpi-mini"><span class="icon">🔴</span>
+        <div><div class="val" style="color:#b91c1c">${nbAlerts}</div>
+        <div class="lbl">alerte${nbAlerts>1?'s':''}</div></div></div>` : ''}
+    </div>
+    <div style="overflow-x:auto">
+    <table class="rpt-table">
+      <thead><tr>
+        <th style="width:32px"></th>
+        <th>Lot / Cuve</th><th>Statut</th>
+        <th class="num">Volume</th>
+        <th style="text-align:center">Dernière analyse</th>
+        <th>Alertes analytiques</th>
+        <th class="num">Ops</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+    </div>
+    <p style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin-top:var(--space-2)">
+      🔴 Alerte analytique · 🟡 Analyse en retard (> 30 j) · 🟢 OK
+      · Seuils dans <a onclick="WB3Nav.navigate('parametres.html?section=qualite')" style="cursor:pointer">Paramètres → ⚗️ Qualité</a>
+    </p>`;
+}
+
+// ============================================================
+// Export CSV
+// ============================================================
+function exportCSV(type) {
+  let rows, filename;
+
+  if (type === 'traitements') {
+    const from = document.getElementById('t-from').value || '';
+    const to   = document.getElementById('t-to').value   || '';
+    filename = `registre_traitements_${from}_${to}.csv`;
+    rows = [
+      ['Date','Type opération','Produit','Catégorie','Quantité','Unité','Vol. traité (hL)','M. active (g)','Dose (mg/L)','N° lot produit','Lots de vin'],
+      ...traitements.map(r => [
+        r.date_operation,
+        r.type_operation,
+        r.produit_nom,
+        CAT_LABELS[r.categorie] || r.categorie,
+        r.quantite ?? '',
+        r.unite ?? '',
+        r.volume_hl ?? '',
+        r.g_actif   ?? '',
+        r.dose_mg_l ?? '',
+        r.numero_lot ?? '',
+        (lotsByOpT[r.operation_id] || []).join(' | '),
+      ]),
+    ];
+
+  } else if (type === 'stock') {
+    filename = `stock_produits_${today}.csv`;
+    rows = [
+      ['Produit','Catégorie','Fournisseur','N° lot','DLUO','Statut DLUO','Stock initial','Stock actuel','Unité'],
+      ...stockData.map(l => [
+        l.produit_nom,
+        CAT_LABELS[l.categorie] || l.categorie,
+        l.fournisseur  || '',
+        l.numero_lot   || '',
+        l.dluo         || '',
+        l.statut_dluo  || '',
+        l.quantite_initiale ?? '',
+        l.quantite_actuelle ?? '',
+        l.unite || '',
+      ]),
+    ];
+
+  } else if (type === 'apports') {
+    const from = document.getElementById('a-from').value || '';
+    const to   = document.getElementById('a-to').value   || '';
+    filename = `apports_${from}_${to}.csv`;
+    rows = [
+      ['Date','N°','Apporteur','Provenance/Cépage','Poids (kg)','Volume (hL)','Degré','Lot affecté','Statut'],
+      ...apportsData.map(a => [
+        a.date_apport,
+        a.numero          || '',
+        a.apporteur       || '',
+        a.provenance || a.cepage_libre || '',
+        a.poids_kg        ?? '',
+        a.volume_hl       ?? '',
+        a.degre_probable  ?? '',
+        a.lots?.nom       || '',
+        a.statut,
+      ]),
+    ];
+
+  } else if (type === 'suivi_anal') {
+    const from  = document.getElementById('sa-from').value || '';
+    const to    = document.getElementById('sa-to').value   || '';
+    const lotId = document.getElementById('sa-lot').value  || '';
+    filename = `suivi_analytique_${from}_${to}.csv`;
+    let data = suiviAnalData;
+    if (lotId) data = data.filter(a => a.lot_id === lotId);
+    rows = [
+      ['Date','Lot','Millésime','SO₂ libre','SO₂ total','SO₂ actif','pH','AT','AV','TAV','SR','Densité','Température'],
+      ...data.map(a => [
+        a.date_analyse,
+        a.lots?.nom ?? '',
+        a.lots?.millesime ?? '',
+        a.so2_libre ?? '', a.so2_total ?? '', a.so2_actif ?? '',
+        a.ph ?? '', a.ta ?? '', a.acidite_volatile ?? '', a.tav ?? '',
+        a.sucres_residuels ?? '', a.densite ?? '', a.temperature ?? '',
+      ]),
+    ];
+
+  } else if (type === 'synthese_qual') {
+    filename = `synthese_qualite_${today}.csv`;
+    rows = [
+      ['Statut','Lot','Millésime','Couleur','Cuve(s)','Volume (hL)','Dernière analyse','Jours depuis analyse','Alertes analytiques','Nb opérations'],
+      ...syntheseQualData.map(r => [
+        r.lot.statut, r.lot.nom, r.lot.millesime ?? '', r.lot.couleur ?? '',
+        r.cuves, r.lot.volume_actuel_hl ?? '',
+        r.anal?.date_analyse || '', r.daysSince ?? '',
+        r.alerts.join(' · '), r.nbOps,
+      ]),
+    ];
+  }
+
+  if (!rows?.length) return;
+
+  const bom = '﻿';
+  const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  toast('Export CSV téléchargé', 'success');
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Analyses — WineBlender 3</title>
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-qualite.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+<script src="list-date-filter.js"></script>
+<script src="list-pager.js"></script>
+<script src="list-header.js"></script>
+<script src="chrono.js"></script>
+<script src="row-popover.js"></script>
+<script src="pins.js"></script>
+<script src="multiselect-touch.js"></script>
+<script src="compare.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  :root {
+    --p:      #6a1b2a;
+    --p-lt:   #a84658;
+    --p-dk:   #3e0f18;
+    --acc:    #c8a87e;
+    --bg:     #f7f3ee;
+    --card:   #ffffff;
+    --ink:    #1c1c1e;
+    --muted:  #6b6b70;
+    --ok:     #2e7d32;
+    --warn:   #c77700;
+    --err:    #b00020;
+    --border: #e5e0d8;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--ink);
+    font-size:var(--text-callout); line-height: 1.5;
+  }
+
+  /* ── Header ──────────────────────────────────────────────── */
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  /* ── Décalage sidebar pour la barre de filtres ───────────── */
+  @media (min-width: 768px) {
+    body.wb3-has-nav          .filters { margin-left: var(--wb3-nav-w);    transition: margin-left .22s ease; }
+    body.wb3-has-nav.wb3-collapsed .filters { margin-left: var(--wb3-nav-rail); }
+  }
+
+  /* ── Filters bar ──────────────────────────────────────────── */
+  .filters {
+    background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 10px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .filters select, .filters input[type="date"] {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size:var(--text-footnote); background: #faf7f2; color: var(--ink);
+    cursor: pointer;
+  }
+  .filters select:focus, .filters input[type="date"]:focus {
+    outline: none; border-color: var(--p);
+  }
+  .filters label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  .btn-reset {
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 7px;
+    background: none; font-family: inherit; font-size: 12.5px; color: var(--muted);
+    cursor: pointer; transition: all .14s;
+  }
+  .btn-reset:hover { border-color: var(--p); color: var(--p); }
+  .filters-spacer { flex: 1; }
+
+  /* ── Main content ─────────────────────────────────────────── */
+  .wb-main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── Table ────────────────────────────────────────────────── */
+  .table-wrap {
+    background: var(--card); border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    overflow-x: auto;            /* fenêtre étroite : scroll horizontal au lieu de couper */
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #f8f5f0; }
+  th {
+    padding: 10px 12px; text-align: left;
+    font-size:var(--text-caption); font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td {
+    padding: 9px 12px; font-size:var(--text-footnote);
+    border-bottom: 1px solid #f0ece5; vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #faf7f2; }
+
+  .val-num { font-variant-numeric: tabular-nums; }
+  .val-empty { color: var(--border); font-size:var(--text-caption); }
+  .lot-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #f0ece5; border-radius: 10px;
+    padding: 2px 8px; font-size: 12px; max-width: 180px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .lot-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  }
+  .lot-dot.rouge  { background: #8b2230; }
+  .lot-dot.blanc  { background: #c8b850; }
+  .lot-dot.rose   { background: #e07090; }
+  .lot-dot.other  { background: var(--muted); }
+
+  .action-btn {
+    padding: 4px 9px; border-radius: 6px; border: 1px solid var(--border);
+    background: none; font-size: 12px; cursor: pointer; font-family: inherit;
+    color: var(--muted); transition: all .14s;
+  }
+  .action-btn:hover { border-color: var(--p); color: var(--p); background: #faf5f0; }
+  .action-btn.danger:hover { border-color: var(--err); color: var(--err); background: #fff5f5; }
+
+  /* ── Empty / error states ─────────────────────────────────── */
+  .state-card {
+    background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+    padding: 48px 24px; text-align: center; color: var(--muted);
+  }
+  .state-card .state-icon { font-size: 32px; margin-bottom: 10px; }
+  .state-card p { margin: 4px 0; font-size: 13.5px; }
+  .state-card .err-msg { color: var(--err); margin-top:var(--space-2); font-size: 12.5px; }
+
+  /* ── Skeleton ─────────────────────────────────────────────── */
+  @keyframes skel-shine { to { background-position: 200% center; } }
+  .skel {
+    display: block;
+    background: linear-gradient(90deg, #f0ece5 25%, #faf7f2 50%, #f0ece5 75%);
+    background-size: 200% auto;
+    animation: skel-shine 1.4s linear infinite;
+    border-radius: 4px;
+  }
+  .skel-table-wrap {
+    background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+    overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  }
+  .skel-table { width: 100%; border-collapse: collapse; }
+  .skel-table td { padding: 10px 12px; border-bottom: 1px solid #f0ece5; }
+  .skel-table tr:last-child td { border-bottom: none; }
+
+  /* ── FAB ──────────────────────────────────────────────────── */
+  .fab {
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--p); color: #fff;
+    border: none; border-radius: 50%; width: 52px; height: 52px;
+    font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(106,27,42,.35);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .14s, transform .14s; z-index: 50;
+  }
+  .fab:hover { background: var(--p-dk); transform: scale(1.07); }
+
+  /* ── Modal ────────────────────────────────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.42);
+    z-index: 200; display: flex; align-items: center; justify-content: center;
+    padding:var(--space-4); opacity: 0; pointer-events: none; transition: opacity .18s;
+    /* Neutralise l'animation fade-in héritée de theme.css : cette modale est
+       masquée par opacity (et non display:none), donc le fade-in jouait au
+       chargement → flash bref de « Nouvelle analyse ». */
+    animation: none !important;
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: var(--card); border-radius: 14px;
+    box-shadow: 0 12px 48px rgba(0,0,0,.22);
+    width: 100%; max-width: 680px; max-height: 90vh;
+    display: flex; flex-direction: column;
+    transform: translateY(12px); transition: transform .18s;
+  }
+  .modal-backdrop.open .modal { transform: none; }
+  .modal-head {
+    padding: 18px 22px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .modal-head h2 { margin: 0; font-size: 16px; color: var(--p); }
+  .modal-close {
+    background: none; border: none; font-size: 18px; color: var(--muted);
+    cursor: pointer; padding: 2px 6px; border-radius: 6px;
+    transition: color .14s, background .14s; line-height: 1;
+  }
+  .modal-close:hover { color: var(--ink); background: #f0ece5; }
+  .modal-body { overflow-y: auto; padding: 20px 22px; flex: 1; }
+  .modal-foot {
+    padding: 14px 22px; border-top: 1px solid var(--border);
+    display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0;
+  }
+
+  /* ── Form ─────────────────────────────────────────────────── */
+  .form-section { margin-bottom:var(--space-5); }
+  .form-section-title {
+    font-size:var(--text-caption); font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px;
+    margin-bottom: 10px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap:var(--space-3); }
+  .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-field { display: flex; flex-direction: column; gap:var(--space-1); }
+  .form-field.full { grid-column: 1 / -1; }
+  .form-field label {
+    font-size: 11.5px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+  .form-field label .unit {
+    font-weight: 400; text-transform: none; letter-spacing: 0;
+    font-size: 10.5px; opacity: .8;
+  }
+  .form-field input, .form-field select, .form-field textarea {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 13.5px; background: var(--color-bg-subtle);
+    transition: border .14s; color: var(--ink);
+  }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+    outline: none; border-color: var(--p); background: var(--color-bg-elevated);
+  }
+  .form-field textarea { resize: vertical; min-height: 68px; }
+  .form-field input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ── Buttons ──────────────────────────────────────────────── */
+  .btn {
+    padding: 9px 18px; border-radius: 8px; border: none;
+    font-family: inherit; font-size: 13.5px; font-weight: 600;
+    cursor: pointer; transition: background .14s;
+  }
+  .btn-primary { background: var(--p); color: #fff; }
+  .btn-primary:hover { background: var(--p-dk); }
+  .btn-primary:disabled { opacity: .5; cursor: wait; }
+  .btn-secondary {
+    background: none; color: var(--muted); border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-danger { background: none; color: var(--err); border: 1px solid var(--border); }
+  .btn-danger:hover { background: #fff0f0; border-color: var(--err); }
+
+  /* ── Toast ────────────────────────────────────────────────── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #1c1c1e; color: #fff;
+    padding: 10px 20px; border-radius: 10px; font-size:var(--text-footnote);
+    z-index: 500; transition: transform .25s; pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,.28);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.err  { background: var(--err); }
+
+  /* ── Suivi analytique ─────────────────────────────────────── */
+  .suivi-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px;
+    margin-bottom:var(--space-4); box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  }
+  .suivi-card-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom:var(--space-3); padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .suivi-card-count { font-size:var(--text-caption); color: var(--muted); margin-left: auto; }
+  .delta-up   { font-size: 9px; color: var(--err);  margin-left: 2px; }
+  .delta-down { font-size: 9px; color: var(--ok);   margin-left: 2px; }
+  .btn-view {
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 7px;
+    background: none; font-family: inherit; font-size: 12.5px; color: var(--muted);
+    cursor: pointer; transition: all .14s;
+  }
+  .btn-view:hover   { border-color: var(--p); color: var(--p); }
+  .btn-view.active  { background: var(--p); color: #fff; border-color: var(--p); }
+</style>
+</head>
+<body>
+
+<!-- ── Page header ────────────────────────────────────────── -->
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1>🔬 Analyses</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <button class="btn btn--header" onclick="openImportModal()">📥 Importer CSV</button>
+    <a class="btn btn--header" href="parametres.html?section=analyses" title="Paramètres analyses">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<!-- ── Import modal ───────────────────────────────────────── -->
+<div class="modal-backdrop" id="import-modal" onclick="if(event.target===this)closeImportModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>📥 Import CSV analyses</h2>
+      <button class="modal-close" onclick="closeImportModal()">×</button>
+    </div>
+    <div class="modal-body" id="import-modal-body">
+      <div style="border:2px dashed var(--border);border-radius:10px;padding:var(--space-8);text-align:center;cursor:pointer"
+           onclick="document.getElementById('imp-file-in').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--p)'"
+           ondragleave="this.style.borderColor='var(--border)'"
+           ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleImpDrop(event)">
+        <div style="font-size:32px;margin-bottom:var(--space-2)">📊</div>
+        <div style="font-weight:600;color:var(--ink)">Déposer un fichier CSV ici</div>
+        <div style="font-size:12px;color:var(--muted);margin:6px 0 12px">ou cliquer pour parcourir · séparateur point-virgule</div>
+        <button class="btn btn-primary" onclick="event.stopPropagation();document.getElementById('imp-file-in').click()">
+          Choisir un fichier
+        </button>
+      </div>
+      <input type="file" id="imp-file-in" accept=".csv,text/csv" style="display:none" onchange="handleImpFile(this)">
+      <div id="imp-preview" style="margin-top:var(--space-4)"></div>
+    </div>
+    <div class="modal-foot" id="import-modal-foot" style="display:none">
+      <button class="btn btn-secondary" onclick="closeImportModal()">Annuler</button>
+      <button class="btn btn-primary" id="imp-confirm-btn" onclick="confirmImpImport()">💾 Importer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Filters ────────────────────────────────────────────── -->
+<div class="filters">
+  <div class="filter-group">
+    <label>Période</label>
+    <span id="anl-date-filter"></span>
+  </div>
+  <div class="filter-group">
+    <label>Lot</label>
+    <select id="filter-lot" onchange="applyFilters()">
+      <option value="">Tous les lots</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Cuve</label>
+    <select id="filter-contenant" onchange="applyFilters()">
+      <option value="">Toutes</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Du</label>
+    <input type="date" id="filter-from" onchange="applyFilters()">
+    <label>au</label>
+    <input type="date" id="filter-to" onchange="applyFilters()">
+  </div>
+  <div class="filter-group">
+    <label for="filter-text">Recherche :</label>
+    <input type="search" id="filter-text" placeholder="lot, contenant, millésime, opérateur…"
+      style="min-width:220px" oninput="applyFilters()">
+  </div>
+  <button class="btn-reset" onclick="resetFilters()">✕ Réinitialiser</button>
+  <div class="filters-spacer"></div>
+  <span id="count-label" style="font-size:12px;color:var(--muted);"></span>
+  <button class="btn-view" id="btn-view-toggle" onclick="toggleViewMode()">📈 Suivi</button>
+</div>
+
+<!-- ── Body ───────────────────────────────────────────────── -->
+<main class="wb-main">
+  <div id="list-header"></div>
+  <div id="pinned-section" style="display:none"></div>
+  <div id="content-area">
+    <div class="skel-table-wrap">
+      <table class="skel-table"><tbody>
+        <tr><td><span class="skel" style="height:12px;width:72px"></span></td><td><span class="skel" style="height:20px;width:100px;border-radius:10px"></span></td><td><span class="skel" style="height:12px;width:80px"></span></td><td><span class="skel" style="height:12px;width:36px"></span></td><td><span class="skel" style="height:12px;width:36px"></span></td><td><span class="skel" style="height:12px;width:32px"></span></td><td><span class="skel" style="height:12px;width:32px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:68px"></span></td><td><span class="skel" style="height:20px;width:120px;border-radius:10px"></span></td><td><span class="skel" style="height:12px;width:70px"></span></td><td><span class="skel" style="height:12px;width:38px"></span></td><td><span class="skel" style="height:12px;width:38px"></span></td><td><span class="skel" style="height:12px;width:30px"></span></td><td><span class="skel" style="height:12px;width:30px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:80px"></span></td><td><span class="skel" style="height:20px;width:90px;border-radius:10px"></span></td><td><span class="skel" style="height:12px;width:90px"></span></td><td><span class="skel" style="height:12px;width:34px"></span></td><td><span class="skel" style="height:12px;width:34px"></span></td><td><span class="skel" style="height:12px;width:34px"></span></td><td><span class="skel" style="height:12px;width:34px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:65px"></span></td><td><span class="skel" style="height:20px;width:110px;border-radius:10px"></span></td><td><span class="skel" style="height:12px;width:75px"></span></td><td><span class="skel" style="height:12px;width:40px"></span></td><td><span class="skel" style="height:12px;width:40px"></span></td><td><span class="skel" style="height:12px;width:28px"></span></td><td><span class="skel" style="height:12px;width:28px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:76px"></span></td><td><span class="skel" style="height:20px;width:95px;border-radius:10px"></span></td><td><span class="skel" style="height:12px;width:65px"></span></td><td><span class="skel" style="height:12px;width:36px"></span></td><td><span class="skel" style="height:12px;width:36px"></span></td><td><span class="skel" style="height:12px;width:32px"></span></td><td><span class="skel" style="height:12px;width:32px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:70px"></span></td><td><span class="skel" style="height:20px;width:130px;border-radius:10px"></span></td><td><span class="skel" style="height:12px;width:85px"></span></td><td><span class="skel" style="height:12px;width:38px"></span></td><td><span class="skel" style="height:12px;width:38px"></span></td><td><span class="skel" style="height:12px;width:36px"></span></td><td><span class="skel" style="height:12px;width:36px"></span></td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</main>
+
+<!-- ── FAB ────────────────────────────────────────────────── -->
+<button class="fab" onclick="openModal()" title="Nouvelle analyse">+</button>
+
+<!-- ── Modal ──────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="modal-backdrop" onclick="onBackdropClick(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h2 id="modal-title">Nouvelle analyse</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="analyse-form" onsubmit="submitForm(event)">
+
+        <!-- Identification -->
+        <div class="form-section">
+          <div class="form-section-title">Identification</div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Date *</label>
+              <input type="date" id="f-date" required onchange="resolveLotFromCuveDate()">
+            </div>
+            <div class="form-field">
+              <label>Opérateur</label>
+              <input type="text" id="f-operateur" placeholder="Nom / labo">
+            </div>
+            <div class="form-field">
+              <label>Lot</label>
+              <select id="f-lot"></select>
+              <div id="f-lot-auto" style="font-size:var(--text-caption);margin-top:3px;color:var(--p)"></div>
+            </div>
+            <div class="form-field">
+              <label>Contenant</label>
+              <select id="f-contenant" onchange="WB3CuveInfo.show(this.value,'f-contenant-info');resolveLotFromCuveDate()"></select>
+              <div id="f-contenant-info"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SO2 -->
+        <div class="form-section">
+          <div class="form-section-title">Dioxyde de soufre</div>
+          <div class="form-grid cols3">
+            <div class="form-field">
+              <label>SO₂ libre <span class="unit">(mg/L)</span></label>
+              <input type="number" id="f-so2-libre" step="0.1" min="0" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>SO₂ total <span class="unit">(mg/L)</span></label>
+              <input type="number" id="f-so2-total" step="0.1" min="0" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>SO₂ actif <span class="unit">(mg/L)</span></label>
+              <input type="number" id="f-so2-actif" step="0.01" min="0" placeholder="—">
+            </div>
+          </div>
+        </div>
+
+        <!-- Acidité -->
+        <div class="form-section">
+          <div class="form-section-title">Acidité</div>
+          <div class="form-grid cols3">
+            <div class="form-field">
+              <label>pH</label>
+              <input type="number" id="f-ph" step="0.01" min="2" max="5" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>AT <span class="unit">(g/L H₂SO₄)</span></label>
+              <input type="number" id="f-ta" step="0.01" min="0" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>AV <span class="unit">(g/L acide acétique)</span></label>
+              <input type="number" id="f-av" step="0.01" min="0" placeholder="—">
+            </div>
+          </div>
+        </div>
+
+        <!-- Alcool & sucres -->
+        <div class="form-section">
+          <div class="form-section-title">Alcool &amp; sucres</div>
+          <div class="form-grid cols3">
+            <div class="form-field">
+              <label>TAV <span class="unit">(% vol)</span></label>
+              <input type="number" id="f-tav" step="0.01" min="0" max="22" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>Sucres résiduels <span class="unit">(g/L)</span></label>
+              <input type="number" id="f-sr" step="0.1" min="0" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>Densité</label>
+              <input type="number" id="f-densite" step="0.0001" min="0.9" max="1.2" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>Température <span class="unit">(°C)</span></label>
+              <input type="number" id="f-temperature" step="0.1" min="-5" max="50" placeholder="—">
+            </div>
+          </div>
+        </div>
+
+        <!-- Fermentation malolactique -->
+        <div class="form-section">
+          <div class="form-section-title">Fermentation malolactique</div>
+          <div class="form-grid cols3">
+            <div class="form-field">
+              <label>Acide malique <span class="unit">(g/L)</span></label>
+              <input type="number" id="f-malique" step="0.01" min="0" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>Acide lactique <span class="unit">(g/L)</span></label>
+              <input type="number" id="f-lactique" step="0.01" min="0" placeholder="—">
+            </div>
+          </div>
+        </div>
+
+        <!-- Fermentescibilité -->
+        <div class="form-section">
+          <div class="form-section-title">Fermentescibilité</div>
+          <div class="form-grid cols3">
+            <div class="form-field">
+              <label>GF -5°C <span class="unit">(°C)</span></label>
+              <input type="number" id="f-gfneg5" step="0.1" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>GF +5°C <span class="unit">(°C)</span></label>
+              <input type="number" id="f-gfpos5" step="0.1" placeholder="—">
+            </div>
+          </div>
+        </div>
+
+        <!-- Autres -->
+        <div class="form-section">
+          <div class="form-section-title">Autres paramètres</div>
+          <div class="form-grid cols3">
+            <div class="form-field">
+              <label>CO₂ <span class="unit">(g/L)</span></label>
+              <input type="number" id="f-co2" step="0.01" min="0" placeholder="—">
+            </div>
+            <div class="form-field">
+              <label>Turbidité <span class="unit">(NTU)</span></label>
+              <input type="number" id="f-turbidite" step="0.1" min="0" placeholder="—">
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-section">
+          <div class="form-section-title">Notes</div>
+          <div class="form-field full">
+            <textarea id="f-notes" rows="3" placeholder="Observations, contexte…"></textarea>
+          </div>
+        </div>
+
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="btn-delete" onclick="deleteAnalyse()" style="display:none;margin-right:auto;">🗑 Archiver</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" id="btn-save" onclick="submitForm()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ───────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────
+let analyses = [];
+let lots     = [];
+let contenants = [];
+let editId   = null;
+let viewMode = 'list'; // 'list' | 'suivi'
+
+// Workflow 4 — seuils analytiques : délégués au helper partagé WB3Qualite
+// (source unique des défauts + logique d'alerte, cf. wb3-qualite.js).
+let _analTol = WB3Qualite.normalize(null);  // défauts ; rechargé à l'init
+function _analIsAlert(a)     { return WB3Qualite.isAlert(a, _analTol); }
+function _analAlertFields(a) { return WB3Qualite.alertFields(a, _analTol).map(x => x.detail); }
+
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+// ── Init ─────────────────────────────────────────────────────
+(async function init() {
+  const ctx = await WB3AppBoot.requireReadyContext({ maxWaitMs: 8000 });
+  if (!ctx) {
+    showState('error', 'Session expirée ou non connecté.', 'Rechargez la page ou reconnectez-vous.');
+    return;
+  }
+
+  const tenant = ctx.tenant;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+
+  WB3Auth.onAuthChange(({ user: u }) => { if (!u) WB3Nav.navigateTop('app.html'); });
+
+  // Charger les tolérances analytiques (workflow 4) via le helper partagé.
+  _analTol = await WB3Qualite.load();
+
+  // Filtre période (défaut 30 j) — chargé AVANT le 1er fetch (scope serveur).
+  _dateRange = await WB3ListDateFilter.init({
+    module: 'analyses', defaultPreset: '30j', mount: 'anl-date-filter',
+    onChange: async (r) => { _dateRange = r; _datePreset = r.preset; currentPage = 1; _loaded = 25; await loadAnalysesOnly(); render(); },
+  });
+  _dateSetPreset = _dateRange.setPreset; _datePreset = _dateRange.preset;   // L5
+  PAGE_SIZE = await WB3ListPager.loadSize('analyses');   // L3 : taille de page persistée (défaut 25)
+  _mode     = await WB3ListPager.loadMode('analyses');   // L4 : mode continu / paginé (persisté)
+  _density  = await WB3ListPager.loadDensity('analyses'); _applyDensity();   // L10
+  _grouped  = await WB3ListPager.loadGrouped('analyses');                    // L7
+  _pinned   = await WB3Pins.load('analyses');                                // L8
+  await loadAll();
+  subscribeRealtime();
+  buildLotFilter();
+  buildContenantFilter();
+  _initRowPopover();   // L11 : mini-fiche au survol (données déjà chargées)
+  // 9.2A — multi-sélection tactile (tap long) ; alimente la sélection L12 (Comparer).
+  if (window.WB3MultiSelect) WB3MultiSelect.attach('content-area', { onChange: ids => { _selected = new Set(ids); _l5Update(); } });
+  render();
+  if (new URLSearchParams(window.location.search).get('new') === '1') openModal();
+})();
+
+// L11 — aperçu au survol d'une ligne (aucune requête : données en mémoire).
+function _initRowPopover() {
+  if (!window.WB3RowPopover) return;
+  const nb = (v, d) => v != null ? Number(v).toFixed(d) : '';
+  WB3RowPopover.attach('content-area', {
+    resolve: id => analyses.find(a => String(a.id) === String(id)),
+    fields: a => ({
+      title: '🔬 ' + (a.lots ? a.lots.nom + (a.lots.millesime ? ' · ' + a.lots.millesime : '') : (a.contenants?.nom || 'Analyse')),
+      rows: [
+        ['Date', a.date_analyse ? fmtDate(a.date_analyse) : ''],
+        ['SO₂ libre', nb(a.so2_libre, 1)],
+        ['SO₂ total', nb(a.so2_total, 1)],
+        ['pH', nb(a.ph, 2)],
+        ['TAV', nb(a.tav, 2)],
+      ],
+    }),
+  });
+}
+
+// ── Data loading ─────────────────────────────────────────────
+async function loadAll() {
+  // _loadAnalysesPrefs : restaure l'ordre des colonnes (main + Suivi)
+  // depuis user_preferences. Tolérant : silencieux si KO, l'init
+  // défensive dans render()/renderSuivi() comble les manques.
+  const [rawAnalyses, rawLots, rawContenants] = await Promise.all([
+    WB3DB.queryAnalyses({ date_from: _dateRange.date_from, date_to: _dateRange.date_to }),
+    WB3DB.listTable('lots', { select: 'id, nom, couleur, millesime, actif', order: 'nom', ascending: true }),
+    WB3DB.listTable('contenants', { select: 'id, nom, type', filter: { actif: true }, order: 'nom', ascending: true }),
+    _loadAnalysesPrefs(),
+  ]);
+  analyses   = rawAnalyses;
+  lots       = rawLots;
+  contenants = rawContenants;
+  _modalDataReady = true;
+}
+
+async function _loadAnalysesPrefs() {
+  try {
+    const p = await WB3DB.getUserPref('analyses');
+    if (p && Array.isArray(p.col_order_main))  window._analColOrder  = p.col_order_main.slice();
+    if (p && Array.isArray(p.col_order_suivi)) window._suiviColOrder = p.col_order_suivi.slice();
+  } catch (_) { /* silent — la persistance n'est pas critique */ }
+}
+
+// Fire-and-forget : la sauvegarde ne doit pas bloquer ni faire échouer
+// le drag-drop (offline, RLS échouée, etc.). Erreur ignorée volontairement.
+function _saveAnalysesPrefs() {
+  const payload = {
+    col_order_main:  Array.isArray(window._analColOrder)  ? window._analColOrder  : [],
+    col_order_suivi: Array.isArray(window._suiviColOrder) ? window._suiviColOrder : [],
+  };
+  try { WB3DB.setUserPref('analyses', payload).catch(() => {}); } catch (_) {}
+}
+
+// Rechargement des analyses seules — les lots ne changent pas lors d'un save d'analyse
+async function loadAnalysesOnly() {
+  analyses = await WB3DB.queryAnalyses({ date_from: _dateRange.date_from, date_to: _dateRange.date_to });
+}
+let _dateRange = {};   // période serveur (filtre liste) — voir list-date-filter.js
+let currentPage = 1, PAGE_SIZE = 25, _showAll = false;   // L3 : pagination (défaut 25)
+let _mode = 'continuous', _loaded = 25;                  // L4 : continu (Charger plus) | paginé
+let _datePreset = '30j', _dateSetPreset = function () {};   // L5 : chip période + pilotage
+let _density = 'confort';   // L10 : 'confort' | 'compact'
+let _grouped = false;       // L7 : vue groupée par période (chrono), persisté
+let _pinned  = [];          // L8 : ids épinglés (≤ 5), persistés
+let _selected = new Set();  // L12 : ids sélectionnés pour comparaison (2..6)
+function loadMore() { const y = window.scrollY; _loaded += WB3ListPager.STEP; render(); window.scrollTo(0, y); }
+function toggleMode() {
+  _mode = _mode === 'continuous' ? 'paginated' : 'continuous';
+  _loaded = WB3ListPager.STEP; currentPage = 1; _showAll = false;
+  WB3ListPager.saveMode('analyses', _mode); render();
+}
+// ── L5 — bandeau « tableau de bord » (compteur + chips + réinitialiser) ──
+function _l5Counter() {
+  const t = filteredAnalyses().length;
+  if (_mode === 'continuous') return Math.min(_loaded, t) + ' / ' + t + ' affichés';
+  const pg = Math.max(1, Math.ceil(t / PAGE_SIZE));
+  return 'Page ' + Math.min(currentPage, pg) + ' / ' + pg + ' · ' + t + ' analyse' + (t > 1 ? 's' : '');
+}
+function _l5Update() {
+  const chips = [];
+  if (_datePreset && _datePreset !== 'all')
+    chips.push({ label: 'Période : ' + WB3ListHeader.presetLabel(_datePreset), onRemove: () => _dateSetPreset('all') });
+  const lotSel = document.getElementById('filter-lot');
+  if (lotSel && lotSel.value) chips.push({ label: 'Lot : ' + (lotSel.options[lotSel.selectedIndex]?.text || lotSel.value), onRemove: () => { lotSel.value = ''; _loaded = 25; currentPage = 1; render(); } });
+  const cSel = document.getElementById('filter-contenant');
+  if (cSel && cSel.value) chips.push({ label: 'Cuve : ' + (cSel.options[cSel.selectedIndex]?.text || cSel.value), onRemove: () => { cSel.value = ''; _loaded = 25; currentPage = 1; render(); } });
+  const ft = document.getElementById('filter-text');
+  if (ft && ft.value.trim()) chips.push({ label: 'Recherche : ' + ft.value.trim(), onRemove: () => { ft.value = ''; _loaded = 25; currentPage = 1; render(); } });
+  const actions = [];
+  if (_selected.size >= WB3Compare.MIN) actions.push({ label: '⚖ Comparer (' + _selected.size + ')', onClick: _openCompare });
+  WB3ListHeader.update('list-header', { counter: _l5Counter(), chips, onReset: _l5Reset, density: _density, onToggleDensity: _toggleDensity, grouped: _grouped, onToggleGroup: _toggleGroup, actions });
+}
+// L7 — vue groupée par tranche de temps (sur la fenêtre paginée). En vue
+// « suivi », le groupement chrono ne s'applique pas (vue transversale).
+function _toggleGroup() { _grouped = !_grouped; WB3ListPager.saveGrouped('analyses', _grouped); render(); }
+function _l5Reset() {
+  if (typeof resetFilters === 'function') resetFilters();   // vide lot/cuve/dates/texte + render
+  _loaded = 25; currentPage = 1;
+  _dateSetPreset('30j');   // période L1 par défaut (Récents)
+}
+// L10 — densité d'affichage (confort / compact), persistée par module.
+function _applyDensity() { const c = document.getElementById('content-area'); if (c) c.classList.toggle('wb3-compact', _density === 'compact'); }
+function _toggleDensity() { _density = _density === 'compact' ? 'confort' : 'compact'; _applyDensity(); WB3ListPager.saveDensity('analyses', _density); _l5Update(); }
+function goToPage(p) {
+  const pages = Math.max(1, Math.ceil(filteredAnalyses().length / PAGE_SIZE));
+  currentPage = Math.max(1, Math.min(p, pages)); render();
+  document.getElementById('content-area')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function setPageSize(n) { PAGE_SIZE = n; _showAll = false; currentPage = 1; WB3ListPager.saveSize('analyses', n); render(); }
+async function toggleShowAll() {
+  if (!_showAll) {
+    const total = filteredAnalyses().length;
+    if (total > WB3ListPager.CONFIRM_OVER &&
+        !(await WB3UI.confirm(`Afficher ${total} lignes peut ralentir l'interface. Continuer ?`, { title:'Tout afficher', okText:'Afficher' }))) return;
+  }
+  _showAll = !_showAll; currentPage = 1; render();
+}
+
+let _rtTimer = null;
+function _debouncedAnalysesReload() {
+  clearTimeout(_rtTimer);
+  _rtTimer = setTimeout(async () => {
+    await loadAnalysesOnly();
+    buildLotFilterPreserve();
+    render();
+  }, 200);
+}
+
+function subscribeRealtime() {
+  WB3DB.subscribeTable('analyses', _debouncedAnalysesReload);
+}
+
+// Enrichit une ligne d'analyse retournée par insertRow/updateRow avec les refs locales
+function enrichAnalyseRow(row) {
+  row.lots       = lots.find(l => l.id === row.lot_id) || null;
+  row.contenants = contenants.find(c => c.id === row.contenant_id) || null;
+  return row;
+}
+
+// contenants chargés uniquement à l'ouverture du modal (non nécessaires pour la liste ou les filtres)
+let _modalDataReady = false;
+let _modalDataPromise = null;
+async function ensureModalData() {
+  if (_modalDataReady) return;
+  if (!_modalDataPromise) {
+    _modalDataPromise = WB3DB.listTable('contenants', {
+      select: 'id, nom, type', filter: { actif: true }, order: 'nom', ascending: true,
+    }).then(data => { contenants = data; _modalDataReady = true; _modalDataPromise = null; })
+      .catch(() => { contenants = []; _modalDataReady = true; _modalDataPromise = null; });
+  }
+  return _modalDataPromise;
+}
+
+// ── Filters ──────────────────────────────────────────────────
+function applyFilters() { render(); }
+function resetFilters() {
+  document.getElementById('filter-lot').value       = '';
+  document.getElementById('filter-contenant').value = '';
+  document.getElementById('filter-from').value      = '';
+  document.getElementById('filter-to').value        = '';
+  const ft = document.getElementById('filter-text'); if (ft) ft.value = '';
+  render();
+}
+
+function filteredAnalyses() {
+  const lotId = document.getElementById('filter-lot').value;
+  const ctnId = document.getElementById('filter-contenant').value;
+  const from  = document.getElementById('filter-from').value;
+  const to    = document.getElementById('filter-to').value;
+  const txt   = (document.getElementById('filter-text')?.value || '').trim().toLowerCase();
+  return analyses.filter(a => {
+    if (lotId && a.lot_id !== lotId)         return false;
+    if (ctnId && a.contenant_id !== ctnId)   return false;
+    if (from  && a.date_analyse < from)       return false;
+    if (to    && a.date_analyse > to)         return false;
+    if (txt) {
+      // Recherche libre sur lot.nom, lot.millesime, contenant.nom, opérateur, notes
+      const hay = [
+        a.lots?.nom, a.lots?.millesime, a.lots?.couleur,
+        a.contenants?.nom, a.contenants?.type,
+        a.operateur, a.notes,
+      ].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(txt)) return false;
+    }
+    return true;
+  });
+}
+
+function buildLotFilter() {
+  const sel = document.getElementById('filter-lot');
+  lots.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.id;
+    o.textContent = l.nom + (l.millesime ? ` (${l.millesime})` : '');
+    sel.appendChild(o);
+  });
+}
+
+function buildContenantFilter() {
+  const sel = document.getElementById('filter-contenant');
+  sel.innerHTML = '<option value="">Toutes</option>';
+  contenants.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.nom;
+    sel.appendChild(o);
+  });
+}
+
+function toggleViewMode() {
+  viewMode = viewMode === 'list' ? 'suivi' : 'list';
+  const btn = document.getElementById('btn-view-toggle');
+  if (btn) {
+    btn.textContent = viewMode === 'list' ? '📈 Suivi' : '📋 Liste';
+    btn.classList.toggle('active', viewMode === 'suivi');
+  }
+  render();
+}
+
+// ── Render ───────────────────────────────────────────────────
+function render() {
+  const data = filteredAnalyses();
+  const area = document.getElementById('content-area');
+  document.getElementById('count-label').textContent = data.length + ' analyse' + (data.length !== 1 ? 's' : '');
+  _l5Update();   // L5 : bandeau (compteur + chips + réinitialiser)
+  _renderPinned();   // L8 : section « Épinglées » en tête (sibling persistant)
+
+  if (!data.length) {
+    area.innerHTML = (analyses.length === 0)
+      ? `<div class="empty-state"><div class="icon">🔬</div>
+           <div class="title">Aucune analyse pour l'instant</div>
+           <div class="desc">Cliquez sur le bouton « + » pour enregistrer la première analyse.</div></div>`
+      : `<div class="empty-state"><div class="icon">🔍</div>
+           <div class="title">Aucun résultat sur ces filtres</div>
+           <div class="desc">Aucune analyse ne correspond aux filtres actifs (affichés en haut).</div>
+           <div class="actions"><button class="btn btn--secondary" onclick="_l5Reset()">↺ Réinitialiser les filtres</button></div></div>`;
+    return;
+  }
+
+  if (viewMode === 'suivi') { renderSuivi(data, area); return; }
+
+
+  const ALL_COLS = [
+    // Colonnes « identité » — toujours présentes, draggables comme les autres.
+    { k:'__date',      h:'Date',      t:"Date de l'analyse", custom:true,
+      render: a => {
+        const alertFields = _analAlertFields(a);
+        const badge = alertFields.length
+          ? `<span title="${esc(alertFields.join(' · '))}"
+               style="display:inline-block;background:#fca5a5;color:#7f1d1d;border-radius:999px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:var(--space-1);vertical-align:middle">⚠</span>`
+          : '';
+        return fmtDate(a.date_analyse) + badge;
+      },
+      hasValue: () => true },
+    { k:'__lot',       h:'Lot',       t:'Lot analysé',       custom:true,
+      render: a => {
+        const lot = a.lots;
+        return lot
+          ? `<span class="lot-badge" title="${esc(lot.nom)}${lot.millesime ? ' · '+lot.millesime : ''}">
+               <span class="lot-dot ${lotCouleurClass(lot.couleur)}"></span>
+               ${esc(lot.nom)}${lot.millesime ? ' · ' + lot.millesime : ''}
+             </span>`
+          : `<span class="val-empty">—</span>`;
+      },
+      hasValue: () => true },
+    { k:'__contenant', h:'Contenant', t:'Contenant',         custom:true,
+      render: a => a.contenants ? esc(a.contenants.nom) : `<span class="val-empty">—</span>`,
+      hasValue: () => true },
+    { k:'so2_libre',        h:'SO₂L',    t:'SO₂ libre mg/L',          d:1 },
+    { k:'so2_total',        h:'SO₂T',    t:'SO₂ total mg/L',          d:1 },
+    { k:'so2_actif',        h:'SO₂Act.', t:'SO₂ actif mg/L',          d:2 },
+    { k:'ph',               h:'pH',      t:'pH',                      d:2 },
+    { k:'ta',               h:'AT',      t:'Acidité titrable g/L',    d:2 },
+    { k:'acidite_volatile', h:'AV',      t:'Acidité volatile g/L',    d:2 },
+    { k:'tav',              h:'TAV',     t:'Titre alcoométrique %vol', d:2 },
+    { k:'sucres_residuels', h:'SR',      t:'Sucres résiduels g/L',    d:1 },
+    { k:'densite',          h:'Dens.',   t:'Densité',                 d:4 },
+    { k:'temperature',      h:'T°',      t:'Température °C',          d:1 },
+    { k:'acide_malique',    h:'A.Mal.',  t:'Acide malique g/L',       d:2 },
+    { k:'acide_lactique',   h:'A.Lac.',  t:'Acide lactique g/L',      d:2 },
+    { k:'gf_neg5',          h:'GF-5°',  t:'Fermentescibilité -5°C',  d:1 },
+    { k:'gf_pos5',          h:'GF+5°',  t:'Fermentescibilité +5°C',  d:1 },
+    { k:'co2',              h:'CO₂',    t:'CO₂ g/L',                 d:2 },
+    { k:'turbidite',        h:'NTU',    t:'Turbidité NTU',           d:1 },
+    // Colonnes dérivées du lot joint (a.lots). custom:true => render dédié.
+    { k:'millesime',        h:'Millés.', t:'Millésime du lot',
+      custom:true, render: a => a.lots?.millesime != null ? `<span class="val-num">${esc(String(a.lots.millesime))}</span>` : `<span class="val-empty">—</span>`,
+      hasValue: a => a.lots?.millesime != null },
+    { k:'couleur',          h:'Couleur', t:'Couleur du lot',
+      custom:true, render: a => {
+        const c = a.lots?.couleur;
+        if (!c) return `<span class="val-empty">—</span>`;
+        const labels = { rouge:'Rouge', blanc:'Blanc', rose:'Rosé', gris:'Gris' };
+        return `<span class="lot-badge"><span class="lot-dot ${lotCouleurClass(c)}"></span>${labels[c] || esc(c)}</span>`;
+      },
+      hasValue: a => a.lots?.couleur != null },
+  ];
+  // Ordre courant (drag-drop) — initialisé une fois, persisté en session.
+  // Init défensive : on ajoute toute clé manquante et on supprime les orphelines.
+  if (!Array.isArray(window._analColOrder)) window._analColOrder = [];
+  const knownKeys = new Set(ALL_COLS.map(c => c.k));
+  window._analColOrder = window._analColOrder.filter(k => knownKeys.has(k));
+  ALL_COLS.forEach(c => { if (!window._analColOrder.includes(c.k)) window._analColOrder.push(c.k); });
+  const ordered = window._analColOrder.map(k => ALL_COLS.find(c => c.k === k)).filter(Boolean);
+  // Filtre auto : on garde les colonnes qui ont au moins UNE valeur dans le jeu courant.
+  const activeCols = ordered.filter(c => c.custom ? data.some(a => c.hasValue(a)) : data.some(a => a[c.k] != null));
+
+  const n = (v, d = 1) => v != null ? `<span class="val-num">${Number(v).toFixed(d)}</span>` : `<span class="val-empty">—</span>`;
+
+  // Couleur d'alerte par cellule → déléguée au helper partagé WB3Qualite.
+  const nA = (v, key, d) => {
+    if (v == null) return `<span class="val-empty">—</span>`;
+    const col = WB3Qualite.alertColor(key, v, _analTol);
+    const style = col ? ` style="color:${col};font-weight:700"` : '';
+    return `<span class="val-num"${style}>${Number(v).toFixed(d)}</span>`;
+  };
+
+  const mainData = data.filter(a => !_isPinned(a.id));   // L8 : épinglées remontées en tête → hors flux
+  const total = mainData.length;
+  let pageData;
+  if (_mode === 'continuous') {
+    pageData = mainData.slice(0, _loaded);             // L4 : tranches accumulées
+  } else if (_showAll) {
+    pageData = mainData;
+  } else {
+    const _pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (currentPage > _pages) currentPage = _pages;
+    pageData = mainData.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+  }
+
+  const rowCells = a => `${activeCols.map(c => `<td>${c.custom ? c.render(a) : nA(a[c.k], c.k, c.d)}</td>`).join('')}
+      <td style="white-space:nowrap;">
+        <button class="action-btn" onclick="openModal('${a.id}')">Modifier</button>
+        ${_analIsAlert(a) ? `<a class="action-btn" style="color:#b91c1c;border-color:#fca5a5;margin-left:2px"
+           onclick="WB3Nav.navigate('qualite-traca.html')" title="Voir dans les diagnostics qualité">⚠ Diagnostics</a>` : ''}
+      </td>`;
+  // L7 — en vue groupée, on insère des lignes-titres de période (sur la fenêtre paginée).
+  const _grpSections = _grouped ? WB3Chrono.bucket(pageData, a => a.date_analyse) : null;
+  let rows;
+  if (_grpSections && _grpSections.length > 1) {
+    const colspan = activeCols.length + 1;
+    const collapsed = WB3Chrono.getCollapsed('analyses');
+    rows = _grpSections.map(g => {
+      const isCol = collapsed.has(g.key);
+      const head = `<tr class="row-group-header${isCol ? ' collapsed' : ''}" data-grp-head="${g.key}">
+        <td colspan="${colspan}"><span class="chevron">▼</span> ${g.label}
+        <span class="meta">${g.items.length} analyse${g.items.length > 1 ? 's' : ''}</span></td></tr>`;
+      const body = g.items.map(a => `<tr data-id="${esc(String(a.id))}" data-grp="${g.key}"${isCol ? ' style="display:none"' : ''}>${rowCells(a)}</tr>`).join('');
+      return head + body;
+    }).join('');
+  } else {
+    rows = pageData.map(a => `<tr data-id="${esc(String(a.id))}">${rowCells(a)}</tr>`).join('');
+  }
+
+  area.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            ${activeCols.map(c => `<th title="${c.t} — glisser pour réordonner" draggable="true" data-col-key="${c.k}">${c.h}</th>`).join('')}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div id="pagination-bar" class="pagination-bar" style="margin-top:10px"></div>`;
+  WB3ListPager.renderBar(document.getElementById('pagination-bar'), {
+    mode: _mode, total, page: currentPage, pageSize: PAGE_SIZE, loaded: _loaded, showAll: _showAll,
+    onPage: goToPage, onSize: setPageSize, onToggleAll: toggleShowAll,
+    onLoadMore: loadMore, onToggleMode: toggleMode,
+  });
+
+  _bindAnalysesHeaderDnD(area);
+
+  // L7 — pliage/dépliage des sections de période (état mémorisé en session).
+  if (_grouped) {
+    area.querySelectorAll('.row-group-header[data-grp-head]').forEach(hr => {
+      hr.addEventListener('click', () => {
+        const key = hr.dataset.grpHead;
+        const nowCol = hr.classList.toggle('collapsed');
+        area.querySelectorAll('[data-grp="' + key + '"]').forEach(r => { r.style.display = nowCol ? 'none' : ''; });
+        const c = WB3Chrono.getCollapsed('analyses');
+        if (nowCol) c.add(key); else c.delete(key);
+        WB3Chrono.setCollapsed('analyses', c);
+      });
+    });
+  }
+
+  WB3Pins.decorate(area, { isPinned: _isPinned, onToggle: _togglePin });   // L8
+  WB3Compare.decorate(area, { isSelected: id => _selected.has(String(id)), onToggle: _toggleSelect });   // L12
+}
+
+// ── L12 — sélection multiple + comparateur côte à côte ──
+function _toggleSelect(id) {
+  id = String(id);
+  if (_selected.has(id)) { _selected.delete(id); }
+  else {
+    if (_selected.size >= WB3Compare.MAX) { WB3Pins.toast('Maximum ' + WB3Compare.MAX + ' lignes à comparer (illisible au-delà)'); return; }
+    _selected.add(id);
+  }
+  render();
+}
+function _openCompare() {
+  const items = [..._selected].map(id => analyses.find(a => String(a.id) === id)).filter(Boolean);
+  if (items.length < WB3Compare.MIN) return;
+  if (items.length > WB3Compare.MAX) { WB3Pins.toast('Maximum ' + WB3Compare.MAX + ' lignes à comparer (illisible au-delà)'); return; }
+  const f = d => v => (v == null || v === '') ? '—' : Number(v).toFixed(d);
+  const col = key => items.map(a => a[key]);
+  const rows = [
+    { label: 'Date',      values: items.map(a => fmtDate(a.date_analyse)) },
+    { label: 'Lot',       values: items.map(a => a.lots ? a.lots.nom + (a.lots.millesime ? ' · ' + a.lots.millesime : '') : '—') },
+    { label: 'Contenant', values: items.map(a => a.contenants?.nom || '—') },
+    { label: 'SO₂ libre', values: col('so2_libre'),        numeric: true, better: 'high', display: f(1) },
+    { label: 'SO₂ total', values: col('so2_total'),        numeric: true, better: 'high', display: f(1) },
+    { label: 'pH',        values: col('ph'),               numeric: true, better: 'high', display: f(2) },
+    { label: 'TAV',       values: col('tav'),              numeric: true, better: 'high', display: f(2) },
+    { label: 'AV',        values: col('acidite_volatile'), numeric: true, better: 'low',  display: f(2) },
+  ];
+  // Action : préfill opération sur les lots distincts des analyses comparées.
+  const lots = []; const seen = new Set();
+  items.forEach(a => { if (a.lots && !seen.has(a.lots.id)) { seen.add(a.lots.id); lots.push({ id: a.lots.id, nom: a.lots.nom }); } });
+  const actions = [];
+  if (lots.length) actions.push({ label: '🍷 Lancer une opération sur ces lots', primary: true, onClick: () => {
+    try { sessionStorage.setItem('wb3_op_prefill', JSON.stringify({ lots })); } catch (_) {}
+    WB3Nav.navigate('operations.html');
+  } });
+  WB3Compare.open({
+    title: 'Comparer ' + items.length + ' analyses',
+    items: items.map(a => ({ id: a.id, label: a.lots ? a.lots.nom : fmtDate(a.date_analyse) })),
+    rows, actions,
+  });
+}
+
+// ── L8 — épinglage (lignes en tête, ≤ 5, persistées par tenant) ──
+function _isPinned(id) { return _pinned.includes(String(id)); }
+function _togglePin(id) {
+  id = String(id);
+  const i = _pinned.indexOf(id);
+  if (i >= 0) { _pinned.splice(i, 1); }
+  else {
+    if (_pinned.length >= WB3Pins.MAX) { WB3Pins.toast('Maximum ' + WB3Pins.MAX + ' lignes épinglées (retirez-en une d\'abord)'); return; }
+    _pinned.push(id);
+  }
+  WB3Pins.save('analyses', _pinned);
+  render();
+}
+function _pinnedExisting() {
+  const present = new Set(analyses.map(a => String(a.id)));
+  if (_datePreset === 'all') {
+    const kept = _pinned.filter(id => present.has(id));
+    if (kept.length !== _pinned.length) { _pinned = kept; WB3Pins.save('analyses', _pinned); }
+  }
+  return _pinned.map(id => analyses.find(a => String(a.id) === id)).filter(Boolean);
+}
+function _renderPinned() {
+  const host = document.getElementById('pinned-section');
+  if (!host) return;
+  // En vue « suivi » (transversale), l'épinglage en tête n'a pas de sens.
+  const items = (viewMode === 'suivi') ? [] : _pinnedExisting();
+  if (!items.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
+  const f = (v, d) => v != null ? Number(v).toFixed(d) : '—';
+  host.style.display = '';
+  host.className = 'pinned-section';
+  const rows = items.map(a => `<tr data-id="${esc(String(a.id))}">
+      <td>${fmtDate(a.date_analyse)}</td>
+      <td>${a.lots ? esc(a.lots.nom + (a.lots.millesime ? ' · ' + a.lots.millesime : '')) : '—'}</td>
+      <td class="num">${f(a.so2_libre, 1)}</td>
+      <td class="num">${f(a.so2_total, 1)}</td>
+      <td class="num">${f(a.ph, 2)}</td>
+      <td class="num">${f(a.tav, 2)}</td>
+      <td style="white-space:nowrap"><button class="action-btn" onclick="openModal('${a.id}')">Modifier</button></td>
+    </tr>`).join('');
+  host.innerHTML = `<div class="pinned-head">📌 Épinglées <span class="meta">(${items.length})</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Lot</th><th>SO₂L</th><th>SO₂T</th><th>pH</th><th>TAV</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  WB3Pins.decorate(host, { isPinned: _isPinned, onToggle: _togglePin });
+  WB3Compare.decorate(host, { isSelected: id => _selected.has(String(id)), onToggle: _toggleSelect });   // L12
+}
+
+// Drag-drop des colonnes paramètres uniquement (Date/Lot/Contenant restent
+// fixes en tant qu'ancres). L'ordre est conservé dans window._analColOrder
+// pour la session ; pas de persistance backend pour l'instant.
+let _anHdrDrag = null;
+function _bindAnalysesHeaderDnD(root) {
+  const thead = root.querySelector('thead');
+  if (!thead) return;
+  thead.addEventListener('dragstart', e => {
+    const th = e.target.closest('th[data-col-key]');
+    if (!th) return;
+    _anHdrDrag = th.dataset.colKey;
+    th.style.opacity = '.5';
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  thead.addEventListener('dragend', () => {
+    thead.querySelectorAll('th[data-col-key]').forEach(t => { t.style.opacity=''; t.style.borderLeft=''; });
+    _anHdrDrag = null;
+  });
+  thead.addEventListener('dragover', e => {
+    const th = e.target.closest('th[data-col-key]');
+    if (!th || !_anHdrDrag || th.dataset.colKey === _anHdrDrag) return;
+    e.preventDefault();
+    thead.querySelectorAll('th[data-col-key]').forEach(t => t.style.borderLeft = '');
+    th.style.borderLeft = '3px solid var(--p)';
+  });
+  thead.addEventListener('drop', e => {
+    e.preventDefault();
+    const th = e.target.closest('th[data-col-key]');
+    if (!th || !_anHdrDrag || th.dataset.colKey === _anHdrDrag) return;
+    const srcKey = _anHdrDrag, dstKey = th.dataset.colKey;
+    const arr = window._analColOrder.slice();
+    const i = arr.indexOf(srcKey), j = arr.indexOf(dstKey);
+    if (i < 0 || j < 0) return;
+    arr.splice(i, 1);
+    arr.splice(j, 0, srcKey);
+    window._analColOrder = arr;
+    _anHdrDrag = null;
+    _saveAnalysesPrefs();   // persistance user_preferences (fire-and-forget)
+    render();
+  });
+}
+
+// ── Vue suivi analytique ──────────────────────────────────────
+const SUIVI_METRICS = [
+  { id:'so2_libre',        label:'SO₂L',   dec:1 },
+  { id:'so2_total',        label:'SO₂T',   dec:1 },
+  { id:'so2_actif',        label:'SO₂Act', dec:2 },
+  { id:'ph',               label:'pH',     dec:2 },
+  { id:'ta',               label:'AT',     dec:2 },
+  { id:'acidite_volatile', label:'AV',     dec:2 },
+  { id:'tav',              label:'TAV',    dec:2 },
+  { id:'sucres_residuels', label:'SR',     dec:1 },
+  { id:'densite',          label:'Dens.',  dec:4 },
+  { id:'temperature',      label:'T°',     dec:1 },
+  { id:'acide_malique',    label:'A.Mal.', dec:2 },
+  { id:'acide_lactique',   label:'A.Lac.', dec:2 },
+  { id:'gf_neg5',          label:'GF-5°',  dec:1 },
+  { id:'gf_pos5',          label:'GF+5°',  dec:1 },
+  { id:'co2',              label:'CO₂',    dec:2 },
+  { id:'turbidite',        label:'NTU',    dec:1 },
+];
+
+function renderSuivi(data, area) {
+  const sorted = [...data].sort((a, b) => a.date_analyse.localeCompare(b.date_analyse));
+
+  const groups = new Map();
+  sorted.forEach(a => {
+    const key = (a.lot_id || '') + '|' + (a.contenant_id || '');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(a);
+  });
+
+  // Colonnes Suivi : Date (custom) + SUIVI_METRICS, toutes draggables.
+  const SUIVI_COLS = [
+    { id:'__date', label:'Date', custom:true, render: a => fmtDate(a.date_analyse) },
+    ...SUIVI_METRICS,
+  ];
+  // Init défensive de l'ordre Suivi (résilient aux ajouts/suppressions).
+  if (!Array.isArray(window._suiviColOrder)) window._suiviColOrder = [];
+  const knownSuivi = new Set(SUIVI_COLS.map(c => c.id));
+  window._suiviColOrder = window._suiviColOrder.filter(k => knownSuivi.has(k));
+  SUIVI_COLS.forEach(c => { if (!window._suiviColOrder.includes(c.id)) window._suiviColOrder.push(c.id); });
+  const orderedSuivi = window._suiviColOrder
+    .map(id => SUIVI_COLS.find(c => c.id === id)).filter(Boolean);
+
+  const headerCols = orderedSuivi
+    .map(c => `<th title="${c.label} — glisser pour réordonner" draggable="true" data-col-key="${c.id}">${c.label}</th>`)
+    .join('');
+
+  area.innerHTML = [...groups.values()].map(group => {
+    const first = group[0];
+    const lot   = first.lots;
+    const ctn   = first.contenants;
+
+    const lotHtml = lot
+      ? `<span class="lot-badge"><span class="lot-dot ${lotCouleurClass(lot.couleur)}"></span>${esc(lot.nom)}${lot.millesime ? ' · ' + lot.millesime : ''}</span>`
+      : `<span style="color:var(--muted);font-size:var(--text-footnote)">— Lot non précisé</span>`;
+    const ctnHtml = ctn
+      ? `<span style="font-size:var(--text-footnote);color:var(--muted)">· ${esc(ctn.nom)}</span>`
+      : '';
+
+    const rows = group.map((a, idx) => {
+      const prev = idx > 0 ? group[idx - 1] : null;
+      const cell = (c) => {
+        if (c.custom) return `<td>${c.render(a)}</td>`;
+        const key = c.id, dec = c.dec;
+        if (a[key] == null) return `<td><span class="val-empty">—</span></td>`;
+        const val  = Number(a[key]).toFixed(dec);
+        let delta  = '';
+        if (prev && prev[key] != null) {
+          const d = a[key] - prev[key];
+          if (Math.abs(d) >= 0.001) delta = d > 0
+            ? `<span class="delta-up">↑</span>`
+            : `<span class="delta-down">↓</span>`;
+        }
+        return `<td><span class="val-num">${val}</span>${delta}</td>`;
+      };
+      return `<tr>
+        ${orderedSuivi.map(c => cell(c)).join('')}
+        <td><button class="action-btn" onclick="openModal('${a.id}')">✏️</button></td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="suivi-card">
+      <div class="suivi-card-head">
+        ${lotHtml} ${ctnHtml}
+        <span class="suivi-card-count">${group.length} analyse${group.length > 1 ? 's' : ''}</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>${headerCols}<th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Bind drag-drop sur TOUS les <thead> de la vue Suivi (un par groupe).
+  area.querySelectorAll('thead').forEach(thead => _bindSuiviHeaderDnD(thead));
+}
+
+// Drag-drop des colonnes Suivi : ordre global window._suiviColOrder.
+let _suiviHdrDrag = null;
+function _bindSuiviHeaderDnD(thead) {
+  thead.addEventListener('dragstart', e => {
+    const th = e.target.closest('th[data-col-key]');
+    if (!th) return;
+    _suiviHdrDrag = th.dataset.colKey;
+    th.style.opacity = '.5';
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  thead.addEventListener('dragend', () => {
+    thead.querySelectorAll('th[data-col-key]').forEach(t => { t.style.opacity=''; t.style.borderLeft=''; });
+    _suiviHdrDrag = null;
+  });
+  thead.addEventListener('dragover', e => {
+    const th = e.target.closest('th[data-col-key]');
+    if (!th || !_suiviHdrDrag || th.dataset.colKey === _suiviHdrDrag) return;
+    e.preventDefault();
+    thead.querySelectorAll('th[data-col-key]').forEach(t => t.style.borderLeft = '');
+    th.style.borderLeft = '3px solid var(--p)';
+  });
+  thead.addEventListener('drop', e => {
+    e.preventDefault();
+    const th = e.target.closest('th[data-col-key]');
+    if (!th || !_suiviHdrDrag || th.dataset.colKey === _suiviHdrDrag) return;
+    const srcKey = _suiviHdrDrag, dstKey = th.dataset.colKey;
+    const arr = window._suiviColOrder.slice();
+    const i = arr.indexOf(srcKey), j = arr.indexOf(dstKey);
+    if (i < 0 || j < 0) return;
+    arr.splice(i, 1);
+    arr.splice(j, 0, srcKey);
+    window._suiviColOrder = arr;
+    _suiviHdrDrag = null;
+    _saveAnalysesPrefs();   // persistance user_preferences (fire-and-forget)
+    render();
+  });
+}
+
+function showState(type, title, sub) {
+  document.getElementById('content-area').innerHTML = `
+    <div class="state-card">
+      <div class="state-icon">${type === 'error' ? '⚠️' : '🔬'}</div>
+      <p><strong>${esc(title)}</strong></p>
+      ${sub ? `<p class="err-msg">${esc(sub)}</p>` : ''}
+    </div>`;
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+async function openModal(id = null) {
+  if (!_modalDataReady) await ensureModalData();
+  editId = id;
+  const a = id ? analyses.find(x => x.id === id) : null;
+  document.getElementById('modal-title').textContent = id ? 'Modifier l\'analyse' : 'Nouvelle analyse';
+  document.getElementById('btn-delete').style.display = id ? '' : 'none';
+
+  // Populate lot & contenant dropdowns
+  populateFormDropdowns(a);
+
+  // Fill fields
+  document.getElementById('f-date').value      = a ? a.date_analyse : todayStr();
+  document.getElementById('f-operateur').value = a?.operateur || '';
+  document.getElementById('f-so2-libre').value = a?.so2_libre ?? '';
+  document.getElementById('f-so2-total').value = a?.so2_total ?? '';
+  document.getElementById('f-so2-actif').value = a?.so2_actif ?? '';
+  document.getElementById('f-ph').value         = a?.ph ?? '';
+  document.getElementById('f-ta').value         = a?.ta ?? '';
+  document.getElementById('f-av').value         = a?.acidite_volatile ?? '';
+  document.getElementById('f-tav').value        = a?.tav ?? '';
+  document.getElementById('f-sr').value         = a?.sucres_residuels ?? '';
+  document.getElementById('f-densite').value    = a?.densite ?? '';
+  document.getElementById('f-temperature').value= a?.temperature ?? '';
+  document.getElementById('f-malique').value    = a?.acide_malique ?? '';
+  document.getElementById('f-lactique').value   = a?.acide_lactique ?? '';
+  document.getElementById('f-gfneg5').value     = a?.gf_neg5 ?? '';
+  document.getElementById('f-gfpos5').value     = a?.gf_pos5 ?? '';
+  document.getElementById('f-co2').value        = a?.co2 ?? '';
+  document.getElementById('f-turbidite').value  = a?.turbidite ?? '';
+  document.getElementById('f-notes').value      = a?.notes || '';
+
+  document.getElementById('modal-backdrop').classList.add('open');
+}
+
+function populateFormDropdowns(a) {
+  const selLot = document.getElementById('f-lot');
+  const selCtn = document.getElementById('f-contenant');
+
+  selLot.innerHTML = '<option value="">— Aucun lot —</option>';
+  lots.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.id;
+    o.textContent = l.nom + (l.millesime ? ` (${l.millesime})` : '');
+    if (a?.lot_id === l.id) o.selected = true;
+    selLot.appendChild(o);
+  });
+
+  selCtn.innerHTML = '<option value="">— Aucun contenant —</option>';
+  contenants.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = `${c.nom} (${c.type})`;
+    if (a?.contenant_id === c.id) o.selected = true;
+    selCtn.appendChild(o);
+  });
+  // Carte info-cuve (n° · vol réel/total · lot · millésime) si pré-sélection
+  if (window.WB3CuveInfo) WB3CuveInfo.show(selCtn.value, 'f-contenant-info');
+}
+
+// Recoupement cuve + date → lot RÉSIDENT à la date de l'analyse (historique).
+// En saisie a posteriori : prend le lot présent à la date, pas celui d'aujourd'hui.
+// Ne s'exécute que sur changement UTILISATEUR (onchange) → ne casse pas l'édition
+// d'une analyse existante (le lot stocké est posé par programme, sans onchange).
+let _lotAutoBusy = false;
+async function resolveLotFromCuveDate() {
+  const cid  = document.getElementById('f-contenant')?.value;
+  const date = document.getElementById('f-date')?.value;
+  const hint = document.getElementById('f-lot-auto');
+  const sel  = document.getElementById('f-lot');
+  if (!cid) { if (hint) hint.textContent = ''; return; }
+  if (_lotAutoBusy || !WB3DB.lotInContenantAtDate) return;
+  _lotAutoBusy = true;
+  try {
+    const r = await WB3DB.lotInContenantAtDate(cid, date || null);
+    if (r && r.lot_id && sel && [...sel.options].some(o => o.value === r.lot_id)) {
+      sel.value = r.lot_id;
+      const nom  = (r.lot?.nom || '(lot)') + (r.lot?.millesime ? ' ' + r.lot.millesime : '');
+      const depuis = r.date_evt ? ' · présent depuis ' + new Date(r.date_evt).toLocaleDateString('fr') : '';
+      if (hint) hint.innerHTML = `🔗 Lot auto : <b>${escapeHtml(nom)}</b>${escapeHtml(depuis)}`;
+    } else if (r && r.lot_id) {
+      // lot résolu mais absent de la liste (archivé ?) → on signale sans forcer
+      if (hint) hint.innerHTML = `<span style="color:var(--muted)">Lot résident non listé (archivé ?).</span>`;
+    } else {
+      if (hint) hint.innerHTML = `<span style="color:var(--muted)">Aucun lot dans cette cuve à cette date.</span>`;
+    }
+  } catch (e) { console.warn('[analyses] resolveLotFromCuveDate', e); }
+  finally { _lotAutoBusy = false; }
+}
+
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.remove('open');
+  editId = null;
+}
+
+function onBackdropClick(e) {
+  if (e.target === document.getElementById('modal-backdrop')) closeModal();
+}
+
+// ── Form submit ───────────────────────────────────────────────
+async function submitForm(e) {
+  if (e) e.preventDefault();
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+
+  const num = id => { const v = document.getElementById(id).value; return v === '' ? null : Number(v); };
+
+  const lotId      = document.getElementById('f-lot').value || null;
+  const contenantId = document.getElementById('f-contenant').value || null;
+
+  // P1-1 : garde-fou cohérence lot↔contenant. Si les deux sont remplis,
+  // on vérifie via lot_contenants que le lot est (ou a récemment été)
+  // dans cette cuve. Warning non-bloquant : cas légitimes existent
+  // (analyse rétrospective, saisie tardive après transfert). Évite
+  // surtout les saisies sur la mauvaise cuve par mégarde (faux positif
+  // analyse_en_retard sur v_cuverie_etat).
+  if (lotId && contenantId) {
+    try {
+      const existing = await WB3DB.listTable('lot_contenants', {
+        select: 'id',
+        filter: { lot_id: lotId, contenant_id: contenantId },
+        limit: 1,
+      });
+      if (!existing.length) {
+        const lotNom = (lots.find(l => l.id === lotId) || {}).nom || lotId;
+        const cuveNom = (contenants.find(c => c.id === contenantId) || {}).nom || contenantId;
+        if (!(await WB3UI.confirm(
+          `⚠️ Le lot "${lotNom}" n'est pas (ou plus) dans la cuve "${cuveNom}".\n\n`
+          + `Cas légitimes : analyse rétrospective, saisie tardive après transfert.\n`
+          + `Cas problématique : saisie sur la mauvaise cuve.\n\n`
+          + `Enregistrer quand même ?`,
+          { title:'Lot absent de la cuve', okText:'Enregistrer quand même' }
+        ))) {
+          btn.disabled = false; btn.textContent = editId ? 'Mettre à jour' : 'Enregistrer';
+          return;
+        }
+      }
+    } catch (e) {
+      // En cas d'erreur de vérif (réseau, RLS), on ne bloque pas l'utilisateur.
+      console.warn('[WB3 analyses] check lot↔contenant:', e);
+    }
+  }
+
+  const payload = {
+    date_analyse:     document.getElementById('f-date').value,
+    operateur:        document.getElementById('f-operateur').value.trim() || null,
+    lot_id:           lotId,
+    contenant_id:     contenantId,
+    so2_libre:        num('f-so2-libre'),
+    so2_total:        num('f-so2-total'),
+    so2_actif:        num('f-so2-actif'),
+    ph:               num('f-ph'),
+    ta:               num('f-ta'),
+    acidite_volatile: num('f-av'),
+    tav:              num('f-tav'),
+    sucres_residuels: num('f-sr'),
+    densite:          num('f-densite'),
+    temperature:      num('f-temperature'),
+    acide_malique:    num('f-malique'),
+    acide_lactique:   num('f-lactique'),
+    gf_neg5:          num('f-gfneg5'),
+    gf_pos5:          num('f-gfpos5'),
+    co2:              num('f-co2'),
+    turbidite:        num('f-turbidite'),
+    notes:            document.getElementById('f-notes').value.trim() || null,
+  };
+
+  try {
+    if (editId) {
+      const saved = await WB3DB.updateRow('analyses', editId, payload);
+      toast('Analyse mise à jour');
+      closeModal();
+      if (saved) {
+        enrichAnalyseRow(saved);
+        const idx = analyses.findIndex(a => a.id === editId);
+        if (idx >= 0) analyses[idx] = saved;
+      } else {
+        await loadAnalysesOnly();
+      }
+    } else {
+      const saved = await WB3DB.insertRow('analyses', payload);
+      toast('Analyse enregistrée');
+      closeModal();
+      if (saved) {
+        enrichAnalyseRow(saved);
+        analyses.unshift(saved);
+      } else {
+        await loadAnalysesOnly();
+      }
+    }
+    buildLotFilterPreserve();
+    render();
+  } catch(err) {
+    const msg = err && err.message ? err.message : String(err);
+    if (/temperature/i.test(msg) && /column/i.test(msg)) {
+      toast("Colonne 'temperature' absente — applique la migration 049 (voir sql/diag/APPLICATION_049.md)", true);
+    } else {
+      toast('Erreur : ' + msg, true);
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+  }
+}
+
+async function deleteAnalyse() {
+  if (!editId) return;
+  if (!(await WB3UI.confirm('Archiver cette analyse ?\n\nElle sera masquée mais conservée pour la traçabilité.\nRécupérable dans Paramètres → Corbeille.', { title:'Archiver l\'analyse', okText:'Archiver' }))) return;
+  try {
+    await WB3DB.softDelete('analyses', editId);
+    toast('Analyse archivée');
+    analyses = analyses.filter(a => a.id !== editId);
+    closeModal();
+    buildLotFilterPreserve();
+    render();
+  } catch(err) {
+    toast('Erreur : ' + err.message, true);
+  }
+}
+
+function buildLotFilterPreserve() {
+  const sel = document.getElementById('filter-lot');
+  const cur = sel.value;
+  // Clear all but first
+  while (sel.options.length > 1) sel.remove(1);
+  lots.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.id;
+    o.textContent = l.nom + (l.millesime ? ` (${l.millesime})` : '');
+    if (l.id === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function fmtDate(s) {
+  if (!s) return '—';
+  const [y, m, d] = s.split('-');
+  return `${d}/${m}/${y}`;
+}
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function lotCouleurClass(c) {
+  if (!c) return 'other';
+  const l = c.toLowerCase();
+  if (l.includes('rouge') || l.includes('red')) return 'rouge';
+  if (l.includes('blanc') || l.includes('white')) return 'blanc';
+  if (l.includes('ros')) return 'rose';
+  return 'other';
+}
+
+let _toastTimer;
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+
+// Keyboard shortcut: Escape closes modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeImportModal(); }
+});
+
+// ── Import CSV modal (shortcut) ───────────────────────────────
+const IMP_MAPPING_DEFAULT = {
+  date_col:'Date', lot_col:'ID',
+  so2_libre:'SO2 L', so2_total:'SO2 T', so2_actif:'SO2 Actif', ph:'pH',
+  ta:'AT', acidite_volatile:'VA 111', tav:'TAV',
+  gf_neg5:'GF-5', gf_pos5:'GF+5',
+  acide_malique:'Malic', acide_lactique:'ALac',
+  densite:'D', co2:'CO2', sucres_residuels:'', turbidite:'',
+};
+const IMP_PARAMS = [
+  'so2_libre','so2_total','so2_actif','ph','ta','acidite_volatile','tav',
+  'gf_neg5','gf_pos5','acide_malique','acide_lactique',
+  'sucres_residuels','densite','co2','turbidite',
+];
+let _impMapping  = { ...IMP_MAPPING_DEFAULT };
+let _impParsed   = null;
+
+function openImportModal() {
+  document.getElementById('import-modal').classList.add('open');
+}
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('open');
+  document.getElementById('imp-preview').innerHTML = '';
+  document.getElementById('import-modal-foot').style.display = 'none';
+  _impParsed = null;
+}
+
+function handleImpDrop(e) {
+  const f = e.dataTransfer?.files?.[0];
+  if (f) processImpFile(f);
+}
+function handleImpFile(input) {
+  const f = input.files?.[0];
+  if (f) processImpFile(f);
+  input.value = '';
+}
+
+async function processImpFile(file) {
+  try {
+    // Load mapping from user prefs
+    try {
+      const p = await WB3DB.getUserPref('analyses');
+      if (p?.import_mapping) _impMapping = { ...IMP_MAPPING_DEFAULT, ...p.import_mapping };
+    } catch(e) { /* use defaults */ }
+
+    const text = await file.text();
+    const sep  = text.includes(';') ? ';' : ',';
+    const lines = text.trim().split(/\r?\n/);
+    const headers = lines[0].split(sep).map(h => h.trim().replace(/^["']|["']$/g, ''));
+
+    const getCol = key => {
+      const hint = _impMapping[key];
+      if (!hint) return -1;
+      return headers.findIndex(h => h.toLowerCase() === hint.toLowerCase());
+    };
+
+    const dateIdx = getCol('date_col');
+    const lotIdx  = getCol('lot_col');
+
+    const rows = lines.slice(1).map(line => {
+      if (!line.trim()) return null;
+      const cells = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g,''));
+      const rawDate = dateIdx >= 0 ? cells[dateIdx] : '';
+      // Parse DD/MM/YYYY → YYYY-MM-DD
+      let date_analyse = rawDate;
+      const dm = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (dm) date_analyse = `${dm[3]}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+      if (!date_analyse) return null;
+
+      const lotRef = lotIdx >= 0 ? cells[lotIdx] : '';
+      const lot = lots.find(l =>
+        l.nom?.toLowerCase() === lotRef.toLowerCase() ||
+        l.code?.toLowerCase() === lotRef.toLowerCase()
+      );
+
+      const row = { date_analyse, _lotRef: lotRef, lot_id: lot?.id || null, _lotNom: lot?.nom || lotRef };
+      IMP_PARAMS.forEach(key => {
+        const idx = getCol(key);
+        if (idx >= 0 && cells[idx] !== '' && cells[idx] != null) {
+          const v = parseFloat(cells[idx].replace(',','.'));
+          if (!isNaN(v)) row[key] = v;
+        }
+      });
+      return row;
+    }).filter(Boolean);
+
+    if (!rows.length) {
+      document.getElementById('imp-preview').innerHTML =
+        `<div style="color:var(--err);font-size:var(--text-footnote);margin-top:var(--space-2)">⚠️ Aucune ligne valide trouvée. Vérifiez le fichier et le mapping dans Paramètres → Analyses.</div>`;
+      return;
+    }
+
+    _impParsed = rows;
+    const preview = rows.slice(0,5).map(r =>
+      `<tr><td>${escapeHtml(r.date_analyse)}</td><td>${escapeHtml(r._lotNom)}</td>
+       <td>${r.tav != null ? r.tav : '—'}</td>
+       <td>${r.ph != null ? r.ph : '—'}</td>
+       <td>${r.so2_libre != null ? r.so2_libre : '—'}</td>
+       <td>${r.so2_total != null ? r.so2_total : '—'}</td></tr>`
+    ).join('');
+
+    document.getElementById('imp-preview').innerHTML = `
+      <p style="font-size:var(--text-footnote);color:var(--muted);margin:0 0 8px"><b>${rows.length}</b> analyse${rows.length>1?'s':''} détectée${rows.length>1?'s':''}</p>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead style="background:#f8f5f0">
+            <tr><th style="padding:6px 10px;text-align:left">Date</th><th style="padding:6px 10px;text-align:left">Lot</th><th style="padding:6px 10px">TAV</th><th style="padding:6px 10px">pH</th><th style="padding:6px 10px">SO₂ L</th><th style="padding:6px 10px">SO₂ T</th></tr>
+          </thead>
+          <tbody>${preview}</tbody>
+        </table>
+      </div>
+      ${rows.length > 5 ? `<p style="font-size:var(--text-caption);color:var(--muted);margin:6px 0 0">… et ${rows.length-5} autre${rows.length-5>1?'s':''}</p>` : ''}`;
+    document.getElementById('import-modal-foot').style.display = '';
+  } catch(e) {
+    document.getElementById('imp-preview').innerHTML =
+      `<div style="color:var(--err);font-size:var(--text-footnote);margin-top:var(--space-2)">❌ Erreur : ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function confirmImpImport() {
+  if (!_impParsed?.length) return;
+  const btn = document.getElementById('imp-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Import en cours…';
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) { toast('Session expirée', true); btn.disabled=false; btn.textContent='💾 Importer'; return; }
+
+  let ok = 0, err = 0;
+  for (const row of _impParsed) {
+    try {
+      const { _lotRef, _lotNom, ...data } = row;
+      await WB3DB.insertRow('analyses', { ...data, tenant_id: ctx.tenant.id });
+      ok++;
+    } catch(e) { err++; }
+  }
+  btn.disabled = false; btn.textContent = '💾 Importer';
+  closeImportModal();
+  toast(`${ok} analyse${ok>1?'s':''} importée${ok>1?'s':''}${err?' · '+err+' erreur(s)':''}`, err > 0);
+  await loadAnalysesOnly();
+  buildLotFilterPreserve();
+  render();
+}
+</script>
+</body>
+</html>

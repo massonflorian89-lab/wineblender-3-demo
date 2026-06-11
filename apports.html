@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Apports — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  /* Bande couleur selon la couleur du lot rattaché */
+  .contenant-card-pro { position:relative; overflow:hidden; }
+  .couleur-strip {
+    position:absolute; top:0; left:0; right:0; height:4px;
+  }
+  .couleur-strip.rouge { background:#b00020; }
+  .couleur-strip.blanc { background:#d4c089; }
+  .couleur-strip.rose  { background:#d89dad; }
+  .couleur-strip.gris  { background:#9e9ea0; }
+  .couleur-strip.none  { background:var(--color-border); }
+
+  /* Badge statut apport */
+  .statut-badge {
+    display:inline-flex; align-items:center; gap:var(--space-1);
+    padding:3px 9px; border-radius:var(--radius-pill);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+    white-space:nowrap; flex-shrink:0;
+  }
+  .statut-recu    { background:#e6f4ea; color:#2e7d32; }
+  .statut-annule  { background:#f2f2f2; color:#6d6d6d; }
+
+  /* Pagination */
+  .pagination-bar  { display:flex; align-items:center; justify-content:center; gap:var(--space-3); padding:var(--space-4) 0 var(--space-2); }
+  .pagination-info { font-size:var(--text-callout); color:var(--color-ink-tertiary); min-width:180px; text-align:center; }
+
+  /* Filtres colonnes style Excel */
+  .col-filter-btn {
+    display:inline-flex; align-items:center; background:none; border:none; cursor:pointer;
+    padding:2px 3px; border-radius:3px; font-size:10px; color:var(--color-ink-tertiary);
+    transition:color .15s,background .15s; vertical-align:middle; margin-left:3px;
+  }
+  .col-filter-btn:hover  { color:var(--color-ink-secondary); background:var(--color-bg-subtle); }
+  .col-filter-btn.active { color:var(--color-primary); }
+  .col-filter-dropdown {
+    position:fixed; background:var(--color-bg-elevated); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); box-shadow:0 8px 32px rgba(0,0,0,.22);
+    padding:var(--space-2); min-width:230px; max-width:290px; z-index:2000; display:none;
+  }
+  .col-filter-dropdown.open { display:block; }
+  .col-filter-title  { font-weight:600; font-size:var(--text-caption); margin-bottom:var(--space-1); color:var(--color-ink-secondary); }
+  .col-filter-search { width:100%; box-sizing:border-box; margin-bottom:var(--space-1); }
+  .col-filter-values {
+    max-height:200px; overflow-y:auto; border:1px solid var(--color-border);
+    border-radius:var(--radius-sm); margin-bottom:var(--space-1); background:var(--color-bg);
+  }
+  .col-filter-value-item {
+    display:flex; align-items:center; gap:var(--space-2); padding:5px 8px; cursor:pointer;
+    font-size:var(--text-caption); color:var(--color-ink);
+  }
+  .col-filter-value-item:hover { background:var(--color-bg-subtle); }
+  .col-filter-range { display:flex; gap:var(--space-1); align-items:center; margin-bottom:var(--space-1); }
+  .col-filter-range input { flex:1; min-width:0; }
+  .col-filter-footer {
+    display:flex; justify-content:space-between; align-items:center;
+    padding-top:var(--space-1); border-top:1px solid var(--color-border); gap:var(--space-1);
+  }
+
+  /* Drawer : section meta JSONB */
+  .meta-row {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:4px 0; border-bottom:1px solid var(--color-border);
+  }
+  .meta-row:last-child { border-bottom:none; }
+  .meta-row input { flex:1; min-width:0; }
+  .meta-key { width:110px; flex-shrink:0; }
+
+  /* Création lot inline dans le drawer */
+  .new-lot-inline {
+    display:none; margin-top:var(--space-2);
+    border:1px dashed var(--color-border); border-radius:var(--radius-md);
+    padding:var(--space-3); background:var(--color-bg-subtle);
+  }
+  .new-lot-inline.open { display:block; }
+  .new-lot-inline .section-title {
+    font-size:var(--text-caption); font-weight:600; color:var(--color-ink-secondary);
+    margin-bottom:var(--space-2);
+  }
+
+  /* Import/Export CSV → déplacés dans Paramètres → Apports */
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1>🍇 Apports vendange</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+
+  <div class="stats-grid" id="stats">
+    <div class="stat-card"><div class="label">Chargement…</div><div class="value">—</div></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="all">📦 Tous <span class="count" data-count="all">0</span></button>
+    <button class="tab" data-tab="today">📅 Aujourd'hui <span class="count" data-count="today">0</span></button>
+    <button class="tab" data-tab="week">📆 Cette semaine <span class="count" data-count="week">0</span></button>
+    <button class="tab" data-tab="no_lot">🔗 Sans lot <span class="count" data-count="no_lot">0</span></button>
+    <button class="tab" data-tab="annule">🚫 Annulés <span class="count" data-count="annule">0</span></button>
+    <button class="tab" data-tab="epingles">📌 Épinglés <span class="count" data-count="epingles">0</span></button>
+  </div>
+
+  <div class="action-bar">
+    <div class="group" id="view-mode">
+      <button data-view="grid" title="Vue grille">▦ Grille</button>
+      <button class="active" data-view="table" title="Vue tableau">☰ Tableau</button>
+    </div>
+    <div class="group" id="sort-mode">
+      <button class="active" data-sort="date_apport" title="Tri par date">📅 Date</button>
+      <button data-sort="apporteur" title="Tri par apporteur">A→Z</button>
+      <button data-sort="poids_kg" title="Tri par poids">⚖ Poids</button>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn btn--secondary btn--sm" id="btn-clear-filters" onclick="clearAllColumnFilters()" style="display:none">✕ Filtres actifs</button>
+    <button class="btn btn--secondary btn--sm" onclick="openRendementDashboard()">📊 Rendement vendange</button>
+    <a class="btn btn--secondary btn--sm" href="parametres.html#apports_import" onclick="WB3Nav.navigate('parametres.html?section=apports_vue&subtab=import')">📥 Import CSV</a>
+    <a class="btn btn--secondary btn--sm" href="parametres.html#apports_export" onclick="WB3Nav.navigate('parametres.html?section=apports_vue&subtab=export')">📤 Export CSV</a>
+  </div>
+
+  <div class="filters-bar">
+    <span id="apt-date-filter"></span>
+    <div class="search-input">
+      <input type="text" id="search" placeholder="Rechercher apporteur, provenance, lot, cépage, note…" autocomplete="off">
+    </div>
+  </div>
+
+  <div id="list-header"></div>
+
+  <div id="pinned-section" style="display:none"></div>
+
+  <div id="content">
+    <div class="skel-wrap">
+      <table class="skel-table"><tbody>
+        <tr><td><span class="skel" style="height:12px;width:72px"></span></td><td><span class="skel" style="height:12px;width:120px"></span></td><td><span class="skel" style="height:12px;width:60px"></span></td><td><span class="skel" style="height:12px;width:90px"></span></td><td><span class="skel" style="height:20px;width:56px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:68px"></span></td><td><span class="skel" style="height:12px;width:100px"></span></td><td><span class="skel" style="height:12px;width:55px"></span></td><td><span class="skel" style="height:12px;width:80px"></span></td><td><span class="skel" style="height:20px;width:56px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:80px"></span></td><td><span class="skel" style="height:12px;width:130px"></span></td><td><span class="skel" style="height:12px;width:50px"></span></td><td><span class="skel" style="height:12px;width:100px"></span></td><td><span class="skel" style="height:20px;width:56px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:65px"></span></td><td><span class="skel" style="height:12px;width:110px"></span></td><td><span class="skel" style="height:12px;width:65px"></span></td><td><span class="skel" style="height:12px;width:75px"></span></td><td><span class="skel" style="height:20px;width:56px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:76px"></span></td><td><span class="skel" style="height:12px;width:95px"></span></td><td><span class="skel" style="height:12px;width:58px"></span></td><td><span class="skel" style="height:12px;width:88px"></span></td><td><span class="skel" style="height:20px;width:56px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:70px"></span></td><td><span class="skel" style="height:12px;width:115px"></span></td><td><span class="skel" style="height:12px;width:62px"></span></td><td><span class="skel" style="height:12px;width:95px"></span></td><td><span class="skel" style="height:20px;width:56px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:82px"></span></td><td><span class="skel" style="height:12px;width:105px"></span></td><td><span class="skel" style="height:12px;width:52px"></span></td><td><span class="skel" style="height:12px;width:85px"></span></td><td><span class="skel" style="height:20px;width:56px;border-radius:10px"></span></td></tr>
+        <tr><td><span class="skel" style="height:12px;width:67px"></span></td><td><span class="skel" style="height:12px;width:88px"></span></td><td><span class="skel" style="height:12px;width:68px"></span></td><td><span class="skel" style="height:12px;width:78px"></span></td><td><span class="skel" style="height:20px;width:56px;border-radius:10px"></span></td></tr>
+      </tbody></table>
+    </div>
+  </div>
+  <div class="pagination-bar" id="pagination-bar" style="display:none"></div>
+
+</main>
+
+<button class="fab" onclick="openDrawer()" title="Nouvel apport">+</button>
+
+<!-- Dashboard rendement vendange (modale) -->
+<div id="rdt-modal" style="display:none;position:fixed;inset:0;z-index:1500;background:rgba(0,0,0,.45);align-items:flex-start;justify-content:center"
+     onclick="if(event.target===this)closeRendementDashboard()">
+  <div style="background:var(--color-bg-elevated);border-radius:var(--radius-lg);box-shadow:0 16px 48px rgba(0,0,0,.28);width:min(95vw,900px);max-height:90vh;overflow-y:auto;margin-top:4vh;padding:var(--space-5)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3)">
+      <h3 style="margin:0">📊 Rendement vendange — par jour & cépage</h3>
+      <button class="close-btn" onclick="closeRendementDashboard()">×</button>
+    </div>
+    <div id="rdt-body"><div class="loading-state"><div class="spinner"></div>Chargement…</div></div>
+  </div>
+</div>
+
+<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 id="drawer-title">Nouvel apport</h3>
+    <button class="close-btn" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body">
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Date & numérotation</div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Date *</label>
+          <input class="input" type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label class="field-label">Heure</label>
+          <input class="input" type="time" id="f-heure">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field" style="flex:2">
+          <label class="field-label">Numéro <span style="font-weight:400;color:var(--color-ink-tertiary)">(auto si vide)</span></label>
+          <input class="input" type="text" id="f-numero" placeholder="ex : 2024-001">
+        </div>
+        <div class="field" style="flex:1;display:flex;align-items:flex-end">
+          <button class="btn btn--ghost btn--sm" style="width:100%" onclick="autoNumero()">🎲 Auto</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Origine</div>
+      <div class="field">
+        <label class="field-label">Apporteur / Fournisseur</label>
+        <input class="input" type="text" id="f-apporteur" placeholder="Nom du vigneron ou du camion…">
+      </div>
+      <div class="field">
+        <label class="field-label">Provenance <span style="font-weight:400;color:var(--color-ink-tertiary)">(parcelle, lieu-dit, appellation…)</span></label>
+        <input class="input" type="text" id="f-provenance" placeholder="Libre : parcelle, commune, AOP…">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Cépage</label>
+          <select class="select" id="f-cepage-libre">
+            <option value="">— Sélectionner un cépage —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Millésime</label>
+          <input class="input" type="number" id="f-millesime" min="1900" max="2100" placeholder="2024">
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Quantité reçue</div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Poids (kg)</label>
+          <input class="input" type="number" id="f-poids" min="0" step="1" placeholder="8 500"
+                 oninput="updateRendementHint()">
+        </div>
+        <div class="field">
+          <label class="field-label">Volume jus estimé (hL)</label>
+          <input class="input" type="number" id="f-volume" min="0" step="0.1" placeholder="60.0"
+                 oninput="updateRendementHint()">
+        </div>
+        <div class="field">
+          <label class="field-label">Volume jus réel (hL) <span style="font-size:10px;color:var(--color-ink-tertiary)">épalement</span></label>
+          <input class="input" type="number" id="f-volume-reel" min="0" step="0.1" placeholder="—"
+                 oninput="updateRendementHint()">
+        </div>
+      </div>
+      <div class="field-help" id="rendement-hint">
+        Poids + volume → rendement calculé. Volume réel (mesuré après pressurage/épalement) prioritaire.
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Analyses à la réception <span style="font-size:var(--text-caption);font-weight:400;color:var(--color-ink-tertiary)">(optionnel)</span></div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Degré probable</label>
+          <input class="input" type="number" id="f-degre" min="0" max="30" step="0.1" placeholder="13.5">
+        </div>
+        <div class="field">
+          <label class="field-label">TAT (g/L)</label>
+          <input class="input" type="number" id="f-tat" min="0" step="0.1" placeholder="5.2">
+        </div>
+        <div class="field">
+          <label class="field-label">pH</label>
+          <input class="input" type="number" id="f-ph" min="2" max="8" step="0.01" placeholder="3.45">
+        </div>
+        <div class="field">
+          <label class="field-label">T° (°C)</label>
+          <input class="input" type="number" id="f-temp" min="-5" max="50" step="0.5" placeholder="18">
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Affectation</div>
+      <div class="field">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-1)">
+          <label class="field-label" style="margin:0">Lot rattaché <span style="color:var(--color-danger);font-weight:700">*</span></label>
+          <button class="btn btn--ghost btn--sm" onclick="toggleNewLotInline()">+ Créer un lot</button>
+        </div>
+        <select class="select" id="f-lot" required>
+          <option value="">— Sélectionner ou créer un lot —</option>
+        </select>
+        <div class="new-lot-inline" id="new-lot-inline">
+          <div class="section-title">🍷 Nouveau lot (création rapide)</div>
+          <div class="field">
+            <label class="field-label">Nom du lot *</label>
+            <input class="input" type="text" id="nl-nom" placeholder="Ex : Merlot 2024, Grenache R1…">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Millésime</label>
+              <input class="input" type="number" id="nl-millesime" min="1900" max="2100">
+            </div>
+            <div class="field">
+              <label class="field-label">Couleur</label>
+              <select class="select" id="nl-couleur">
+                <option value="rouge">🔴 Rouge</option>
+                <option value="blanc">⚪ Blanc</option>
+                <option value="rose">🌸 Rosé</option>
+                <option value="gris">🩶 Gris</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:var(--space-2);justify-content:flex-end;margin-top:var(--space-2)">
+            <button class="btn btn--ghost btn--sm" onclick="toggleNewLotInline()">Annuler</button>
+            <button class="btn btn--sm" onclick="createLotInline()">Créer et sélectionner</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Contenant de réception <span style="font-weight:400;color:var(--color-ink-tertiary)">(pressoir, bac…)</span></label>
+        <select class="select" id="f-contenant" onchange="updateContenantInfo()">
+          <option value="">— Aucun —</option>
+        </select>
+        <div id="f-contenant-info" style="margin-top:6px;display:none;padding:8px 10px;border-radius:var(--radius-sm);background:var(--color-bg-subtle);border-left:3px solid var(--color-accent, #3b82f6);font-size:var(--text-caption);line-height:1.45"></div>
+      </div>
+      <div class="field">
+        <label class="field-label">Statut</label>
+        <select class="select" id="f-statut">
+          <option value="recu">✅ Reçu</option>
+          <option value="annule">🚫 Annulé</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Champs libres <span style="font-size:var(--text-caption);font-weight:400;color:var(--color-ink-tertiary)">(données complémentaires)</span></div>
+      <p class="t-footnote" style="margin:0 0 var(--space-2)">Pour tes champs spécifiques ou les données issues de ton logiciel d'apport.</p>
+      <div id="f-meta-rows"></div>
+      <button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addMetaRow()">+ Ajouter un champ</button>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-title">Notes</div>
+      <div class="field">
+        <textarea class="input" id="f-notes" rows="3" placeholder="Observations libres sur cet apport…" style="resize:vertical"></textarea>
+      </div>
+    </div>
+
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn--danger" id="btn-delete" onclick="deleteCurrent()" style="display:none">🗑 Archiver</button>
+    <div class="actions-right">
+      <button class="btn btn--secondary" onclick="closeDrawer()">Annuler</button>
+      <button class="btn" onclick="saveApport()">Enregistrer</button>
+    </div>
+  </div>
+</aside>
+
+<div id="col-filter-dropdown" class="col-filter-dropdown" onclick="event.stopPropagation()"></div>
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-freshness.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+<script src="list-date-filter.js"></script>
+<script src="list-pager.js"></script>
+<script src="list-header.js"></script>
+<script src="row-popover.js"></script>
+<script src="pins.js"></script>
+<script src="multiselect-touch.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// Constantes
+// ============================================================
+const STATUT_LABELS = { recu:'✅ Reçu', annule:'🚫 Annulé' };
+
+// Colonnes tableau + filtres
+const APPORTS_COLUMNS = [
+  { key:'numero',      label:'N°',           numeric:false, sortKey:null,          defaultVisible:true },
+  { key:'date_apport', label:'Date',          numeric:false, sortKey:'date_apport', defaultVisible:true },
+  { key:'apporteur',   label:'Apporteur',     numeric:false, sortKey:'apporteur',   defaultVisible:true },
+  { key:'provenance',  label:'Provenance',    numeric:false, sortKey:null,          defaultVisible:true },
+  { key:'cepage_libre',label:'Cépage',        numeric:false, sortKey:null,          defaultVisible:true },
+  { key:'millesime',   label:'Mill.',         numeric:true,  sortKey:'millesime',   defaultVisible:true },
+  { key:'lot',         label:'Lot',           numeric:false, sortKey:null,          defaultVisible:true },
+  { key:'contenant',   label:'Contenant',     numeric:false, sortKey:null,          defaultVisible:true },
+  { key:'poids_kg',    label:'Poids (kg)',    numeric:true,  sortKey:'poids_kg',    defaultVisible:true },
+  { key:'volume_hl',   label:'Vol. est. (hL)',numeric:true,  sortKey:'volume_hl',   defaultVisible:true },
+  { key:'volume_jus_reel_hl', label:'Vol. réel (hL)', numeric:true, sortKey:'volume_jus_reel_hl', defaultVisible:false },
+  { key:'rendement_kg_hl', label:'Rdt (kg/hL)', numeric:true, sortKey:'rendement_kg_hl', defaultVisible:true },
+  { key:'degre_probable',label:'Degré',       numeric:true,  sortKey:null,          defaultVisible:false },
+  { key:'statut',      label:'Statut',        numeric:false, sortKey:null,          defaultVisible:true },
+];
+
+// (Import/Export CSV → Paramètres → 🍇 Apports)
+
+// ============================================================
+// État
+// ============================================================
+let apports         = [];
+let lots            = [];
+let contenants      = [];
+let cepages         = [];
+let _rdtCoef        = 130;   // coeff rendement de référence (kg/hL) — tolérance cave
+
+// ── Dashboard rendement vendange (jour × cépage) ──────────────
+function closeRendementDashboard() {
+  document.getElementById('rdt-modal').style.display = 'none';
+}
+async function openRendementDashboard() {
+  const modal = document.getElementById('rdt-modal');
+  const body  = document.getElementById('rdt-body');
+  modal.style.display = 'flex';
+  body.innerHTML = '<div class="loading-state"><div class="spinner"></div>Chargement…</div>';
+  // Garde module : migration 062 requise (rendement vendange)
+  if (WB3DB.ensureModule && !(await WB3DB.ensureModule('apports_rendement', body))) return;
+  try {
+    const rows = await WB3DB.queryRendementJourCepage();
+    if (!rows.length) {
+      body.innerHTML = `<div class="empty-state"><div class="icon">🍇</div>
+        <div class="title">Aucun apport reçu</div></div>`;
+      return;
+    }
+    // Totaux + regroupement par jour
+    let totPoids = 0, totVol = 0;
+    const byDay = {};
+    rows.forEach(r => {
+      totPoids += Number(r.poids_total_kg) || 0;
+      totVol   += Number(r.volume_jus_hl) || 0;
+      (byDay[r.date_apport] = byDay[r.date_apport] || []).push(r);
+    });
+    const rdtGlobal = totVol > 0 ? totPoids / totVol : null;
+    const fmtKg = n => Number(n||0).toLocaleString('fr-FR', { maximumFractionDigits:0 });
+
+    const days = Object.keys(byDay).sort((a,b) => b.localeCompare(a));
+    const dayBlocks = days.map(d => {
+      const list = byDay[d];
+      const dP = list.reduce((s,r)=>s+(Number(r.poids_total_kg)||0),0);
+      const dV = list.reduce((s,r)=>s+(Number(r.volume_jus_hl)||0),0);
+      const dR = dV>0 ? dP/dV : null;
+      const rowsHtml = list.map(r => {
+        const rdt = r.rendement_kg_hl != null ? Number(r.rendement_kg_hl) : null;
+        const good = rdt != null && rdt <= _rdtCoef;
+        const reel = Number(r.nb_avec_reel) > 0;
+        return `<tr>
+          <td style="padding:4px 10px">${escapeHtml(r.cepage)}</td>
+          <td class="num" style="padding:4px 10px">${r.nb_apports}</td>
+          <td class="num" style="padding:4px 10px">${fmtKg(r.poids_total_kg)}</td>
+          <td class="num" style="padding:4px 10px">${fmt(r.volume_jus_hl)}${reel?' <span title="inclut du volume réel mesuré" style="color:#15803d">●</span>':''}</td>
+          <td class="num" style="padding:4px 10px;font-weight:600;color:${rdt==null?'':(good?'#15803d':'#b91c1c')}">${rdt!=null?fmt(rdt):'—'}</td>
+        </tr>`;
+      }).join('');
+      return `
+        <div style="margin-bottom:var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-sm);overflow:hidden">
+          <div style="background:var(--color-bg-subtle);padding:6px 12px;font-weight:700;display:flex;justify-content:space-between">
+            <span>📅 ${d}</span>
+            <span style="font-weight:400;color:var(--color-ink-tertiary)">
+              ${fmtKg(dP)} kg · ${fmt(dV)} hL · <b style="color:${dR!=null&&dR<=_rdtCoef?'#15803d':'#b91c1c'}">${dR!=null?fmt(dR):'—'} kg/hL</b>
+            </span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:var(--text-caption)">
+            <thead><tr style="color:var(--color-ink-tertiary)">
+              <th style="text-align:left;padding:4px 10px">Cépage</th>
+              <th style="text-align:right;padding:4px 10px">Apports</th>
+              <th style="text-align:right;padding:4px 10px">Poids (kg)</th>
+              <th style="text-align:right;padding:4px 10px">Jus (hL)</th>
+              <th style="text-align:right;padding:4px 10px">Rdt (kg/hL)</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)">
+        <div class="kpi-mini"><span class="icon">⚖</span><div><div class="val">${fmtKg(totPoids)}</div><div class="lbl">kg reçus</div></div></div>
+        <div class="kpi-mini"><span class="icon">🫙</span><div><div class="val">${fmt(totVol)}</div><div class="lbl">hL jus</div></div></div>
+        <div class="kpi-mini"><span class="icon">📈</span><div><div class="val" style="color:${rdtGlobal!=null&&rdtGlobal<=_rdtCoef?'#15803d':'#b91c1c'}">${rdtGlobal!=null?fmt(rdtGlobal):'—'}</div><div class="lbl">kg/hL global (réf. ${_rdtCoef})</div></div></div>
+      </div>
+      ${dayBlocks}
+      <p style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin-top:var(--space-2)">
+        ● = volume réel (épalement) inclus. Rdt en vert si ≤ ${_rdtCoef} kg/hL (réf. cave).
+      </p>`;
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><div class="icon">❌</div><div class="title">${escapeHtml(e.message)}</div></div>`;
+  }
+}
+
+// Hint live de rendement dans le formulaire d'apport.
+function updateRendementHint() {
+  const el = document.getElementById('rendement-hint');
+  if (!el) return;
+  const poids = parseFloat(document.getElementById('f-poids').value);
+  const est   = parseFloat(document.getElementById('f-volume').value);
+  const reel  = parseFloat(document.getElementById('f-volume-reel').value);
+  const vol   = !isNaN(reel) ? reel : est;
+  const src   = !isNaN(reel) ? 'réel' : 'estimé';
+  if (isNaN(poids) || poids <= 0 || isNaN(vol) || vol <= 0) {
+    el.textContent = 'Poids + volume → rendement calculé. Volume réel (épalement) prioritaire.';
+    el.style.color = '';
+    return;
+  }
+  const rdt  = poids / vol;                       // kg de raisin / hL
+  const extr = (vol / (poids / _rdtCoef)) * 100;  // % vs baseline
+  const good = rdt <= _rdtCoef;                   // sous la baseline = meilleure extraction
+  el.innerHTML = `Rendement (${src}) : <b>${rdt.toFixed(1)} kg/hL</b> · `
+    + `extraction <b style="color:${good?'#15803d':'#b91c1c'}">${extr.toFixed(0)}%</b> `
+    + `<span style="color:var(--color-ink-tertiary)">(réf. ${_rdtCoef} kg/hL)</span>`;
+  el.style.color = '';
+}
+let activeTab       = 'all';
+// Vue par défaut : tableau (préférence métier WB3).
+// Source de vérité : user_preferences (Supabase, sync entre appareils, module 'apports_vue').
+// Cache local localStorage pour rendu instantané avant que la pref user soit
+// chargée (1 fetch async). Le rendu démarre avec localStorage, puis applyXxx
+// remplace si la pref user diffère.
+let viewMode        = (() => { try { return localStorage.getItem('wb3_apports_view') || 'table'; } catch(_) { return 'table'; } })();
+let sortBy          = 'date_apport';
+let sortAsc         = false;
+let searchQuery     = '';
+let currentPage     = 1;
+let PAGE_SIZE     = 25;       // L3 : défaut 25, réglable 25/50/100 (persisté)
+let _showAll      = false;    // L3 : « Tout afficher »
+let _mode         = 'continuous';   // L4 : continu (Charger plus) | paginé
+let _loaded       = 25;             // L4 : lignes accumulées en mode continu
+let _datePreset   = 'campagne';     // L5 : preset date courant (chip)
+let _dateSetPreset = function () {};   // L5 : pilote la période
+let _density      = 'confort';      // L10 : 'confort' | 'compact'
+let _pinned       = [];             // L8 : ids épinglés (≤ 5), persistés
+let editingId       = null;
+let currentMetaRows = [];
+let columnFilters   = {};
+let _dateRange      = {};   // période serveur (filtre liste) — voir list-date-filter.js
+let activeFilterCol = null;
+
+
+const today    = new Date().toISOString().slice(0,10);
+const weekAgo  = new Date(Date.now() - 7*24*3600*1000).toISOString().slice(0,10);
+
+const TAB_FILTERS = {
+  all:    () => true,
+  today:  (a) => a.date_apport === today,
+  week:   (a) => a.date_apport >= weekAgo,
+  no_lot: (a) => !a.lot_id,
+  annule: (a) => a.statut === 'annule',
+  epingles: (a) => _isPinned(a.id),            // L8 : onglet « Épinglés »
+};
+
+// ============================================================
+// Toast
+// ============================================================
+function toast(a, b){ if (window.WB3Toast) return WB3Toast.legacy(a, b); }
+
+// ============================================================
+// Auth & démarrage
+// ============================================================
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+(async function init() {
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient ||
+      typeof window.WB3DB === 'undefined' || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>`;
+    return;
+  }
+
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>`;
+    document.querySelector('.fab').style.display = 'none';
+    return;
+  }
+  const { tenant } = ctx;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+
+  // Coeff de rendement de référence (tolérance cave, défaut 130 kg/hL).
+  if (WB3DB.getTolerances) {
+    try { const t = await WB3DB.getTolerances();
+      if (t && t.rendement_kg_hl != null) _rdtCoef = Number(t.rendement_kg_hl); } catch(_) {}
+  }
+
+  // Filtre période (défaut campagne en cours) — AVANT le 1er fetch (scope serveur).
+  _dateRange = await WB3ListDateFilter.init({
+    module: 'apports', defaultPreset: 'campagne', mount: 'apt-date-filter',
+    onChange: async (r) => { _dateRange = r; _datePreset = r.preset; _loaded = 25; currentPage = 1; await loadApports(); render(); },
+  });
+  _dateSetPreset = _dateRange.setPreset; _datePreset = _dateRange.preset;   // L5
+  PAGE_SIZE = await WB3ListPager.loadSize('apports');   // L3 : taille de page persistée (défaut 25)
+  _mode     = await WB3ListPager.loadMode('apports');   // L4 : mode continu / paginé (persisté)
+  _density  = await WB3ListPager.loadDensity('apports'); _applyDensity();   // L10
+  _pinned   = await WB3Pins.load('apports');                                // L8
+  await loadApports();
+  // Préf user (Supabase) : source de vérité, écrase localStorage si différente.
+  try {
+    const p = await WB3DB.getUserPref('apports_vue');
+    if (p && p.view_mode) {
+      viewMode = p.view_mode;
+      try { localStorage.setItem('wb3_apports_view', viewMode); } catch(_) {}
+    }
+  } catch (e) { console.warn('[WB3 apports] getUserPref:', e); }
+  subscribeRealtime();
+  setupEventListeners();
+  // Sync UI du toggle viewMode avec la valeur finale (pref user / localStorage / défaut)
+  document.querySelectorAll('#view-mode button[data-view]').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === viewMode);
+  });
+  _initRowPopover();   // L11 : mini-fiche au survol (données déjà chargées)
+  // 9.2A — multi-sélection tactile (tap long) : bandeau + coche/décoche (tactile only).
+  if (window.WB3MultiSelect) WB3MultiSelect.attach('content', { onChange: function () {} });
+  render();
+
+  // Préfill via URL : `apports.html?new=1&contenant=<id>`
+  // → ouvre le drawer, pré-sélectionne la cuve cible (raccourci D11
+  //   depuis cuverie sur une cuve vide). On retire les params une fois
+  //   l'action consommée pour éviter ré-ouverture sur reload.
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get('new') === '1') {
+      const preContenantId = qs.get('contenant') || null;
+      qs.delete('new'); qs.delete('contenant');
+      const cleanUrl = window.location.pathname + (qs.toString() ? '?' + qs.toString() : '');
+      history.replaceState(null, '', cleanUrl);
+      await openDrawer(null, { preContenantId });
+    } else if (qs.get('rendement') === '1') {
+      // Raccourci cave (C3) : apports.html?rendement=1 → ouvre la modale rendement
+      qs.delete('rendement');
+      history.replaceState(null, '', window.location.pathname + (qs.toString() ? '?' + qs.toString() : ''));
+      if (typeof openRendementDashboard === 'function') openRendementDashboard();
+    }
+  } catch (e) { console.warn('[WB3 apports] préfill URL ignoré:', e); }
+})();
+
+// ============================================================
+// Chargement
+// ============================================================
+async function loadApports() {
+  try {
+    apports = await WB3DB.listTable('apports', {
+      select: '*, lots(id,nom,couleur,millesime), contenants(id,nom)',
+      order: 'date_apport', ascending: false,
+      date_col: 'date_apport', date_from: _dateRange.date_from, date_to: _dateRange.date_to,
+    });
+  } catch(e) {
+    console.error('[WB3 apports] loadApports:', e);
+    document.getElementById('content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div><div class="title">Erreur de chargement</div>
+       <div class="desc">${escapeHtml(e.message)}</div></div>`;
+  }
+}
+
+async function loadLots() {
+  try { lots = await WB3DB.listTable('lots', { order: 'nom' }); }
+  catch(e) { lots = []; }
+}
+
+async function loadContenants() {
+  try { contenants = await WB3DB.listTable('contenants', { order: 'nom' }); }
+  catch(e) { contenants = []; }
+}
+
+async function loadCepages() {
+  try { cepages = await WB3DB.listTable('cepages', { order: 'nom' }); }
+  catch(e) { cepages = []; }
+}
+
+function subscribeRealtime() {
+  WB3DB.subscribeTable('apports', async (payload) => {
+    if (payload.eventType === 'DELETE') {
+      apports = apports.filter(a => a.id !== payload.old.id);
+      render();
+    } else {
+      // INSERT/UPDATE from outside (import CSV, another session) → full reload pour garantir les jointures
+      await loadApports();
+      render();
+    }
+  });
+}
+
+// ── Chargement différé des données du drawer ──────────────────
+// lots et contenants ne sont nécessaires que pour les dropdowns du drawer.
+let _drawerDataReady = false;
+let _drawerDataPromise = null;
+async function ensureDrawerData() {
+  if (_drawerDataReady) return;
+  if (!_drawerDataPromise) {
+    _drawerDataPromise = Promise.all([loadLots(), loadContenants(), loadCepages()])
+      .then(() => { _drawerDataReady = true; _drawerDataPromise = null; });
+  }
+  return _drawerDataPromise;
+}
+
+// ============================================================
+// Filtrage / tri
+// ============================================================
+function getFiltered() {
+  const btnCF = document.getElementById('btn-clear-filters');
+  if (btnCF) btnCF.style.display = (viewMode === 'table' && hasActiveColumnFilters()) ? '' : 'none';
+
+  return apports
+    .filter(a => TAB_FILTERS[activeTab](a))
+    .filter(a => {
+      if (!searchQuery) return true;
+      const hay = [
+        a.numero, a.apporteur, a.provenance, a.cepage_libre,
+        a.lots?.nom, a.contenants?.nom, a.notes,
+        a.millesime,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(searchQuery);
+    })
+    .filter(a => passesColumnFilters(a))
+    .sort((x, y) => {
+      let av = x[sortBy], bv = y[sortBy];
+      if (typeof av === 'string' || typeof bv === 'string') {
+        const c = String(av||'').localeCompare(String(bv||''), 'fr');
+        return sortAsc ? c : -c;
+      }
+      av = Number(av)||0; bv = Number(bv)||0;
+      return sortAsc ? av - bv : bv - av;
+    });
+}
+
+// ============================================================
+// Rendu principal
+// ============================================================
+function render() {
+  renderStats();
+  renderTabCounts();
+  _renderPinned();                    // L8 : section « Épinglés » en tête (sibling persistant)
+  const filtered = getFiltered();
+  const container = document.getElementById('content');
+
+  if (!filtered.length) {
+    document.getElementById('pagination-bar').style.display = 'none';
+    container.innerHTML = !apports.length
+      ? `<div class="empty-state">
+           <div class="icon">🍇</div>
+           <div class="title">Aucun apport pour l'instant</div>
+           <div class="desc">Saisis le premier apport de vendange ou importe un CSV.</div>
+           <div class="actions">
+             <button class="btn" onclick="openDrawer()">+ Nouvel apport</button>
+             <a class="btn btn--secondary" onclick="WB3Nav.navigate('parametres.html?section=apports_vue&subtab=import')">📥 Import CSV</a>
+           </div>
+         </div>`
+      : `<div class="empty-state">
+           <div class="icon">🔍</div><div class="title">Aucun résultat sur ces filtres</div>
+           <div class="desc">Aucun apport ne correspond aux filtres actifs (affichés en haut).</div>
+           <div class="actions"><button class="btn btn--secondary" onclick="_l5Reset()">↺ Réinitialiser les filtres</button></div>
+         </div>`;
+    _l5Update();
+    return;
+  }
+
+  // L8 : hors onglet « Épinglés », les épinglés sont remontés → retirés du flux.
+  const mainList = (activeTab === 'epingles') ? filtered : filtered.filter(a => !_isPinned(a.id));
+  const total = mainList.length;
+  let paged;
+  if (_mode === 'continuous') {
+    paged = mainList.slice(0, _loaded);            // L4 : tranches accumulées
+  } else if (_showAll) {
+    paged = mainList;
+  } else {
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (currentPage > pages) currentPage = pages;
+    paged = mainList.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+  }
+  if (viewMode === 'grid') renderGrid(paged);
+  else                     renderTable(paged);
+  renderPagination(total);
+  WB3Pins.decorate(container, { isPinned: _isPinned, onToggle: _togglePin });   // L8
+  _l5Update();
+}
+
+// ── L8 — épinglage (lignes en tête, ≤ 5, persistées par tenant) ──
+function _isPinned(id) { return _pinned.includes(String(id)); }
+function _togglePin(id) {
+  id = String(id);
+  const i = _pinned.indexOf(id);
+  if (i >= 0) { _pinned.splice(i, 1); }
+  else {
+    if (_pinned.length >= WB3Pins.MAX) { WB3Pins.toast('Maximum ' + WB3Pins.MAX + ' lignes épinglées (retirez-en une d\'abord)'); return; }
+    _pinned.push(id);
+  }
+  WB3Pins.save('apports', _pinned);
+  render();
+}
+function _pinnedExisting() {
+  const present = new Set(apports.map(a => String(a.id)));
+  if (_datePreset === 'all') {
+    const kept = _pinned.filter(id => present.has(id));
+    if (kept.length !== _pinned.length) { _pinned = kept; WB3Pins.save('apports', _pinned); }
+  }
+  return _pinned.map(id => apports.find(a => String(a.id) === id)).filter(Boolean);
+}
+function _renderPinned() {
+  const host = document.getElementById('pinned-section');
+  if (!host) return;
+  const items = (activeTab === 'epingles') ? [] : _pinnedExisting();
+  if (!items.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
+  const cols = APPORTS_COLUMNS.filter(c => c.defaultVisible);
+  host.style.display = '';
+  host.className = 'pinned-section';
+  host.innerHTML = `<div class="pinned-head">📌 Épinglés <span class="meta">(${items.length})</span></div>
+    <div style="overflow-x:auto"><table class="data-table">
+      <thead><tr>${cols.map(col => renderTableHeader(col)).join('')}</tr></thead><tbody></tbody></table></div>`;
+  const tbody = host.querySelector('tbody');
+  items.forEach(a => tbody.appendChild(makeTableRow(a, cols)));
+  WB3Pins.decorate(host, { isPinned: _isPinned, onToggle: _togglePin });
+}
+
+// ── L5 — bandeau « tableau de bord » (compteur + chips + réinitialiser) ──
+function _l5ColLabel(k) { const c = (typeof APPORTS_COLUMNS !== 'undefined' ? APPORTS_COLUMNS : []).find(x => x.key === k); return c ? c.label : k; }
+function _l5ColChip(k) {
+  const f = columnFilters[k], lbl = _l5ColLabel(k);
+  if (f && f.type === 'values' && Array.isArray(f.values) && f.values.length)
+    return lbl + ' = ' + f.values.slice(0, 2).join(', ') + (f.values.length > 2 ? '…' : '');
+  return lbl + ' (filtré)';
+}
+function _l5Counter() {
+  const t = getFiltered().length;
+  if (_mode === 'continuous') return Math.min(_loaded, t) + ' / ' + t + ' affichés';
+  const pg = Math.max(1, Math.ceil(t / PAGE_SIZE));
+  return 'Page ' + Math.min(currentPage, pg) + ' / ' + pg + ' · ' + t + ' résultat' + (t > 1 ? 's' : '');
+}
+function _l5Update() {
+  const chips = [];
+  if (_datePreset && _datePreset !== 'all')
+    chips.push({ label: 'Période : ' + WB3ListHeader.presetLabel(_datePreset), onRemove: () => _dateSetPreset('all') });
+  if (searchQuery)
+    chips.push({ label: 'Recherche : ' + searchQuery, onRemove: () => { searchQuery = ''; const s = document.getElementById('search'); if (s) s.value = ''; currentPage = 1; _loaded = 25; render(); } });
+  Object.keys(columnFilters || {}).forEach(k => {
+    const active = (typeof isFilterActive === 'function') ? isFilterActive(k) : !!columnFilters[k];
+    if (active) chips.push({ label: _l5ColChip(k), onRemove: () => { delete columnFilters[k]; currentPage = 1; _loaded = 25; render(); } });
+  });
+  WB3ListHeader.update('list-header', { counter: _l5Counter(), chips, onReset: _l5Reset, density: _density, onToggleDensity: _toggleDensity });
+}
+function _l5Reset() {
+  searchQuery = ''; const s = document.getElementById('search'); if (s) s.value = '';
+  columnFilters = {}; currentPage = 1; _loaded = 25;
+  _dateSetPreset('campagne');
+}
+// L10 — densité d'affichage (confort / compact), persistée par module.
+function _applyDensity() { const c = document.getElementById('content'); if (c) c.classList.toggle('wb3-compact', _density === 'compact'); }
+function _toggleDensity() { _density = _density === 'compact' ? 'confort' : 'compact'; _applyDensity(); WB3ListPager.saveDensity('apports', _density); _l5Update(); }
+
+// ============================================================
+// Vue Grille
+// ============================================================
+function renderGrid(items) {
+  const container = document.getElementById('content');
+  container.innerHTML = '<div class="cuverie-grid" id="apports-grid"></div>';
+  const grid = document.getElementById('apports-grid');
+  items.forEach(a => grid.appendChild(renderCard(a)));
+}
+
+function renderCard(a) {
+  const el = document.createElement('div');
+  el.className = 'contenant-card-pro';
+
+  const couleur = a.lots?.couleur || null;
+  const lotLabel = a.lots ? `${a.lots.nom}${a.lots.millesime ? ' '+a.lots.millesime : ''}` : null;
+  const contLabel = a.contenants?.nom || null;
+  const qte = a.poids_kg != null
+    ? `${fmtNum(a.poids_kg)} kg`
+    : a.volume_hl != null ? `${fmt(a.volume_hl)} hL` : '—';
+
+  el.innerHTML = `
+    <div class="couleur-strip ${couleur || 'none'}"></div>
+    <div class="card-head" style="margin-top:var(--space-1)">
+      <div>
+        <div class="nom">${escapeHtml(a.apporteur || a.provenance || a.numero || 'Apport sans nom')}</div>
+        <div class="meta">${a.date_apport||'—'}${a.numero ? ' · '+escapeHtml(a.numero) : ''}</div>
+      </div>
+      <span class="statut-badge statut-${a.statut}">${a.statut === 'recu' ? '✅ Reçu' : '🚫 Annulé'}</span>
+    </div>
+    ${a.provenance ? `<div class="meta" style="margin-top:2px">📍 ${escapeHtml(a.provenance)}</div>` : ''}
+    ${a.cepage_libre ? `<div class="meta">🍇 ${escapeHtml(a.cepage_libre)}${a.millesime ? ' '+a.millesime : ''}</div>` : ''}
+    <div class="footer-row">
+      <span class="meta" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        ${a.lots
+          ? `🍷 <button class="nav-chip" onclick="event.stopPropagation();WB3Nav.navigate('lot-detail.html?id=${a.lots.id}')">${escapeHtml(a.lots.nom+(a.lots.millesime?' '+a.lots.millesime:''))}${a.lots.numero_lot?' ['+escapeHtml(a.lots.numero_lot)+']':''}</button>`
+          : contLabel ? `🛢 ${escapeHtml(contLabel)}`
+          : '<span style="opacity:.5">Sans lot</span>'}
+      </span>
+      <span class="vol">${qte}</span>
+    </div>`;
+  el.addEventListener('click', () => openDrawer(a.id));
+  return el;
+}
+
+// ============================================================
+// Vue Tableau
+// ============================================================
+function renderTableHeader(col) {
+  const active = isFilterActive(col.key);
+  const filterBtn = `<button class="col-filter-btn${active?' active':''}" title="${active?'Filtre actif':'Filtrer'}" onclick="openFilterDropdown(event,'${col.key}')">▾</button>`;
+  if (!col.sortKey) return `<th${col.numeric?' class="num"':''}>${escapeHtml(col.label)}${filterBtn}</th>`;
+  const isSorted = sortBy === col.sortKey;
+  const cls = ['sortable', ...(col.numeric?['num']:[]), ...(isSorted?['sorted']:[]),(isSorted&&sortAsc?'asc':'')].filter(Boolean).join(' ');
+  return `<th class="${cls}" data-sort="${col.sortKey}">${escapeHtml(col.label)}${filterBtn}</th>`;
+}
+
+function renderTable(items) {
+  const visibleCols = APPORTS_COLUMNS.filter(c => c.defaultVisible);
+  const container = document.getElementById('content');
+  container.innerHTML = `
+    <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead><tr>${visibleCols.map(col => renderTableHeader(col)).join('')}</tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>`;
+  const tbody = container.querySelector('tbody');
+  items.forEach(a => tbody.appendChild(makeTableRow(a, visibleCols)));
+  bindHeaderSort(container);
+}
+
+function makeTableRow(a, cols) {
+  const tr = document.createElement('tr');
+  tr.dataset.id = a.id;
+  tr.style.cursor = 'pointer';
+  tr.innerHTML = cols.map(col => {
+    switch(col.key) {
+      case 'numero':       return `<td>${a.numero ? escapeHtml(a.numero) : '<span style="opacity:.4">—</span>'}</td>`;
+      case 'date_apport':  return `<td>${a.date_apport||'—'}${a.heure_apport ? '<br><span style="font-size:10px;color:var(--color-ink-tertiary)">'+a.heure_apport.slice(0,5)+'</span>' : ''}</td>`;
+      case 'apporteur':    return `<td><b>${escapeHtml(a.apporteur||'—')}</b></td>`;
+      case 'provenance':   return `<td style="font-size:var(--text-caption)">${escapeHtml(a.provenance||'—')}</td>`;
+      case 'cepage_libre': return `<td style="font-size:var(--text-caption)">${escapeHtml(a.cepage_libre||'—')}</td>`;
+      case 'millesime':    return `<td class="num">${a.millesime||'—'}</td>`;
+      case 'lot':          return `<td style="font-size:var(--text-caption)">${a.lots ? `<button class="nav-chip" onclick="event.stopPropagation();WB3Nav.navigate('lot-detail.html?id=${a.lots.id}')">${escapeHtml(a.lots.nom+(a.lots.millesime?' '+a.lots.millesime:''))}${a.lots.numero_lot?' ['+escapeHtml(a.lots.numero_lot)+']':''}</button>` : '<span style="opacity:.4">—</span>'}</td>`;
+      case 'contenant':    return `<td style="font-size:var(--text-caption)">${escapeHtml(a.contenants?.nom||'—')}</td>`;
+      case 'poids_kg':     return `<td class="num">${a.poids_kg != null ? fmtNum(a.poids_kg) : '—'}</td>`;
+      case 'volume_hl':    return `<td class="num">${a.volume_hl != null ? fmt(a.volume_hl) : '—'}</td>`;
+      case 'volume_jus_reel_hl': return `<td class="num">${a.volume_jus_reel_hl != null ? fmt(a.volume_jus_reel_hl) : '—'}</td>`;
+      case 'rendement_kg_hl': {
+        if (a.rendement_kg_hl == null) return `<td class="num">—</td>`;
+        const good = Number(a.rendement_kg_hl) <= _rdtCoef;
+        return `<td class="num" style="color:${good?'#15803d':'#b91c1c'};font-weight:600" title="réf. ${_rdtCoef} kg/hL">${fmt(a.rendement_kg_hl)}</td>`;
+      }
+      case 'degre_probable':return `<td class="num">${a.degre_probable != null ? a.degre_probable : '—'}</td>`;
+      case 'statut':       return `<td><span class="statut-badge statut-${a.statut}">${STATUT_LABELS[a.statut]||a.statut}</span></td>`;
+      default:             return `<td>—</td>`;
+    }
+  }).join('');
+  tr.addEventListener('click', () => openDrawer(a.id));
+  return tr;
+}
+
+function bindHeaderSort(container) {
+  container.querySelectorAll('th.sortable').forEach(th =>
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      if (!k) return;
+      if (sortBy === k) sortAsc = !sortAsc; else { sortBy = k; sortAsc = true; }
+      currentPage = 1; render();
+    })
+  );
+}
+
+// ============================================================
+// Filtres colonnes (style Excel)
+// ============================================================
+function getRawValue(key, a) {
+  switch(key) {
+    case 'numero':        return a.numero || '';
+    case 'date_apport':   return a.date_apport || '';
+    case 'apporteur':     return a.apporteur || '';
+    case 'provenance':    return a.provenance || '';
+    case 'cepage_libre':  return a.cepage_libre || '';
+    case 'millesime':     return a.millesime;
+    case 'lot':           return a.lots ? a.lots.nom : '';
+    case 'contenant':     return a.contenants?.nom || '';
+    case 'poids_kg':      return a.poids_kg;
+    case 'volume_hl':     return a.volume_hl;
+    case 'degre_probable':return a.degre_probable;
+    case 'statut':        return STATUT_LABELS[a.statut] || a.statut || '';
+    default:              return '';
+  }
+}
+
+function isNumericCol(key) {
+  return ['millesime','poids_kg','volume_hl','degre_probable'].includes(key);
+}
+
+function getUniqueValues(key) {
+  const vals = new Set();
+  apports.forEach(a => {
+    const raw = getRawValue(key, a);
+    vals.add(raw == null ? '' : String(raw));
+  });
+  return [...vals].sort((a,b) => (!a&&b)?1:(a&&!b)?-1:a.localeCompare(b,'fr'));
+}
+
+function isFilterActive(key) {
+  const f = columnFilters[key];
+  if (!f) return false;
+  if (f.type === 'values') return Array.isArray(f.values) && f.values.length > 0;
+  if (f.type === 'range')  return (f.min != null && f.min !== '') || (f.max != null && f.max !== '');
+  return false;
+}
+
+function hasActiveColumnFilters() {
+  return Object.keys(columnFilters).some(k => isFilterActive(k));
+}
+
+function passesColumnFilters(a) {
+  for (const [key, filter] of Object.entries(columnFilters)) {
+    if (!isFilterActive(key)) continue;
+    const raw = getRawValue(key, a);
+    if (filter.type === 'values') {
+      if (!filter.values.includes(raw == null ? '' : String(raw))) return false;
+    } else if (filter.type === 'range') {
+      const num = Number(raw);
+      if (filter.min != null && filter.min !== '' && num < Number(filter.min)) return false;
+      if (filter.max != null && filter.max !== '' && num > Number(filter.max)) return false;
+    }
+  }
+  return true;
+}
+
+function openFilterDropdown(event, colKey) {
+  event.stopPropagation();
+  if (activeFilterCol === colKey) { closeFilterDropdown(); return; }
+  activeFilterCol = colKey;
+  const dd = document.getElementById('col-filter-dropdown');
+  dd.innerHTML = buildFilterContent(colKey);
+  dd.classList.add('open');
+  const rect = event.currentTarget.getBoundingClientRect();
+  let left = rect.left;
+  if (left + 260 > window.innerWidth - 8) left = window.innerWidth - 268;
+  if (left < 8) left = 8;
+  dd.style.left = left + 'px';
+  dd.style.top  = (rect.bottom + 4) + 'px';
+}
+
+function closeFilterDropdown() {
+  activeFilterCol = null;
+  document.getElementById('col-filter-dropdown').classList.remove('open');
+}
+
+function buildFilterContent(key) {
+  const col    = APPORTS_COLUMNS.find(c => c.key === key);
+  const filter = columnFilters[key] || {};
+
+  if (isNumericCol(key)) {
+    const minV = (filter.type === 'range' && filter.min != null) ? filter.min : '';
+    const maxV = (filter.type === 'range' && filter.max != null) ? filter.max : '';
+    return `
+      <div class="col-filter-title">🔢 ${escapeHtml(col?.label||key)}</div>
+      <div class="col-filter-range">
+        <input class="input" type="number" id="cf-min" placeholder="Min" value="${minV}">
+        <span style="color:var(--color-ink-tertiary);flex-shrink:0">→</span>
+        <input class="input" type="number" id="cf-max" placeholder="Max" value="${maxV}">
+      </div>
+      <div class="col-filter-footer">
+        <button class="btn btn--ghost btn--sm" onclick="clearColumnFilter('${key}')">✕ Effacer</button>
+        <button class="btn btn--sm" onclick="applyRangeFilter('${key}')">Appliquer</button>
+      </div>`;
+  }
+
+  const uniqueVals = getUniqueValues(key);
+  const activeVals = (filter.type === 'values' && Array.isArray(filter.values)) ? filter.values : [];
+  const valItems   = uniqueVals.length === 0
+    ? `<div style="padding:var(--space-2);color:var(--color-ink-tertiary);font-size:var(--text-caption)">Aucune valeur</div>`
+    : uniqueVals.map(v => `
+        <label class="col-filter-value-item">
+          <input type="checkbox" value="${escapeHtml(v)}" ${activeVals.includes(v)?'checked':''}
+            onchange="toggleFilterValue('${key}',this.value,this.checked)">
+          <span>${v===''?'<em style="color:var(--color-ink-tertiary)">vide</em>':escapeHtml(v)}</span>
+        </label>`).join('');
+
+  return `
+    <div class="col-filter-title">🔡 ${escapeHtml(col?.label||key)}</div>
+    <input class="input col-filter-search" type="text" placeholder="Rechercher…" oninput="filterValuesSearch(this.value)">
+    <div class="col-filter-values" id="cf-values-list">${valItems}</div>
+    <div class="col-filter-footer">
+      <button class="btn btn--ghost btn--sm" onclick="clearColumnFilter('${key}')">✕ Effacer</button>
+      <button class="btn btn--ghost btn--sm" onclick="selectAllFilterValues()">Tout décocher</button>
+    </div>`;
+}
+
+function toggleFilterValue(key, value, checked) {
+  if (!columnFilters[key] || columnFilters[key].type !== 'values')
+    columnFilters[key] = { type:'values', values:[] };
+  const vals = columnFilters[key].values;
+  if (checked && !vals.includes(value)) vals.push(value);
+  else if (!checked) columnFilters[key].values = vals.filter(v => v !== value);
+  render();
+}
+
+function applyRangeFilter(key) {
+  const min = document.getElementById('cf-min')?.value.trim();
+  const max = document.getElementById('cf-max')?.value.trim();
+  if (!min && !max) { delete columnFilters[key]; }
+  else columnFilters[key] = { type:'range', min: min!==''?Number(min):null, max: max!==''?Number(max):null };
+  closeFilterDropdown(); render();
+}
+
+function clearColumnFilter(key)   { delete columnFilters[key]; closeFilterDropdown(); render(); }
+function clearAllColumnFilters()  { columnFilters = {}; render(); }
+
+function selectAllFilterValues() {
+  const list = document.getElementById('cf-values-list');
+  if (!list || !activeFilterCol) return;
+  list.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = false; });
+  if (columnFilters[activeFilterCol]) columnFilters[activeFilterCol].values = [];
+  render();
+}
+
+function filterValuesSearch(query) {
+  const list = document.getElementById('cf-values-list');
+  if (!list) return;
+  const q = query.toLowerCase();
+  list.querySelectorAll('.col-filter-value-item').forEach(item => {
+    const text = item.querySelector('span')?.textContent.toLowerCase() || '';
+    item.style.display = q===''||text.includes(q) ? '' : 'none';
+  });
+}
+
+// ============================================================
+// Pagination
+// ============================================================
+function renderPagination(total) {
+  WB3ListPager.renderBar(document.getElementById('pagination-bar'), {
+    mode: _mode, total, page: currentPage, pageSize: PAGE_SIZE, loaded: _loaded, showAll: _showAll,
+    onPage: goToPage, onSize: setPageSize, onToggleAll: toggleShowAll,
+    onLoadMore: loadMore, onToggleMode: toggleMode,
+  });
+}
+function loadMore() { const y = window.scrollY; _loaded += WB3ListPager.STEP; render(); window.scrollTo(0, y); }
+function toggleMode() {
+  _mode = _mode === 'continuous' ? 'paginated' : 'continuous';
+  _loaded = WB3ListPager.STEP; currentPage = 1; _showAll = false;
+  WB3ListPager.saveMode('apports', _mode); render();
+}
+function setPageSize(n) { PAGE_SIZE = n; _showAll = false; currentPage = 1; WB3ListPager.saveSize('apports', n); render(); }
+async function toggleShowAll() {
+  if (!_showAll) {
+    const total = getFiltered().length;
+    if (total > WB3ListPager.CONFIRM_OVER &&
+        !(await WB3UI.confirm(`Afficher ${total} lignes peut ralentir l'interface. Continuer ?`, { title:'Tout afficher', okText:'Afficher' }))) return;
+  }
+  _showAll = !_showAll; currentPage = 1; render();
+}
+
+function goToPage(p) {
+  const pages = Math.max(1, Math.ceil(getFiltered().length / PAGE_SIZE));
+  currentPage = Math.max(1, Math.min(p, pages));
+  render();
+  document.getElementById('content')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ============================================================
+// Stats
+// ============================================================
+function renderStats() {
+  const actifs   = apports.filter(a => a.statut === 'recu');
+  const todayArr = actifs.filter(a => a.date_apport === today);
+  const totalKg  = actifs.reduce((s,a) => s + (Number(a.poids_kg)||0), 0);
+  const totalHl  = actifs.reduce((s,a) => s + (Number(a.volume_hl)||0), 0);
+  const lotsSet  = new Set(actifs.filter(a => a.lot_id).map(a => a.lot_id));
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="label">Apports reçus</div><div class="value">${actifs.length}</div></div>
+    <div class="stat-card"><div class="label">Aujourd'hui</div><div class="value">${todayArr.length}</div></div>
+    <div class="stat-card"><div class="label">Poids total</div><div class="value">${fmtNum(totalKg)}</div><div class="sub">kg</div></div>
+    <div class="stat-card"><div class="label">Volume total</div><div class="value">${fmt(totalHl)}</div><div class="sub">hL</div></div>
+    <div class="stat-card"><div class="label">Lots alimentés</div><div class="value">${lotsSet.size}</div></div>`;
+}
+
+function renderTabCounts() {
+  Object.keys(TAB_FILTERS).forEach(tab => {
+    const el = document.querySelector(`[data-count="${tab}"]`);
+    if (el) el.textContent = apports.filter(TAB_FILTERS[tab]).length;
+  });
+}
+
+// ============================================================
+// Event listeners
+// ============================================================
+function setupEventListeners() {
+  document.querySelectorAll('#tabs .tab').forEach(tab =>
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#tabs .tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeTab = tab.dataset.tab; currentPage = 1; render();
+    })
+  );
+  document.querySelectorAll('#view-mode button[data-view]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#view-mode button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); viewMode = btn.dataset.view;
+      try { localStorage.setItem('wb3_apports_view', viewMode); } catch(_) {}
+      // Sync Supabase pour partager le choix entre appareils. Non bloquant.
+      WB3DB.setUserPref('apports_vue', { view_mode: viewMode })
+        .catch(e => console.warn('[WB3 apports] setUserPref:', e));
+      render();
+    })
+  );
+  document.querySelectorAll('#sort-mode button[data-sort]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      if (sortBy === btn.dataset.sort) sortAsc = !sortAsc;
+      else {
+        document.querySelectorAll('#sort-mode button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); sortBy = btn.dataset.sort; sortAsc = false;
+      }
+      currentPage = 1; render();
+    })
+  );
+  document.getElementById('search').addEventListener('input', e => {
+    searchQuery = e.target.value.trim().toLowerCase(); currentPage = 1; render();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeFilterDropdown(); closeDrawer(); }
+  });
+  document.addEventListener('click', () => { if (activeFilterCol) closeFilterDropdown(); });
+}
+
+// ============================================================
+// Drawer
+// ============================================================
+async function openDrawer(id = null, opts = {}) {
+  if (!_drawerDataReady) await ensureDrawerData();
+  editingId = id;
+  document.getElementById('drawer-title').textContent = id ? 'Modifier l\'apport' : 'Nouvel apport';
+  document.getElementById('btn-delete').style.display = (id && WB3DB.isPrivileged()) ? '' : 'none';
+
+  // Remplir les listes déroulantes
+  const lotSel  = document.getElementById('f-lot');
+  const contSel = document.getElementById('f-contenant');
+  lotSel.innerHTML  = '<option value="">— Sélectionner ou créer un lot —</option>' +
+    lots.filter(l => l.actif).map(l => `<option value="${l.id}">${escapeHtml(l.nom)}${l.millesime?' '+l.millesime:''}</option>`).join('');
+  contSel.innerHTML = '<option value="">— Aucun —</option>' +
+    contenants.filter(c => c.actif !== false).map(c => `<option value="${c.id}">${escapeHtml(c.nom)}${c.capacite_hl?' ('+fmt(c.capacite_hl)+' hL)':''}</option>`).join('');
+  // Cépage : sélection dans la liste des cépages (plus de champ libre).
+  const cepSel = document.getElementById('f-cepage-libre');
+  if (cepSel) cepSel.innerHTML = '<option value="">— Sélectionner un cépage —</option>' +
+    cepages.map(c => `<option value="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</option>`).join('');
+
+  if (id) {
+    const a = apports.find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('f-date').value         = a.date_apport || '';
+    document.getElementById('f-heure').value        = a.heure_apport ? a.heure_apport.slice(0,5) : '';
+    document.getElementById('f-numero').value       = a.numero || '';
+    document.getElementById('f-apporteur').value    = a.apporteur || '';
+    document.getElementById('f-provenance').value   = a.provenance || '';
+    // Cépage hérité absent de la liste (saisie libre legacy) → on l'ajoute pour ne pas l'écraser.
+    const _cepSel = document.getElementById('f-cepage-libre');
+    if (a.cepage_libre && _cepSel && ![..._cepSel.options].some(o => o.value === a.cepage_libre)) {
+      _cepSel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(a.cepage_libre)}">${escapeHtml(a.cepage_libre)} (hors liste)</option>`);
+    }
+    _cepSel.value = a.cepage_libre || '';
+    document.getElementById('f-millesime').value    = a.millesime || '';
+    document.getElementById('f-poids').value        = a.poids_kg != null ? a.poids_kg : '';
+    document.getElementById('f-volume').value       = a.volume_hl != null ? a.volume_hl : '';
+    document.getElementById('f-volume-reel').value  = a.volume_jus_reel_hl != null ? a.volume_jus_reel_hl : '';
+    document.getElementById('f-degre').value        = a.degre_probable != null ? a.degre_probable : '';
+    document.getElementById('f-tat').value          = a.tat != null ? a.tat : '';
+    document.getElementById('f-ph').value           = a.ph != null ? a.ph : '';
+    document.getElementById('f-temp').value         = a.temperature_c != null ? a.temperature_c : '';
+    document.getElementById('f-statut').value       = a.statut || 'recu';
+    document.getElementById('f-notes').value        = a.notes || '';
+    lotSel.value  = a.lot_id || '';
+    contSel.value = a.contenant_id || '';
+    currentMetaRows = Object.entries(a.meta || {}).map(([k,v]) => ({ key:k, value:v }));
+  } else {
+    document.getElementById('f-date').value         = today;
+    document.getElementById('f-heure').value        = new Date().toTimeString().slice(0,5);
+    document.getElementById('f-numero').value       = '';
+    document.getElementById('f-apporteur').value    = '';
+    document.getElementById('f-provenance').value   = '';
+    document.getElementById('f-cepage-libre').value = '';
+    document.getElementById('f-millesime').value    = new Date().getFullYear();
+    document.getElementById('f-poids').value        = '';
+    document.getElementById('f-volume').value       = '';
+    document.getElementById('f-volume-reel').value  = '';
+    document.getElementById('f-degre').value        = '';
+    document.getElementById('f-tat').value          = '';
+    document.getElementById('f-ph').value           = '';
+    document.getElementById('f-temp').value         = '';
+    document.getElementById('f-statut').value       = 'recu';
+    document.getElementById('f-notes').value        = '';
+    currentMetaRows = [];
+    // Préfill contenant (raccourci depuis cuverie : « Réceptionner un
+    // apport ici »). Vérifie la présence dans la liste déjà rendue.
+    if (opts && opts.preContenantId) {
+      const sel = document.getElementById('f-contenant');
+      if (sel && [...sel.options].some(o => o.value === opts.preContenantId)) {
+        sel.value = opts.preContenantId;
+      }
+    }
+  }
+  // Affiche l'info contenu de la cuve (édition ou pré-remplissage URL)
+  updateContenantInfo().catch(() => {});
+  updateRendementHint();
+  renderMetaRows();
+  document.getElementById('new-lot-inline').classList.remove('open');
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  setTimeout(() => document.getElementById('f-apporteur').focus(), 200);
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+  editingId = null;
+}
+
+// Numérotation automatique
+async function autoNumero() {
+  try {
+    const year = parseInt(document.getElementById('f-millesime').value) || new Date().getFullYear();
+    const data = await WB3DB.nextApportNumero(year);
+    document.getElementById('f-numero').value = data;
+  } catch(e) {
+    toast('Erreur génération numéro : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+  }
+}
+
+// ── Création lot inline ─────────────────────────────────────────
+function toggleNewLotInline() {
+  const panel = document.getElementById('new-lot-inline');
+  const open  = panel.classList.toggle('open');
+  if (open) {
+    const mill = document.getElementById('f-millesime').value;
+    document.getElementById('nl-nom').value       = '';
+    document.getElementById('nl-millesime').value = mill || new Date().getFullYear();
+    document.getElementById('nl-couleur').value   = 'rouge';
+    setTimeout(() => document.getElementById('nl-nom').focus(), 100);
+  }
+}
+
+// UX : affiche le contenu de la cuve sélectionnée sous le sélecteur de
+// contenant. Source : lot_contenants enrichi avec lots(nom, statut, etc.)
+// + contenants(capacite_hl). Visible au changement de sélection et à
+// l'ouverture du drawer si une cuve est pré-remplie (URL ?contenant=...).
+async function updateContenantInfo() {
+  const sel  = document.getElementById('f-contenant');
+  const info = document.getElementById('f-contenant-info');
+  if (!sel || !info) return;
+  const cid = sel.value;
+  if (!cid) { info.style.display = 'none'; info.innerHTML = ''; return; }
+  const cuve = contenants.find(c => c.id === cid);
+  if (!cuve) { info.style.display = 'none'; return; }
+
+  info.innerHTML = '<span style="color:var(--color-ink-tertiary)">Chargement du contenu…</span>';
+  info.style.display = '';
+  try {
+    const rows = await WB3DB.listTable('lot_contenants', {
+      select: 'id, volume_hl, lots(id, nom, statut, millesime, couleur)',
+      filter: { contenant_id: cid },
+    });
+    const total = (rows || []).reduce((s, r) => s + (Number(r.volume_hl) || 0), 0);
+    const dispo = Math.max(0, Number((cuve.capacite_hl - total).toFixed(2)));
+    if (!rows || rows.length === 0) {
+      info.innerHTML = `<b>🟢 Cuve vide</b> · capacité <b>${cuve.capacite_hl} hL</b> · disponible <b>${dispo} hL</b>`;
+    } else {
+      const lotsTxt = rows.filter(r => r.lots).map(r => {
+        const l = r.lots;
+        const dot = ({rouge:'🔴',blanc:'⚪',rose:'🌸',gris:'🩶'}[l.couleur] || '');
+        return `<div style="margin-top:3px">${dot} <b>${escapeHtml(l.nom)}</b>${l.millesime ? ' ' + l.millesime : ''} <span style="color:var(--color-ink-tertiary)">— ${r.volume_hl ?? '?'} hL · statut ${escapeHtml(l.statut || '?')}</span></div>`;
+      }).join('');
+      const couleurBordure = total > cuve.capacite_hl ? 'var(--color-danger)' : (rows.length > 1 ? '#f59e0b' : 'var(--color-accent, #3b82f6)');
+      const titre = rows.length > 1
+        ? `<b style="color:#92400e">🚥 Cuve multi-lots (${rows.length} lots)</b> — apport déclenchera un assemblage`
+        : `<b>📦 Cuve occupée</b> — apport déclenchera un assemblage`;
+      info.style.borderLeftColor = couleurBordure;
+      info.innerHTML = `${titre}
+        <div style="margin-top:var(--space-1);color:var(--color-ink-tertiary)">Total ${total} / ${cuve.capacite_hl} hL · disponible <b>${dispo} hL</b></div>
+        ${lotsTxt}`;
+    }
+  } catch (e) {
+    console.warn('[WB3 apports] updateContenantInfo:', e);
+    info.innerHTML = '<span style="color:var(--color-danger)">Erreur de lecture du contenu</span>';
+  }
+}
+
+async function createLotInline() {
+  const nom = document.getElementById('nl-nom').value.trim();
+  if (!nom) { toast('Le nom du lot est obligatoire', 'error'); return; }
+  const mill = parseInt(document.getElementById('nl-millesime').value, 10);
+  try {
+    const row = await WB3DB.insertRow('lots', {
+      nom,
+      millesime: isNaN(mill) ? null : mill,
+      couleur:   document.getElementById('nl-couleur').value,
+      statut:    'vendange',
+      actif:     true,
+    });
+    if (row) lots.push(row);
+    // Reconstruire le select et sélectionner le nouveau lot
+    const lotSel = document.getElementById('f-lot');
+    lotSel.innerHTML = '<option value="">— Aucun (à affecter plus tard) —</option>' +
+      lots.filter(l => l.actif).map(l =>
+        `<option value="${l.id}">${escapeHtml(l.nom)}${l.millesime?' '+l.millesime:''}</option>`
+      ).join('');
+    lotSel.value = row.id;
+    document.getElementById('new-lot-inline').classList.remove('open');
+    toast(`Lot "${nom}" créé et sélectionné`, 'success');
+  } catch(e) {
+    if (e.code === '23505' || /duplicate/i.test(e.message))
+      toast('Un lot avec ce nom existe déjà', 'error');
+    else toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+  }
+}
+
+// Champs meta libres
+function renderMetaRows() {
+  const container = document.getElementById('f-meta-rows');
+  if (!currentMetaRows.length) { container.innerHTML = ''; return; }
+  container.innerHTML = currentMetaRows.map((row, i) => `
+    <div class="meta-row">
+      <input class="input meta-key" type="text" placeholder="Clé" value="${escapeHtml(row.key)}"
+        oninput="currentMetaRows[${i}].key=this.value">
+      <input class="input" type="text" placeholder="Valeur" value="${escapeHtml(String(row.value??''))}"
+        oninput="currentMetaRows[${i}].value=this.value">
+      <button class="btn btn--ghost btn--sm" onclick="removeMetaRow(${i})">✕</button>
+    </div>`).join('');
+}
+
+function addMetaRow()       { currentMetaRows.push({ key:'', value:'' }); renderMetaRows(); }
+function removeMetaRow(i)   { currentMetaRows.splice(i,1); renderMetaRows(); }
+
+function buildMeta() {
+  const obj = {};
+  currentMetaRows.forEach(r => { if (r.key.trim()) obj[r.key.trim()] = r.value; });
+  return obj;
+}
+
+// ============================================================
+// Sauvegarde
+// ============================================================
+async function saveApport() {
+  const dateVal = document.getElementById('f-date').value;
+  if (!dateVal) { toast('La date est obligatoire', 'error'); return; }
+
+  // Lot obligatoire : sans lot, l'apport ne peut pas être matérialisé en
+  // cuve (lot_contenants demande lot_id) → on bloquait silencieusement
+  // un workflow incomplet. Désormais on force la sélection en amont.
+  const lotIdCheck = document.getElementById('f-lot').value;
+  if (!lotIdCheck) {
+    toast('Lot obligatoire — sélectionne un lot existant ou clic "+ Créer un lot"', 'error');
+    document.getElementById('f-lot').focus();
+    return;
+  }
+
+  const poids  = parseFloat(document.getElementById('f-poids').value);
+  const volume = parseFloat(document.getElementById('f-volume').value);
+  const volReel = parseFloat(document.getElementById('f-volume-reel').value);
+  const degre  = parseFloat(document.getElementById('f-degre').value);
+  const tat    = parseFloat(document.getElementById('f-tat').value);
+  const ph     = parseFloat(document.getElementById('f-ph').value);
+  const temp   = parseFloat(document.getElementById('f-temp').value);
+  const mill   = parseInt(document.getElementById('f-millesime').value, 10);
+
+  const payload = {
+    date_apport:    dateVal,
+    heure_apport:   document.getElementById('f-heure').value || null,
+    numero:         document.getElementById('f-numero').value.trim() || null,
+    apporteur:      document.getElementById('f-apporteur').value.trim() || null,
+    provenance:     document.getElementById('f-provenance').value.trim() || null,
+    cepage_libre:   document.getElementById('f-cepage-libre').value.trim() || null,
+    millesime:      isNaN(mill) ? null : mill,
+    lot_id:         document.getElementById('f-lot').value || null,
+    contenant_id:   document.getElementById('f-contenant').value || null,
+    poids_kg:           isNaN(poids)  ? null : poids,
+    volume_hl:          isNaN(volume) ? null : volume,
+    volume_jus_reel_hl: isNaN(volReel) ? null : volReel,
+    degre_probable:     isNaN(degre)  ? null : degre,
+    tat:            isNaN(tat)    ? null : tat,
+    ph:             isNaN(ph)     ? null : ph,
+    temperature_c:  isNaN(temp)   ? null : temp,
+    statut:         document.getElementById('f-statut').value,
+    notes:          document.getElementById('f-notes').value.trim() || null,
+    meta:           buildMeta(),
+  };
+
+  // Phase 1 multi-lots → assemblage. Détection : à la CRÉATION uniquement,
+  // si lot+cuve+volume>0 ET la cuve est déjà occupée par AU MOINS un autre
+  // lot (≠ celui de l'apport). On propose à l'opérateur le workflow propre :
+  // conversion automatique en assemblage après l'apport (redirige vers
+  // cuverie.html?conv-asm=<cuveid> qui ouvre la modal _openConvertAssemblageModal).
+  // Si l'opérateur refuse, le comportement legacy s'applique (multi-lots,
+  // que l'opérateur pourra convertir plus tard via Phase 0).
+  // Note : le lot est désormais obligatoire (validé en tête de fonction).
+  // payload.lot_id est donc garanti non-null à ce stade.
+  let _pendingAssemblage = false;
+  if (!editingId && payload.lot_id && payload.contenant_id && Number(payload.volume_hl) > 0) {
+    try {
+      const existingInCuve = await WB3DB.listTable('lot_contenants', {
+        select: 'id, lot_id, volume_hl, lots(id, nom, statut, millesime)',
+        filter: { contenant_id: payload.contenant_id },
+      });
+      const otherLots = (existingInCuve || []).filter(lc => lc.lot_id !== payload.lot_id && lc.lots);
+      if (otherLots.length) {
+        const cuveNom = (contenants.find(c => c.id === payload.contenant_id) || {}).nom || '?';
+        const lotApportNom = (lots.find(l => l.id === payload.lot_id) || {}).nom || '?';
+        const lotsTxt = otherLots.map(lc => `${lc.lots.nom}${lc.lots.millesime ? ' ' + lc.lots.millesime : ''} (${lc.volume_hl ?? '?'} hL)`).join(', ');
+        const choix = await _askAssemblageDecision({
+          cuveNom, lotApportNom, lotsTxt, nbOther: otherLots.length,
+        });
+        if (choix === 'cancel') return;
+        if (choix === 'assemblage') _pendingAssemblage = true;
+        // sinon ('multi') : comportement legacy, le user pourra convertir plus tard
+      }
+    } catch (e) {
+      console.warn('[WB3 apports] detect multi-lots échec (non bloquant) :', e);
+    }
+  }
+
+  try {
+    let saved;
+    if (editingId) {
+      saved = await WB3DB.updateRow('apports', editingId, payload);
+    } else {
+      saved = await WB3DB.insertRow('apports', payload);
+    }
+
+    // Bug fix — matérialise le volume dans la cuve sélectionnée :
+    // seulement à la CRÉATION (pas à l'édition pour ne pas doubler) ET si
+    // les 3 conditions sont réunies (lot + cuve + volume > 0). Best-effort :
+    // l'apport est déjà sauvegardé, un échec ici ne doit pas faire planter
+    // la création. Le trigger lot_contenants_sync_volume (base) propage
+    // automatiquement sur lots.volume_actuel_hl. Si une ligne existe déjà
+    // pour (lot, cuve), on additionne via UPDATE pour éviter les doublons.
+    if (!editingId && saved && saved.lot_id && saved.contenant_id && Number(saved.volume_hl) > 0) {
+      try {
+        const existing = await WB3DB.listTable('lot_contenants', {
+          select: 'id, volume_hl',
+          filter: { lot_id: saved.lot_id, contenant_id: saved.contenant_id },
+        });
+        if (!existing.length) {
+          await WB3DB.insertRow('lot_contenants', {
+            lot_id: saved.lot_id,
+            contenant_id: saved.contenant_id,
+            volume_hl: Number(saved.volume_hl),
+            date_affectation: saved.date_apport || new Date().toISOString().slice(0,10),
+          });
+        } else {
+          // Lot déjà présent dans cette cuve : on additionne (apport supplémentaire).
+          await WB3DB.updateRow('lot_contenants', existing[0].id, {
+            volume_hl: (Number(existing[0].volume_hl) || 0) + Number(saved.volume_hl),
+          });
+        }
+      } catch (e) {
+        console.warn('[WB3 apports] sync lot_contenants:', e);
+        toast('Apport enregistré, mais matérialisation en cuve impossible : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e?.message || e)), true);
+      }
+    }
+
+    toast(editingId ? 'Apport mis à jour' : 'Apport enregistré', 'success');
+    closeDrawer();
+    if (saved) {
+      // Enrichit avec les refs lots/contenants déjà en mémoire si le drawer était ouvert
+      if (_drawerDataReady) {
+        saved.lots      = lots.find(l => l.id === saved.lot_id) || null;
+        saved.contenants = contenants.find(c => c.id === saved.contenant_id) || null;
+      }
+      if (editingId) {
+        const idx = apports.findIndex(a => a.id === editingId);
+        if (idx >= 0) apports[idx] = saved;
+      } else {
+        apports.unshift(saved);
+      }
+      render();
+    } else {
+      await loadApports();
+      render();
+    }
+
+    // Phase 1 multi-lots — redirection vers cuverie pour lancer la
+    // conversion assemblage sur la cuve qui est désormais multi-lots
+    // (lot existant + lot apport). cuverie.html lit le param URL et
+    // ouvre _openConvertAssemblageModal automatiquement.
+    if (_pendingAssemblage && saved?.contenant_id) {
+      // Petit délai pour laisser le toast s'afficher avant la navigation.
+      setTimeout(() => {
+        window.location.href = 'cuverie.html?conv-asm=' + encodeURIComponent(saved.contenant_id);
+      }, 400);
+    }
+  } catch(e) {
+    console.error(e);
+    toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+  }
+}
+
+// Phase 1 multi-lots — mini-modal de décision (3 boutons) inséré
+// dynamiquement dans le DOM. Retourne 'assemblage' | 'multi' | 'cancel'
+// via Promise (résolue au clic).
+function _askAssemblageDecision({ cuveNom, lotApportNom, lotsTxt, nbOther }) {
+  return new Promise((resolve) => {
+    document.getElementById('wb3-ask-asm')?.remove();
+    const el = document.createElement('div');
+    el.id = 'wb3-ask-asm';
+    const finish = (choix) => { el.remove(); resolve(choix); };
+    el.innerHTML = `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:800;
+                  display:flex;align-items:center;justify-content:center;padding:var(--space-4)">
+        <div style="background:var(--color-bg-elevated, #fff);border-radius:12px;padding:var(--space-5);
+                    max-width:520px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+          <div style="font-weight:700;font-size:var(--text-title-2);margin-bottom:var(--space-2)">🔀 Cuve déjà occupée</div>
+          <div style="font-size:var(--text-footnote);color:#555;margin-bottom:14px;line-height:1.55">
+            La cuve <b>${escapeHtml(cuveNom)}</b> contient déjà ${nbOther} lot${nbOther>1?'s':''}&nbsp;:<br>
+            <span style="color:#6d6d6d">${escapeHtml(lotsTxt)}</span><br><br>
+            Tu ajoutes <b>${escapeHtml(lotApportNom)}</b>. Comment veux-tu gérer la cohabitation ?
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+            <button class="btn" id="ask-asm-go"
+              style="text-align:left;padding:12px 14px;line-height:1.4">
+              <b>🔀 Créer un assemblage</b><br>
+              <span style="font-size:var(--text-caption);opacity:.75">Nouveau lot fusionne tout (recommandé)</span>
+            </button>
+            <button class="btn btn--secondary" id="ask-asm-multi"
+              style="text-align:left;padding:12px 14px;line-height:1.4">
+              <b>⚠ Garder en multi-lots</b><br>
+              <span style="font-size:var(--text-caption);opacity:.75">Cas spécifique. Tu pourras convertir plus tard via le bouton 🔀 sur la cuve.</span>
+            </button>
+            <button type="button" id="ask-asm-cancel"
+              style="text-align:left;padding:12px 14px;line-height:1.4;border:1.5px solid #b91c1c;background:#fef2f2;color:#7f1d1d;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit">
+              <b>✕ Annuler l'apport</b><br>
+              <span style="font-size:var(--text-caption);opacity:.85">Retour au formulaire, rien n'est sauvegardé.</span>
+            </button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelector('#ask-asm-go').onclick     = () => finish('assemblage');
+    el.querySelector('#ask-asm-multi').onclick  = () => finish('multi');
+    el.querySelector('#ask-asm-cancel').onclick = () => finish('cancel');
+    // Background click = cancel
+    el.firstElementChild.onclick = (ev) => { if (ev.target === ev.currentTarget) finish('cancel'); };
+  });
+}
+
+async function deleteCurrent() {
+  if (!editingId) return;
+  const a = apports.find(x => x.id === editingId);
+  if (!a || !(await WB3UI.confirm(`Archiver cet apport ?\n\nIl sera masqué des listes mais conservé pour la traçabilité.\nRécupérable dans Paramètres → Corbeille.`, { title:'Archiver l\'apport', okText:'Archiver' }))) return;
+  try {
+    await WB3DB.softDelete('apports', editingId);
+    toast('Apport archivé', 'success');
+    apports = apports.filter(a => a.id !== editingId);
+    closeDrawer(); render();
+  } catch(e) { toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
+}
+
+// ============================================================
+// Import/Export CSV → Paramètres → 🍇 Apports
+// ============================================================
+// (déplacés vers parametres.html section apports_vue)
+
+// (tout le code import/export est dans parametres.html section apports_vue)
+
+// ============================================================
+// Helpers
+// ============================================================
+function fmt(n)    { return Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:1}); }
+function fmtNum(n) { return Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:0}); }
+
+// L11 — aperçu au survol d'une ligne (aucune requête : données en mémoire).
+function _initRowPopover() {
+  if (!window.WB3RowPopover) return;
+  WB3RowPopover.attach('content', {
+    resolve: id => apports.find(a => String(a.id) === String(id)),
+    fields: a => ({
+      title: (a.apporteur || 'Apport') + (a.numero ? ' · ' + a.numero : ''),
+      rows: [
+        ['Date', a.date_apport ? (a.date_apport + (a.heure_apport ? ' ' + a.heure_apport.slice(0, 5) : '')) : ''],
+        ['Cépage', a.cepage_libre],
+        ['Tonnage', a.poids_kg != null ? fmtNum(a.poids_kg) + ' kg' : ''],
+        ['Volume est.', a.volume_hl != null ? fmt(a.volume_hl) + ' hL' : ''],
+        ['Lot', a.lots ? (a.lots.nom + (a.lots.millesime ? ' ' + a.lots.millesime : '')) : ''],
+        ['Statut', STATUT_LABELS[a.statut] || a.statut],
+      ],
+    }),
+  });
+}
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

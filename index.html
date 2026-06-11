@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>WineBlender 3</title>
+<!-- Lanceur : redirige vers l'écran de connexion (app.html → shell.html). -->
+<meta http-equiv="refresh" content="0; url=app.html">
+<style>
+  html, body {
+    margin: 0; height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f7f3ee; color: #6a1b2a;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  }
+  img { width: 84px; height: 84px; object-fit: contain; }
+  .spin {
+    width: 26px; height: 26px; border: 3px solid #e5e0d8; border-top-color: #6a1b2a;
+    border-radius: 50%; animation: r .8s linear infinite;
+  }
+  @keyframes r { to { transform: rotate(360deg); } }
+  a { color: #6a1b2a; font-size: 13px; }
+</style>
+</head>
+<body>
+  <img src="img/icon-wineblender-transparent.png" alt="WineBlender 3">
+  <div class="spin" aria-label="Chargement"></div>
+  <noscript><a href="app.html">Ouvrir WineBlender 3 →</a></noscript>
+  <script>location.replace('app.html');</script>
+</body>
+</html>

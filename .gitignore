@@ -1,0 +1,33 @@
+# ============================================================
+# .gitignore — repo public wineblender-3-demo
+# ============================================================
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Config locale (override éventuel des credentials Supabase démo)
+config.local.js
+
+# Variables d'environnement (au cas où)
+.env
+.env.local
+.env.*.local
+
+# Éditeurs / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Dépendances éventuelles (au cas où on en ajoute un jour)
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Fichiers temporaires
+*.tmp
+*.bak
