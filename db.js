@@ -83,6 +83,7 @@
     produit_stock_guard:                'migration 040 (garde stock produit)',
     operation_lock:                     'migration 037/038 (verrou opérations réalisées)',
     wb3_apply_apport:                   'migration 084 (apports atomiques + journal)',
+    wb3_save_lot_graph_motif:           'migration 085 (édition de lot journalisée)',
   };
   const RECOMMENDED_CAPABILITIES = {
     wb3_apply_ajustement: 'migration 015 (ajustements de volume)',
@@ -2434,15 +2435,20 @@
   // Signature identique à saveLotGraph.
   // En environnement consolidé (migrations 020+ appliquées) : aucun fallback.
   // En dev local avant migrations : définir window.WB3_DEV_MODE = true pour activer le fallback JS.
-  async function saveLotGraphAtomic(lotPayload, { lotId = null, cepages = [], contenants = [] } = {}) {
+  async function saveLotGraphAtomic(lotPayload, { lotId = null, cepages = [], contenants = [], motif = null } = {}) {
     ensureLoggedIn();
     const tenantId = requireTenant();
+    // mig 085 (P5) : signature avec p_motif — les deltas de volume sont
+    // journalisés dans lot_mouvements, motif obligatoire au-delà de
+    // AJUSTEMENT_SEUILS.MINEUR (0,5 % — seuil dupliqué côté SQL).
+    await requireCapability('wb3_save_lot_graph_motif');
     const { data, error } = await client.rpc('wb3_save_lot_graph', {
       p_tenant_id:  tenantId,
       p_lot_id:     lotId,
       p_lot:        lotPayload,
       p_cepages:    cepages,
       p_contenants: contenants,
+      p_motif:      motif || null,
     });
     if (error) {
       if (error.code === 'PGRST202') {

@@ -264,6 +264,12 @@
         </div>
       </div>
       <div class="field-help" style="margin-top:0">Ces volumes sont indicatifs, ils ne contraignent pas le système.</div>
+      <div class="field" id="f-motif-wrap" style="margin-top:var(--space-2)">
+        <label class="field-label">Motif de modification</label>
+        <input class="input" type="text" id="f-motif" maxlength="200"
+               placeholder="Obligatoire si les volumes en cuve changent de plus de 0,5 %">
+        <div class="field-help">Toute modification de volume est tracée dans le journal des mouvements (mig 085).</div>
+      </div>
     </div>
 
     <div class="drawer-section">
@@ -1240,6 +1246,7 @@ async function openDrawer(id = null) {
     document.getElementById('f-statut').value      = l.statut;
     document.getElementById('f-vol-initial').value = l.volume_initial_hl || '';
     document.getElementById('f-vol-actuel').value  = l.volume_actuel_hl  || '';
+    document.getElementById('f-motif').value       = '';
     // P2-1 : f-vol-actuel n'est pas une vraie saisie quand le lot est
     // affecté à au moins une cuve — le trigger lot_contenants_sync_volume
     // (mig 025) écrase la valeur dès la prochaine modif lot_contenants.
@@ -1272,6 +1279,7 @@ async function openDrawer(id = null) {
     document.getElementById('f-statut').value      = 'vendange';
     document.getElementById('f-vol-initial').value = '';
     document.getElementById('f-vol-actuel').value  = '';
+    document.getElementById('f-motif').value       = '';
     // P2-1 : reset disabled à false pour le mode création (sinon état
     // persistant d'une édition précédente).
     const _vaEl = document.getElementById('f-vol-actuel');
@@ -1450,6 +1458,7 @@ async function saveLot() {
       lotId: editingId,
       cepages:    getCheckedCepages(),
       contenants: currentContenantRows,
+      motif:      document.getElementById('f-motif')?.value.trim() || null,
     });
 
     await WB3DB.syncLotFiliation(savedId, currentParentRows).catch(e => console.warn('[filiation]', e));
