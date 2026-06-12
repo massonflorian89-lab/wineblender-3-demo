@@ -7605,45 +7605,13 @@ async function saveOpForm() {
             // RENAME pur — le lot n'existe plus que dans cette cuve.
             await WB3DB.updateRow('lots', lotDst.id, { nom: newNom });
           } else if (dstRow) {
-            // SCISSION — nouveau lot pour la cuve destination.
-            const today = new Date().toISOString().slice(0, 10);
-            const newLot = await WB3DB.insertRow('lots', {
-              nom:               newNom,
-              couleur:           lotDst.couleur || null,
-              millesime:         lotDst.millesime || null,
-              statut:            lotDst.statut || null,
-              type_lot:          lotDst.type_lot || null,
-              appellation:       lotDst.appellation || null,
-              destination:       lotDst.destination || null,
-              volume_initial_hl: dstRow.volume_hl,
-              volume_actuel_hl:  dstRow.volume_hl,
-              date_entree:       today,
-              notes:             'Scission de ' + (lotDst.nom || lotDst.id) + ' lors de l\'op du ' + today,
-            });
-            if (!newLot || !newLot.id) throw new Error('Création nouveau lot échouée');
-
-            // Repointer lot_contenants : DELETE l'ancienne ligne (lot
-            // source dans dst), puis INSERT nouvelle (new lot dans dst).
-            // Les deux triggers (sync_volume + history) se déclenchent
-            // proprement (cohérence audit).
-            await WB3DB.deleteRow('lot_contenants', dstRow.id);
-            await WB3DB.insertRow('lot_contenants', {
-              lot_id:           newLot.id,
-              contenant_id:     r.contenant_id,
-              volume_hl:        dstRow.volume_hl,
-              date_affectation: today,
-            });
-
-            // Filiation manuelle (le lot source est parent du nouveau).
-            // Volume = ce qui a été scindé. Le trigger SQL ne crée AUCUN
-            // lien automatique pour soutirage/transfert (uniquement pour
-            // assemblage) → on doit poser le lien manuellement ici.
-            try {
-              await WB3DB.syncLotFiliation(newLot.id, [{ parent_id: lotDst.id, volume_hl: dstRow.volume_hl }]);
-            } catch (eFil) {
-              console.warn('[WB3] filiation scission KO (non bloquant) :', eFil);
-            }
-
+            // SCISSION — via RPC wb3_scission_lot (mig 086, P6) : nouveau
+            // lot (numéro auto, hérite des caractéristiques), repointage
+            // de la cuve, filiation 'manual' ET couple sortie/entrée
+            // journalisé dans lot_mouvements — le tout atomique.
+            // (Remplace le repointage DELETE+INSERT client-side, devenu
+            // impossible depuis le scellement de lot_contenants.)
+            await WB3DB.scissionLot(lotDst.id, r.contenant_id, newNom);
             toast(`Scission : nouveau lot « ${newNom} » créé · filiation depuis ${lotDst.nom}`, 'success');
           }
         } catch(e) {

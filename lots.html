@@ -1485,7 +1485,15 @@ async function deleteCurrent() {
     toast('Lot supprimé', 'success');
     lots = lots.filter(l => l.id !== editingId);
     closeDrawer(); render();
-  } catch(e) { toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
+  } catch(e) {
+    // Mig 031/038/086 : un lot avec un historique (mouvements, ou encore
+    // affecté à une cuve) ne peut plus être supprimé — message métier clair.
+    if (/journal immuable|lot_mouvements|lot_contenants_history/i.test(e?.message || '')) {
+      toast('Ce lot a un historique de mouvements : il ne peut pas être supprimé. Utilisez une opération « Sortie de lot » pour l\'archiver proprement.', 'error');
+    } else {
+      toast('Erreur : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+    }
+  }
 }
 
 // ============================================================

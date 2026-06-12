@@ -84,6 +84,7 @@
     operation_lock:                     'migration 037/038 (verrou opérations réalisées)',
     wb3_apply_apport:                   'migration 084 (apports atomiques + journal)',
     wb3_save_lot_graph_motif:           'migration 085 (édition de lot journalisée)',
+    wb3_scission_lot:                   'migration 086 (scission de lot journalisée)',
   };
   const RECOMMENDED_CAPABILITIES = {
     wb3_apply_ajustement: 'migration 015 (ajustements de volume)',
@@ -2084,6 +2085,31 @@
     return res.apport;
   }
 
+  // ── Scission de lot via RPC (migration 086 — P6) ──────────────
+  // Le contenu d'une cuve passe du lot source à un NOUVEAU lot (numéro
+  // auto, filiation 'manual', couple sortie/entrée journalisé dans
+  // lot_mouvements) — atomique. Remplace le repointage DELETE+INSERT
+  // client-side de cuverie.html. Exige que le lot source existe encore
+  // dans une autre cuve (sinon : simple renommage, refusé par la RPC).
+  async function scissionLot(lotSourceId, contenantId, nouveauNom) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('wb3_scission_lot');
+    const { data, error } = await client.rpc('wb3_scission_lot', {
+      p_tenant_id:     tenantId,
+      p_lot_source_id: lotSourceId,
+      p_contenant_id:  contenantId,
+      p_nouveau_nom:   nouveauNom,
+    });
+    if (error) {
+      if (error.code === 'PGRST202') {
+        throw new Error('[WB3] wb3_scission_lot introuvable — migration 086 requise.');
+      }
+      throw error;
+    }
+    return data; // { ok, lot }
+  }
+
   // ── Soft-delete uniforme (archived_at) ────────────────────────
   // Archive une ligne au lieu de la supprimer (traçabilité préservée).
   // table ∈ SOFT_DELETE_TABLES. Réversible via restore().
@@ -2616,6 +2642,7 @@
     cancelOperation,
     applyApport,
     cancelApport,
+    scissionLot,
     createCorrectiveOperation,
     convertMultilotToAssemblage,
     softDelete,

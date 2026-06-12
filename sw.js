@@ -9,7 +9,7 @@
  * icÃ´nes/manifest. PAS de cache des donnÃ©es mÃ©tier (Supabase) â€” rÃ©servÃ© Ã  9.5
  * (hors-ligne). Les requÃªtes Supabase passent au rÃ©seau, sans cache.
  * ============================================================ */
-const CACHE_NAME = 'wb3-shell-v5-demo-p5-lots';
+const CACHE_NAME = 'wb3-shell-v6-demo-p6-seal';
 
 const SHELL = [
   'index.html', 'app.html', 'shell.html', 'theme.css',
