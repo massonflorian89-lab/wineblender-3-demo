@@ -82,6 +82,7 @@
     tenant_guard:                       'migration 052 (sécurité multi-tenant des RPC)',
     produit_stock_guard:                'migration 040 (garde stock produit)',
     operation_lock:                     'migration 037/038 (verrou opérations réalisées)',
+    wb3_apply_apport:                   'migration 084 (apports atomiques + journal)',
   };
   const RECOMMENDED_CAPABILITIES = {
     wb3_apply_ajustement: 'migration 015 (ajustements de volume)',
@@ -2045,67 +2046,41 @@
     return savedId;
   }
 
-  // Annuler un apport (statut → 'annule', non supprimé).
-  // Symétrie avec apports.html (Sprint 1) qui MATÉRIALISE l'apport dans
-  // lot_contenants au moment du INSERT. Sans le pendant côté annulation,
-  // le volume restait gonflé silencieusement (lots.volume_actuel_hl géré
-  // par trigger mig 025). Désormais : lit le snapshot apport AVANT update,
-  // déduit le volume du lot_contenants correspondant (DELETE si arrive à
-  // 0, UPDATE sinon), PUIS passe le statut à annule. Le trigger
-  // lot_contenants_sync_volume réécrit volume_actuel_hl automatiquement.
-  // Idempotent : si l'apport est déjà annulé (statut='annule'), on
-  // n'enlève rien — la fonction reste no-op sans erreur.
-  async function cancelApport(id) {
+  // ── Apport atomique via RPC (migration 084 — P4) ──────────────
+  // Upsert apport + matérialisation cuve + journal lot_mouvements dans
+  // UNE transaction Postgres. Remplace insertRow/updateRow('apports')
+  // + la matérialisation best-effort côté client (supprimée) :
+  //   création  → entrée en cuve journalisée (sens='entree')
+  //   édition   → resynchronisation par delta (l'ancien code ne
+  //               resynchronisait JAMAIS à l'édition)
+  //   statut='annule' → démat + journal 'sortie' (idempotent)
+  // Retourne { ok, apport, warnings[] } — warnings = capacité dépassée
+  // ou désynchronisation historique détectée (non bloquants).
+  async function applyApport(payload, { apportId = null } = {}) {
     ensureLoggedIn();
     const tenantId = requireTenant();
-
-    // 1. Lire l'état actuel avant toute modification
-    const { data: apport, error: readErr } = await client
-      .from('apports')
-      .select('id, statut, lot_id, contenant_id, volume_hl')
-      .eq('id', id).eq('tenant_id', tenantId)
-      .single();
-    if (readErr) throw readErr;
-    if (!apport) throw new Error('[WB3] Apport introuvable');
-
-    // No-op si déjà annulé : on évite de soustraire deux fois.
-    if (apport.statut === 'annule') return apport;
-
-    // 2. Défaire l'effet lot_contenants si l'apport était matérialisé
-    if (apport.lot_id && apport.contenant_id && Number(apport.volume_hl) > 0) {
-      const volApport = Number(apport.volume_hl);
-      const { data: existing, error: lcErr } = await client
-        .from('lot_contenants')
-        .select('id, volume_hl')
-        .eq('lot_id', apport.lot_id)
-        .eq('contenant_id', apport.contenant_id)
-        .eq('tenant_id', tenantId);
-      if (lcErr) throw lcErr;
-
-      if (existing && existing.length) {
-        // En théorie 1 seule ligne (couple lot×contenant), mais on
-        // boucle par sûreté si une migration historique a laissé des doublons.
-        for (const row of existing) {
-          const reste = Math.max(0, (Number(row.volume_hl) || 0) - volApport);
-          if (reste < 0.0001) {
-            const { error: dErr } = await client
-              .from('lot_contenants').delete()
-              .eq('id', row.id).eq('tenant_id', tenantId);
-            if (dErr) throw dErr;
-          } else {
-            const { error: uErr } = await client
-              .from('lot_contenants').update({ volume_hl: reste })
-              .eq('id', row.id).eq('tenant_id', tenantId);
-            if (uErr) throw uErr;
-          }
-        }
+    await requireCapability('wb3_apply_apport');
+    const { data, error } = await client.rpc('wb3_apply_apport', {
+      p_tenant_id: tenantId,
+      p_apport_id: apportId,
+      p_apport:    payload,
+    });
+    if (error) {
+      if (error.code === 'PGRST202') {
+        throw new Error('[WB3] wb3_apply_apport introuvable — migration 084 requise.');
       }
-      // Pas d'existing : l'apport n'avait jamais été matérialisé (cas
-      // historique pré-Sprint 1) → rien à défaire, on passe au statut.
+      throw error;
     }
+    return data;
+  }
 
-    // 3. Marquer l'apport annulé
-    return updateRow('apports', id, { statut: 'annule' });
+  // Annuler un apport (statut → 'annule', non supprimé).
+  // Depuis la mig 084 : simple délégation à la RPC atomique, qui défait
+  // la matérialisation en cuve ET journalise la sortie dans
+  // lot_mouvements. Idempotent (no-op volumique si déjà annulé).
+  async function cancelApport(id) {
+    const res = await applyApport({ statut: 'annule' }, { apportId: id });
+    return res.apport;
   }
 
   // ── Soft-delete uniforme (archived_at) ────────────────────────
@@ -2633,6 +2608,7 @@
     // Cycle de vie (annulation / archivage)
     archiveLot,
     cancelOperation,
+    applyApport,
     cancelApport,
     createCorrectiveOperation,
     convertMultilotToAssemblage,

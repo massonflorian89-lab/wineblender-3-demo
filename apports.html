@@ -1525,44 +1525,15 @@ async function saveApport() {
   }
 
   try {
-    let saved;
-    if (editingId) {
-      saved = await WB3DB.updateRow('apports', editingId, payload);
-    } else {
-      saved = await WB3DB.insertRow('apports', payload);
-    }
-
-    // Bug fix — matérialise le volume dans la cuve sélectionnée :
-    // seulement à la CRÉATION (pas à l'édition pour ne pas doubler) ET si
-    // les 3 conditions sont réunies (lot + cuve + volume > 0). Best-effort :
-    // l'apport est déjà sauvegardé, un échec ici ne doit pas faire planter
-    // la création. Le trigger lot_contenants_sync_volume (base) propage
-    // automatiquement sur lots.volume_actuel_hl. Si une ligne existe déjà
-    // pour (lot, cuve), on additionne via UPDATE pour éviter les doublons.
-    if (!editingId && saved && saved.lot_id && saved.contenant_id && Number(saved.volume_hl) > 0) {
-      try {
-        const existing = await WB3DB.listTable('lot_contenants', {
-          select: 'id, volume_hl',
-          filter: { lot_id: saved.lot_id, contenant_id: saved.contenant_id },
-        });
-        if (!existing.length) {
-          await WB3DB.insertRow('lot_contenants', {
-            lot_id: saved.lot_id,
-            contenant_id: saved.contenant_id,
-            volume_hl: Number(saved.volume_hl),
-            date_affectation: saved.date_apport || new Date().toISOString().slice(0,10),
-          });
-        } else {
-          // Lot déjà présent dans cette cuve : on additionne (apport supplémentaire).
-          await WB3DB.updateRow('lot_contenants', existing[0].id, {
-            volume_hl: (Number(existing[0].volume_hl) || 0) + Number(saved.volume_hl),
-          });
-        }
-      } catch (e) {
-        console.warn('[WB3 apports] sync lot_contenants:', e);
-        toast('Apport enregistré, mais matérialisation en cuve impossible : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e?.message || e)), true);
-      }
-    }
+    // RPC atomique (mig 084 — P4) : upsert apport + matérialisation cuve
+    // + journal lot_mouvements dans UNE transaction. Création ET édition
+    // (resynchronisation par delta — l'ancien code ne resynchronisait
+    // jamais à l'édition) ET annulation via le champ statut (défait la
+    // cuve). Le trigger lot_contenants_sync_volume (base) propage
+    // toujours vers lots.volume_actuel_hl.
+    const res = await WB3DB.applyApport(payload, { apportId: editingId });
+    const saved = res.apport;
+    (res.warnings || []).forEach(w => toast('⚠️ ' + w, 'warning'));
 
     toast(editingId ? 'Apport mis à jour' : 'Apport enregistré', 'success');
     closeDrawer();
