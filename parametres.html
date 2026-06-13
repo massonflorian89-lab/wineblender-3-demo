@@ -1164,6 +1164,11 @@ function _epNormCuve(nom) {
 }
 
 let _epArrondi = 1;   // volume_arrondi_hl du tenant (décimales)
+let _epFilterNonCal = false;   // affectation : n'afficher que les cuves non calibrées
+let _epEditModeleId = null;    // id du modèle en cours d'édition (null = aucun)
+
+// Une cuve est « calibrée » si elle a un abaque (modele) OU un coef linéaire.
+function _epIsCalibree(b) { return !!(b && (b.modele_id || b.volume_metrique_hl_cm)); }
 
 async function renderEpalementSection() {
   const root = _getSubRoot();
@@ -1215,9 +1220,35 @@ function _renderEpalementUI() {
       <div class="drawer-section-title">📊 État</div>
       <div class="drawer-section-content" style="padding:var(--space-4);display:flex;gap:var(--space-4);flex-wrap:wrap">
         <div><b>${_epModeles.length}</b> modèle(s) d'abaque</div>
-        <div><b>${nbAffectes}</b> / ${_epContenants.length} cuve(s) calibrée(s)</div>
+        <div><b>${_epContenants.filter(c => _epIsCalibree(barByCont[c.id])).length}</b> / ${_epContenants.length} cuve(s) calibrée(s)</div>
       </div>
     </div>
+
+    ${isPriv ? `
+    <!-- Modèles d'abaque : création / édition manuelle (sans Excel) -->
+    <div class="drawer-section" style="margin-top:var(--space-4)">
+      <div class="drawer-section-title">🗂 Modèles d'abaque
+        <button class="btn btn--primary btn--sm" style="margin-left:var(--space-2)" onclick="epNewModele()">➕ Nouveau modèle</button>
+      </div>
+      <div class="drawer-section-content" style="padding:var(--space-4)">
+        <div id="ep-modele-editor"></div>
+        ${_epModeles.length ? `
+        <table style="width:100%;border-collapse:collapse;font-size:var(--text-callout);margin-top:var(--space-2)">
+          <thead><tr>
+            <th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--color-border)">Modèle</th>
+            <th style="text-align:right;padding:6px 10px;border-bottom:1px solid var(--color-border)">Capacité (hL)</th>
+            <th style="padding:6px 10px;border-bottom:1px solid var(--color-border)"></th>
+          </tr></thead>
+          <tbody>${_epModeles.map(m => `<tr>
+            <td style="padding:6px 10px;font-weight:600">${escapeHtml(m.nom)}</td>
+            <td style="padding:6px 10px;text-align:right;color:var(--color-ink-tertiary)">${m.capacite_nominale_hl != null ? m.capacite_nominale_hl : '—'}</td>
+            <td style="padding:6px 10px;text-align:right;white-space:nowrap">
+              <button class="btn btn--ghost btn--sm" onclick="epEditModele('${m.id}')">✎ Éditer</button>
+              <button class="btn btn--ghost btn--sm" onclick="epDeleteModele('${m.id}','${escapeHtml(m.nom)}')">🗑</button>
+            </td></tr>`).join('')}</tbody>
+        </table>` : '<p style="color:var(--color-ink-tertiary);font-size:var(--text-caption)">Aucun modèle. Crée-en un à la main, ou importe le classeur Excel ci-dessus.</p>'}
+      </div>
+    </div>` : ''}
 
     <!-- Réglage : arrondi du volume -->
     <div class="drawer-section" style="margin-top:var(--space-4)">
@@ -1264,7 +1295,12 @@ function _renderEpalementUI() {
 
     <!-- Affectations cuve → modèle -->
     <div class="drawer-section" style="margin-top:var(--space-4)">
-      <div class="drawer-section-title">🔗 Affectation cuve → abaque</div>
+      <div class="drawer-section-title">🔗 Affectation cuve → abaque
+        <label style="margin-left:var(--space-2);font-weight:400;font-size:var(--text-caption);cursor:pointer">
+          <input type="checkbox" ${_epFilterNonCal ? 'checked' : ''} onchange="_epFilterNonCal=this.checked;_renderEpalementUI()">
+          n'afficher que les non calibrées
+        </label>
+      </div>
       <div class="drawer-section-content" style="padding:0">
         <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:var(--text-callout)">
@@ -1276,7 +1312,7 @@ function _renderEpalementUI() {
             <th style="text-align:left;padding:8px 12px;border-bottom:1px solid var(--color-border)">Modèle d'abaque</th>
           </tr></thead>
           <tbody>
-            ${_epContenants.map(c => {
+            ${_epContenants.filter(c => !_epFilterNonCal || !_epIsCalibree(barByCont[c.id])).map(c => {
               const b = barByCont[c.id] || {};
               const cap = b.volume_nominal_hl != null ? Number(b.volume_nominal_hl) : null;
               // auto-suggestion : modèles dont la capacité matche le nominal
@@ -1352,6 +1388,7 @@ async function _epRenderDetail(cid) {
   const b = _epBaremages.find(x => x.contenant_id === cid) || {};
   const modele = _epModeles.find(m => m.id === b.modele_id);
   const v = x => (x == null || x === '') ? '—' : x;
+  const isPriv = WB3DB.isPrivileged && WB3DB.isPrivileged();
 
   const raw = [
     ['Modèle d\'abaque',      modele ? escapeHtml(modele.nom) : '— (linéaire seul)'],
@@ -1400,7 +1437,120 @@ async function _epRenderDetail(cid) {
           <span id="ep-cd-res-${cid}" style="font-weight:700;color:var(--color-primary)"></span>
         </div>
       </div>
+      ${isPriv ? `
+      <div class="ep-det-col">
+        <div class="ep-det-h">✎ Calibration linéaire (sans abaque)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-width:320px">
+          <label style="font-size:var(--text-caption)">Volume nominal (hL)
+            <input class="input" type="number" step="0.1" id="ep-lin-nom-${cid}" value="${b.volume_nominal_hl ?? ''}"></label>
+          <label style="font-size:var(--text-caption)">Hauteur totale (cm)
+            <input class="input" type="number" step="0.1" id="ep-lin-haut-${cid}" value="${b.hauteur_totale_cm ?? ''}"></label>
+          <label style="font-size:var(--text-caption)">Hauteur cheminée (cm)
+            <input class="input" type="number" step="0.1" id="ep-lin-chem-${cid}" value="${b.hauteur_cheminee_cm ?? ''}"></label>
+          <label style="font-size:var(--text-caption)">Type de mesure
+            <select class="select" id="ep-lin-mode-${cid}">
+              <option value="creux"${b.type_mesure!=='jauge_bas'?' selected':''}>Creux</option>
+              <option value="jauge_bas"${b.type_mesure==='jauge_bas'?' selected':''}>Jauge bas</option>
+            </select></label>
+        </div>
+        <div style="margin-top:6px;font-size:var(--text-caption);color:var(--color-ink-tertiary)">
+          Coef = nominal ÷ hauteur totale (auto). Sert quand la cuve n'a pas d'abaque détaillé.</div>
+        <button class="btn btn--primary btn--sm" style="margin-top:6px" onclick="epSaveLineaire('${cid}')">💾 Enregistrer la calibration</button>
+      </div>` : ''}
     </div>`;
+}
+
+// ── Création / édition manuelle d'un modèle d'abaque ──────────
+function epNewModele() { _epEditModeleId = '__new__'; _epShowModeleEditor({ nom:'', capacite_nominale_hl:'', points:[] }); }
+
+async function epEditModele(id) {
+  const m = _epModeles.find(x => x.id === id); if (!m) return;
+  _epEditModeleId = id;
+  let pts = [];
+  try { pts = await WB3DB.getModelePoints(id); } catch(_) {}
+  _epShowModeleEditor({ nom:m.nom, capacite_nominale_hl:m.capacite_nominale_hl ?? '', points:pts });
+}
+
+function _epShowModeleEditor({ nom, capacite_nominale_hl, points }) {
+  const host = document.getElementById('ep-modele-editor'); if (!host) return;
+  const txt = (points || []).map(p => `${p.creux_cm}\t${p.volume_hl}`).join('\n');
+  host.innerHTML = `
+    <div style="border:1px solid var(--color-primary);border-radius:var(--radius-md);padding:var(--space-3);margin-bottom:var(--space-3);background:var(--color-bg-subtle)">
+      <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:end;margin-bottom:var(--space-2)">
+        <label style="font-size:var(--text-caption)">Nom du modèle<br>
+          <input class="input" id="ep-md-nom" value="${escapeHtml(String(nom||''))}" placeholder="ex. Cuve 1250 hL"></label>
+        <label style="font-size:var(--text-caption)">Capacité nominale (hL)<br>
+          <input class="input" id="ep-md-cap" type="number" step="0.1" value="${capacite_nominale_hl ?? ''}" style="max-width:140px"></label>
+      </div>
+      <label style="font-size:var(--text-caption)">Points <b>creux → volume</b> (un par ligne : <code>creux&nbsp;volume</code>, séparés par tabulation, espace, virgule ou point-virgule — collez depuis Excel)</label>
+      <textarea id="ep-md-points" class="input" rows="8" style="width:100%;font-family:monospace;font-size:12px" placeholder="0\t1250&#10;10\t1180&#10;20\t1100">${escapeHtml(txt)}</textarea>
+      <div style="margin-top:var(--space-2);display:flex;gap:var(--space-2)">
+        <button class="btn btn--primary btn--sm" onclick="epSaveModele()">💾 Enregistrer le modèle</button>
+        <button class="btn btn--secondary btn--sm" onclick="epCancelModele()">Annuler</button>
+        <span id="ep-md-count" style="font-size:var(--text-caption);color:var(--color-ink-tertiary);align-self:center"></span>
+      </div>
+    </div>`;
+  const ta = document.getElementById('ep-md-points');
+  const upd = () => { document.getElementById('ep-md-count').textContent = `${_epParsePoints(ta.value).length} point(s)`; };
+  ta.addEventListener('input', upd); upd();
+}
+
+// Parse texte → [{creux_cm, volume_hl}]. Séparateurs : tab/espace/,/;
+function _epParsePoints(text) {
+  return String(text||'').split('\n').map(l => {
+    const m = l.trim().split(/[\s,;]+/).filter(Boolean);
+    if (m.length < 2) return null;
+    const c = parseFloat(m[0].replace(',','.')), v = parseFloat(m[1].replace(',','.'));
+    return (isNaN(c)||isNaN(v)) ? null : { creux_cm:c, volume_hl:v };
+  }).filter(Boolean);
+}
+
+function epCancelModele() { _epEditModeleId = null; const h=document.getElementById('ep-modele-editor'); if(h) h.innerHTML=''; }
+
+async function epSaveModele() {
+  const nom = document.getElementById('ep-md-nom').value.trim();
+  if (!nom) { toast('Nom du modèle requis', 'error'); return; }
+  const cap = parseFloat(document.getElementById('ep-md-cap').value);
+  const points = _epParsePoints(document.getElementById('ep-md-points').value);
+  try {
+    const id = await WB3DB.saveModele({ nom, capacite_nominale_hl: isNaN(cap) ? null : cap });
+    await WB3DB.replaceModelePoints(id, points);
+    toast(`Modèle « ${nom} » enregistré (${points.length} points)`, 'success');
+    _epEditModeleId = null;
+    await renderEpalementSection();
+  } catch(e) {
+    const msg = /row-level security|permission|policy/i.test(e.message||'') ? 'Droits insuffisants (admin/œnologue).' : (WB3DB.errMsg?WB3DB.errMsg(e):e.message);
+    toast('Erreur : ' + msg, 'error');
+  }
+}
+
+async function epDeleteModele(id, nom) {
+  if (!(await WB3UI.confirm(`Supprimer le modèle « ${nom} » ?\nLes cuves qui l'utilisent repasseront en non calibrées.`, { title:'Supprimer le modèle', okText:'Supprimer', danger:true }))) return;
+  try { await WB3DB.deleteModele(id); toast('Modèle supprimé', 'success'); await renderEpalementSection(); }
+  catch(e) { toast('Erreur : ' + (WB3DB.errMsg?WB3DB.errMsg(e):e.message), 'error'); }
+}
+
+// ── Calibration linéaire d'une cuve (sans abaque) ─────────────
+async function epSaveLineaire(cid) {
+  const nom  = parseFloat(document.getElementById('ep-lin-nom-'+cid).value);
+  const haut = parseFloat(document.getElementById('ep-lin-haut-'+cid).value);
+  const chem = parseFloat(document.getElementById('ep-lin-chem-'+cid).value);
+  const mode = document.getElementById('ep-lin-mode-'+cid).value;
+  if (isNaN(nom) || isNaN(haut) || haut <= 0) { toast('Renseigne au moins le volume nominal et la hauteur totale (> 0)', 'error'); return; }
+  const coef = nom / haut;   // hL par cm
+  try {
+    await WB3DB.saveBaremage(cid, {
+      volume_nominal_hl: nom, hauteur_totale_cm: haut,
+      hauteur_cheminee_cm: isNaN(chem) ? null : chem,
+      volume_metrique_hl_cm: Math.round(coef * 100000) / 100000,
+      type_mesure: mode,
+    });
+    toast('Calibration enregistrée', 'success');
+    await renderEpalementSection();
+  } catch(e) {
+    const msg = /row-level security|permission|policy/i.test(e.message||'') ? 'Droits insuffisants (admin/œnologue).' : (WB3DB.errMsg?WB3DB.errMsg(e):e.message);
+    toast('Erreur : ' + msg, 'error');
+  }
 }
 
 async function epDirectCalc(cid) {
