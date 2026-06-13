@@ -138,6 +138,8 @@
     <div style="flex:1"></div>
     <button class="btn btn--secondary btn--sm" id="btn-clear-filters" onclick="clearAllColumnFilters()" style="display:none">✕ Filtres actifs</button>
     <button class="btn btn--secondary btn--sm" onclick="openRendementDashboard()">📊 Rendement vendange</button>
+    <button class="btn btn--secondary btn--sm" onclick="document.getElementById('bascule-file').click()" title="Importer un CSV de pont-bascule (poids brut/tare)">⚖️ Import bascule</button>
+    <input type="file" id="bascule-file" accept=".csv,text/csv" style="display:none" onchange="importBascule(this.files[0]); this.value=''">
     <a class="btn btn--secondary btn--sm" href="parametres.html#apports_import" onclick="WB3Nav.navigate('parametres.html?section=apports_vue&subtab=import')">📥 Import CSV</a>
     <a class="btn btn--secondary btn--sm" href="parametres.html#apports_export" onclick="WB3Nav.navigate('parametres.html?section=apports_vue&subtab=export')">📤 Export CSV</a>
   </div>
@@ -220,11 +222,13 @@
       <div class="drawer-section-title">Origine</div>
       <div class="field">
         <label class="field-label">Apporteur / Fournisseur</label>
-        <input class="input" type="text" id="f-apporteur" placeholder="Nom du vigneron ou du camion…">
+        <input class="input" type="text" id="f-apporteur" list="dl-apporteur" placeholder="Nom du vigneron ou du camion…">
+        <datalist id="dl-apporteur"></datalist>
       </div>
       <div class="field">
         <label class="field-label">Provenance <span style="font-weight:400;color:var(--color-ink-tertiary)">(parcelle, lieu-dit, appellation…)</span></label>
-        <input class="input" type="text" id="f-provenance" placeholder="Libre : parcelle, commune, AOP…">
+        <input class="input" type="text" id="f-provenance" list="dl-provenance" placeholder="Libre : parcelle, commune, AOP…">
+        <datalist id="dl-provenance"></datalist>
       </div>
       <div class="field-row">
         <div class="field">
@@ -242,10 +246,23 @@
 
     <div class="drawer-section">
       <div class="drawer-section-title">Quantité reçue</div>
+      <!-- Pesée pont-bascule (mig 089) : net = brut − tare, reporté dans Poids net -->
       <div class="field-row">
         <div class="field">
-          <label class="field-label">Poids (kg)</label>
-          <input class="input" type="number" id="f-poids" min="0" step="1" placeholder="8 500"
+          <label class="field-label">Poids brut (kg) <span style="font-size:10px;color:var(--color-ink-tertiary)">bascule</span></label>
+          <input class="input" type="number" id="f-poids-brut" min="0" step="1" placeholder="14 000"
+                 oninput="computeNet()">
+        </div>
+        <div class="field">
+          <label class="field-label">Tare (kg)</label>
+          <input class="input" type="number" id="f-tare" min="0" step="1" placeholder="1 000"
+                 oninput="computeNet()">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Poids net (kg)</label>
+          <input class="input" type="number" id="f-poids" min="0" step="1" placeholder="13 000"
                  oninput="updateRendementHint()">
         </div>
         <div class="field">
@@ -404,6 +421,7 @@ const APPORTS_COLUMNS = [
   { key:'volume_hl',   label:'Vol. est. (hL)',numeric:true,  sortKey:'volume_hl',   defaultVisible:true },
   { key:'volume_jus_reel_hl', label:'Vol. réel (hL)', numeric:true, sortKey:'volume_jus_reel_hl', defaultVisible:false },
   { key:'rendement_kg_hl', label:'Rdt (kg/hL)', numeric:true, sortKey:'rendement_kg_hl', defaultVisible:true },
+  { key:'coef_extraction_pct', label:'Extraction', numeric:true, sortKey:'coef_extraction_pct', defaultVisible:true },
   { key:'degre_probable',label:'Degré',       numeric:true,  sortKey:null,          defaultVisible:false },
   { key:'statut',      label:'Statut',        numeric:false, sortKey:null,          defaultVisible:true },
 ];
@@ -458,12 +476,15 @@ async function openRendementDashboard() {
         const rdt = r.rendement_kg_hl != null ? Number(r.rendement_kg_hl) : null;
         const good = rdt != null && rdt <= _rdtCoef;
         const reel = Number(r.nb_avec_reel) > 0;
+        const coef = r.coef_extraction_pct != null ? Number(r.coef_extraction_pct) : null;
+        const coefGood = coef != null && coef >= 100;
         return `<tr>
           <td style="padding:4px 10px">${escapeHtml(r.cepage)}</td>
           <td class="num" style="padding:4px 10px">${r.nb_apports}</td>
           <td class="num" style="padding:4px 10px">${fmtKg(r.poids_total_kg)}</td>
           <td class="num" style="padding:4px 10px">${fmt(r.volume_jus_hl)}${reel?' <span title="inclut du volume réel mesuré" style="color:#15803d">●</span>':''}</td>
           <td class="num" style="padding:4px 10px;font-weight:600;color:${rdt==null?'':(good?'#15803d':'#b91c1c')}">${rdt!=null?fmt(rdt):'—'}</td>
+          <td class="num" style="padding:4px 10px;font-weight:600;color:${coef==null?'':(coefGood?'#15803d':'#b91c1c')}" title="${r.objectif_kg_hl!=null?'objectif '+fmt(r.objectif_kg_hl)+' kg/hL':''}">${coef!=null?fmt(coef)+' %':'—'}</td>
         </tr>`;
       }).join('');
       return `
@@ -481,6 +502,7 @@ async function openRendementDashboard() {
               <th style="text-align:right;padding:4px 10px">Poids (kg)</th>
               <th style="text-align:right;padding:4px 10px">Jus (hL)</th>
               <th style="text-align:right;padding:4px 10px">Rdt (kg/hL)</th>
+              <th style="text-align:right;padding:4px 10px">Extraction</th>
             </tr></thead>
             <tbody>${rowsHtml}</tbody>
           </table>
@@ -503,6 +525,105 @@ async function openRendementDashboard() {
 }
 
 // Hint live de rendement dans le formulaire d'apport.
+// ── Import bascule (mig 089) — CSV pont-bascule → apports ──────────
+// Mappe les en-têtes (insensible casse/accents) : date, apporteur,
+// provenance, cepage, poids_brut/brut, tare, poids_net/net/poids,
+// volume/volume_hl, millesime, degre. Chaque ligne crée un apport via
+// la RPC atomique (net = brut − tare, objectif/coef dérivés serveur).
+function _parseCSV(text) {
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i+1] === '"') { cur += '"'; i++; }
+      else if (c === '"') q = false;
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',' || c === ';') { row.push(cur); cur = ''; }
+    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (c === '\r') { /* skip */ }
+    else cur += c;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(v => String(v).trim() !== ''));
+}
+
+const _norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+
+async function importBascule(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const rows = _parseCSV(text);
+    if (rows.length < 2) { toast('CSV vide ou sans données', 'error'); return; }
+    const head = rows[0].map(_norm);
+    const col = (...names) => { for (const n of names) { const i = head.indexOf(_norm(n)); if (i >= 0) return i; } return -1; };
+    const idx = {
+      date: col('date','date_apport','dateapport'),
+      apporteur: col('apporteur','vigneron','fournisseur'),
+      provenance: col('provenance','parcelle','origine'),
+      cepage: col('cepage','cepage_libre'),
+      brut: col('poids_brut','brut','poidsbrut','pesee'),
+      tare: col('tare'),
+      net: col('poids_net','net','poids','poidskg'),
+      volume: col('volume','volume_hl','volumehl','jus'),
+      mill: col('millesime'),
+      degre: col('degre','degreprobable','sucre'),
+    };
+    const todayIso = new Date().toISOString().slice(0,10);
+    let ok = 0, ko = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      const num = j => { if (j < 0) return null; const v = parseFloat(String(r[j]).replace(',','.')); return isNaN(v) ? null : v; };
+      const str = j => j >= 0 ? (String(r[j]||'').trim() || null) : null;
+      const payload = {
+        date_apport: str(idx.date) || todayIso,
+        apporteur: str(idx.apporteur),
+        provenance: str(idx.provenance),
+        cepage_libre: str(idx.cepage),
+        poids_brut_kg: num(idx.brut),
+        tare_kg: num(idx.tare),
+        poids_kg: num(idx.net),   // si brut+tare fournis, le serveur recalcule le net
+        volume_hl: num(idx.volume),
+        millesime: num(idx.mill),
+        degre_probable: num(idx.degre),
+        statut: 'recu',
+      };
+      try { await WB3DB.applyApport(payload); ok++; }
+      catch (e) { console.warn('[bascule] ligne', i+1, e); ko++; }
+    }
+    toast(`Import bascule : ${ok} apport(s) créé(s)${ko ? ` · ${ko} en échec` : ''}`, ko ? 'warning' : 'success');
+    await loadApports(); render(); loadApportSuggestions();
+  } catch (e) {
+    toast('Import impossible : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
+  }
+}
+
+// Autocomplétion (mig 089) : remplit les datalists apporteur/provenance
+// depuis les valeurs distinctes déjà saisies (best-effort, non bloquant).
+async function loadApportSuggestions() {
+  try {
+    const s = await WB3DB.apportSuggestions();
+    const fill = (id, vals) => {
+      const dl = document.getElementById(id);
+      if (dl) dl.innerHTML = (vals || []).map(v => `<option value="${escapeHtml(v)}">`).join('');
+    };
+    fill('dl-apporteur', s.apporteurs);
+    fill('dl-provenance', s.provenances);
+  } catch (e) { console.warn('[WB3 apports] suggestions:', e); }
+}
+
+// Pesée (mig 089) : net = brut − tare, reporté dans le champ Poids net.
+// Si brut/tare vides, l'opérateur peut saisir le net directement.
+function computeNet() {
+  const brut = parseFloat(document.getElementById('f-poids-brut').value);
+  const tare = parseFloat(document.getElementById('f-tare').value);
+  if (!isNaN(brut) && !isNaN(tare)) {
+    document.getElementById('f-poids').value = Math.max(0, brut - tare);
+  }
+  updateRendementHint();
+}
+
 function updateRendementHint() {
   const el = document.getElementById('rendement-hint');
   if (!el) return;
@@ -615,6 +736,7 @@ async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'
       try { localStorage.setItem('wb3_apports_view', viewMode); } catch(_) {}
     }
   } catch (e) { console.warn('[WB3 apports] getUserPref:', e); }
+  loadApportSuggestions();   // mig 089 : autocomplétion apporteur/provenance
   subscribeRealtime();
   setupEventListeners();
   // Sync UI du toggle viewMode avec la valeur finale (pref user / localStorage / défaut)
@@ -953,6 +1075,13 @@ function makeTableRow(a, cols) {
         const good = Number(a.rendement_kg_hl) <= _rdtCoef;
         return `<td class="num" style="color:${good?'#15803d':'#b91c1c'};font-weight:600" title="réf. ${_rdtCoef} kg/hL">${fmt(a.rendement_kg_hl)}</td>`;
       }
+      case 'coef_extraction_pct': {
+        if (a.coef_extraction_pct == null) return `<td class="num">—</td>`;
+        // ≥100 % = on a obtenu au moins le volume théorique (bonne extraction).
+        const good = Number(a.coef_extraction_pct) >= 100;
+        const obj = a.objectif_kg_hl != null ? `objectif ${fmt(a.objectif_kg_hl)} kg/hL` : '';
+        return `<td class="num" style="color:${good?'#15803d':'#b91c1c'};font-weight:600" title="${obj}">${fmt(a.coef_extraction_pct)} %</td>`;
+      }
       case 'degre_probable':return `<td class="num">${a.degre_probable != null ? a.degre_probable : '—'}</td>`;
       case 'statut':       return `<td><span class="statut-badge statut-${a.statut}">${STATUT_LABELS[a.statut]||a.statut}</span></td>`;
       default:             return `<td>—</td>`;
@@ -1267,6 +1396,8 @@ async function openDrawer(id = null, opts = {}) {
     }
     _cepSel.value = a.cepage_libre || '';
     document.getElementById('f-millesime').value    = a.millesime || '';
+    document.getElementById('f-poids-brut').value   = a.poids_brut_kg != null ? a.poids_brut_kg : '';
+    document.getElementById('f-tare').value         = a.tare_kg != null ? a.tare_kg : '';
     document.getElementById('f-poids').value        = a.poids_kg != null ? a.poids_kg : '';
     document.getElementById('f-volume').value       = a.volume_hl != null ? a.volume_hl : '';
     document.getElementById('f-volume-reel').value  = a.volume_jus_reel_hl != null ? a.volume_jus_reel_hl : '';
@@ -1287,6 +1418,8 @@ async function openDrawer(id = null, opts = {}) {
     document.getElementById('f-provenance').value   = '';
     document.getElementById('f-cepage-libre').value = '';
     document.getElementById('f-millesime').value    = new Date().getFullYear();
+    document.getElementById('f-poids-brut').value   = '';
+    document.getElementById('f-tare').value         = '';
     document.getElementById('f-poids').value        = '';
     document.getElementById('f-volume').value       = '';
     document.getElementById('f-volume-reel').value  = '';
@@ -1461,6 +1594,8 @@ async function saveApport() {
   }
 
   const poids  = parseFloat(document.getElementById('f-poids').value);
+  const brut   = parseFloat(document.getElementById('f-poids-brut').value);
+  const tare   = parseFloat(document.getElementById('f-tare').value);
   const volume = parseFloat(document.getElementById('f-volume').value);
   const volReel = parseFloat(document.getElementById('f-volume-reel').value);
   const degre  = parseFloat(document.getElementById('f-degre').value);
@@ -1480,6 +1615,8 @@ async function saveApport() {
     lot_id:         document.getElementById('f-lot').value || null,
     contenant_id:   document.getElementById('f-contenant').value || null,
     poids_kg:           isNaN(poids)  ? null : poids,
+    poids_brut_kg:      isNaN(brut)   ? null : brut,
+    tare_kg:            isNaN(tare)   ? null : tare,
     volume_hl:          isNaN(volume) ? null : volume,
     volume_jus_reel_hl: isNaN(volReel) ? null : volReel,
     degre_probable:     isNaN(degre)  ? null : degre,

@@ -88,6 +88,7 @@
   };
   const RECOMMENDED_CAPABILITIES = {
     wb3_apply_ajustement: 'migration 015 (ajustements de volume)',
+    wb3_etat_cave_at:     'migration 087 (état de cave à une date)',
     v_cuverie_etat:       'migration 048 (états cuverie enrichis)',
     analyses_temperature: 'migration 049 (température des analyses)',
 
@@ -2076,6 +2077,21 @@
     return data;
   }
 
+  // Suggestions d'autocomplétion apport (mig 089) : valeurs distinctes
+  // apporteur / provenance / cépage du tenant pour les datalists du
+  // formulaire (anti-fautes de frappe, sans référentiel structuré).
+  // Best-effort : si la RPC manque (089 non appliquée), listes vides.
+  async function apportSuggestions() {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_apport_suggestions', { p_tenant_id: tenantId });
+    if (error) {
+      if (error.code === 'PGRST202') return { apporteurs: [], provenances: [], cepages: [] };
+      throw error;
+    }
+    return data || { apporteurs: [], provenances: [], cepages: [] };
+  }
+
   // Annuler un apport (statut → 'annule', non supprimé).
   // Depuis la mig 084 : simple délégation à la RPC atomique, qui défait
   // la matérialisation en cuve ET journalise la sortie dans
@@ -2083,6 +2099,28 @@
   async function cancelApport(id) {
     const res = await applyApport({ statut: 'annule' }, { apportId: id });
     return res.apport;
+  }
+
+  // ── État de la cave à une date passée (migration 087 — P7) ────
+  // Reconstruction par rejeu inverse du journal lot_mouvements depuis
+  // l'état actuel. Retourne { ok, date, fiabilite, borne_fiabilite,
+  // volumes_null_ignores, lignes:[{contenant_*, lot_*, volume_hl}] }.
+  // fiabilite='partielle' si date < borne de scellement (2026-06-12).
+  async function etatCaveAt(dateStr) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('wb3_etat_cave_at');
+    const { data, error } = await client.rpc('wb3_etat_cave_at', {
+      p_tenant_id: tenantId,
+      p_date:      dateStr,
+    });
+    if (error) {
+      if (error.code === 'PGRST202') {
+        throw new Error('[WB3] wb3_etat_cave_at introuvable — migration 087 requise.');
+      }
+      throw error;
+    }
+    return data;
   }
 
   // ── Scission de lot via RPC (migration 086 — P6) ──────────────
@@ -2641,8 +2679,10 @@
     archiveLot,
     cancelOperation,
     applyApport,
+    apportSuggestions,
     cancelApport,
     scissionLot,
+    etatCaveAt,
     createCorrectiveOperation,
     convertMultilotToAssemblage,
     softDelete,
