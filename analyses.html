@@ -297,7 +297,7 @@
   <div class="breadcrumb-flex">
     <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
     <span class="sep">/</span>
-    <h1>🔬 Analyses</h1>
+    <h1 data-help="Saisie et suivi des analyses (densité, température, pH, acidité…) par cuve ou par lot, avec seuils d'alerte.">🔬 Analyses</h1>
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
@@ -391,7 +391,7 @@
 </main>
 
 <!-- ── FAB ────────────────────────────────────────────────── -->
-<button class="fab" onclick="openModal()" title="Nouvelle analyse">+</button>
+<button class="fab" data-help="Saisis une analyse pour une cuve ou un lot (densité, pH, température, acidité…). Les seuils déclenchent des alertes." onclick="openModal()" title="Nouvelle analyse">+</button>
 
 <!-- ── Modal ──────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="modal-backdrop" onclick="onBackdropClick(event)">

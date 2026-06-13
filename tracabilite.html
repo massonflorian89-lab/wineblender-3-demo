@@ -284,7 +284,7 @@
     <span class="sep">/</span>
     <span id="bc-parent" style="color:rgba(255,255,255,.65);font-size:var(--text-caption)">…</span>
     <span class="sep">/</span>
-    <h1 id="page-title" style="font-size:var(--text-callout);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;color:#fff">Traçabilité</h1>
+    <h1 data-help="Traçabilité globale : recherche un lot ou une cuve, consulte son journal de mouvements, et reconstitue l'état de la cave à une date passée." id="page-title" style="font-size:var(--text-callout);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;color:#fff">Traçabilité</h1>
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
@@ -456,10 +456,84 @@ function renderGlobalShell() {
       <input type="date" id="date-to"   class="period-date" value="${today}" onchange="setGlobalCustomRange()">
     </div>
 
+    <!-- P7 (mig 087) : état de la cave reconstitué à une date passée -->
+    <div class="tr-section" style="margin-bottom:var(--space-4)">
+      <div class="tr-section-head">
+        📅 État de la cave à une date
+        <input type="date" id="etat-date" class="period-date" max="${today}" value="${today}"
+               style="margin-left:var(--space-3)">
+        <button class="btn btn--sm" onclick="loadEtatCave()">Reconstituer</button>
+        <span style="margin-left:auto;font-size:var(--text-caption);color:var(--color-ink-tertiary)">
+          rejeu inverse du journal des mouvements
+        </span>
+      </div>
+      <div class="tr-section-body" id="etat-cave-result" style="display:none"></div>
+    </div>
+
     <div id="global-timeline">
       <div class="loading-state"><div class="spinner"></div>Chargement…</div>
     </div>
   `;
+}
+
+// ── P7 : « Vue au … » — état reconstitué (RPC wb3_etat_cave_at) ──
+async function loadEtatCave() {
+  const dateStr = document.getElementById('etat-date')?.value;
+  const host = document.getElementById('etat-cave-result');
+  if (!dateStr || !host) return;
+  host.style.display = '';
+  host.innerHTML = '<div class="loading-state"><div class="spinner"></div>Reconstruction…</div>';
+  try {
+    const data = await WB3DB.etatCaveAt(dateStr);
+    host.innerHTML = renderEtatCave(data);
+  } catch(e) {
+    host.innerHTML = `<div class="tr-empty">Erreur : ${escapeHtml(WB3DB.errMsg ? WB3DB.errMsg(e) : e.message)}</div>`;
+  }
+}
+
+function renderEtatCave(data) {
+  const lignes = data.lignes || [];
+  const dateFr = (data.date || '').split('-').reverse().join('/');
+  const totalHl = lignes.reduce((s, l) => s + (Number(l.volume_hl) || 0), 0);
+  const nbCuves = new Set(lignes.map(l => l.contenant_id)).size;
+
+  // Bandeau : état reconstitué + fiabilité
+  const bandeau = `
+    <div style="padding:var(--space-2) var(--space-3);margin-bottom:var(--space-3);
+                border-radius:var(--radius-md);background:var(--color-surface-sunken, #f5f2ee);
+                font-size:var(--text-caption)">
+      🕰️ <strong>État reconstitué au ${escapeHtml(dateFr)}</strong> (fin de journée) ·
+      ${nbCuves} cuve${nbCuves > 1 ? 's' : ''} occupée${nbCuves > 1 ? 's' : ''} ·
+      ${fmt(totalHl)} hL au total
+      ${data.fiabilite === 'partielle'
+        ? `<div style="margin-top:var(--space-1);color:var(--color-warning, #9a6700)">
+             ⚠️ Fiabilité partielle : date antérieure au scellement du journal
+             (${escapeHtml((data.borne_fiabilite || '').split('-').reverse().join('/'))})
+             ${data.volumes_null_ignores > 0 ? ` · ${data.volumes_null_ignores} mouvement(s) sans volume ignoré(s)` : ''}
+             — les mouvements historiques peuvent être incomplets.</div>`
+        : ''}
+    </div>`;
+
+  if (!lignes.length) return bandeau + '<div class="tr-empty">Aucun lot en cuve à cette date.</div>';
+
+  const rows = lignes.map(l => `
+    <tr>
+      <td><strong>${escapeHtml(l.contenant_nom || '?')}</strong>
+          <span style="color:var(--color-ink-tertiary);font-size:var(--text-caption)">${escapeHtml(l.contenant_type || '')}</span></td>
+      <td>${escapeHtml(l.lot_nom || '?')}
+          ${l.numero_lot ? `<span style="color:var(--color-ink-tertiary);font-size:var(--text-caption)">[${escapeHtml(l.numero_lot)}]</span>` : ''}
+          ${l.millesime ? ` · ${l.millesime}` : ''}</td>
+      <td style="text-align:right"><strong>${fmt(l.volume_hl)}</strong> hL${l.capacite_hl ? `
+          <span style="color:var(--color-ink-tertiary);font-size:var(--text-caption)">/ ${fmt(l.capacite_hl)}</span>` : ''}</td>
+    </tr>`).join('');
+
+  return bandeau + `
+    <table style="width:100%;border-collapse:collapse;font-size:var(--text-body-sm, 14px)">
+      <thead><tr style="text-align:left;color:var(--color-ink-tertiary);font-size:var(--text-caption)">
+        <th style="padding:var(--space-1) 0">Cuve</th><th>Lot</th><th style="text-align:right">Volume</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 async function refreshGlobalTimeline() {

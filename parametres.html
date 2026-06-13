@@ -163,7 +163,7 @@
   <div class="breadcrumb-flex">
     <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
     <span class="sep">/</span>
-    <h1>⚙️ Paramètres</h1>
+    <h1 data-help="Réglages de la cave : utilisateurs &amp; rôles, cépages, cuverie, épalement (barémage), seuils qualité, modules, audit.">⚙️ Paramètres</h1>
   </div>
   <div class="header-actions">
     <a class="btn btn--header" href="cuverie.html" title="Retour à la cuverie">← Cuverie</a>
@@ -519,7 +519,7 @@ async function renderUsersSection() {
           <select class="select" id="u-role">${_roleOptions('caviste')}</select></div>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:var(--space-2)">
-        <button class="btn btn--primary" onclick="adminAddUser()">Créer / assigner</button>
+        <button class="btn btn--primary" data-help="Crée le compte d'un membre de l'équipe et choisis son rôle (admin, caviste, lecture). C'est ici que tu donnes l'accès au logiciel." onclick="adminAddUser()">Créer / assigner</button>
       </div>
       <p class="field-help" id="u-hint">Avec mot de passe → crée le compte de connexion. Sans → assigne le rôle à un compte déjà inscrit.</p>
     </div>
@@ -960,7 +960,7 @@ async function _renderInventaireSub() {
         <p style="margin:2px 0 0;font-size:var(--text-caption);color:var(--color-ink-tertiary)">
           Comparez la quantité théorique (système) à la quantité comptée, expliquez les écarts.</p>
       </div>
-      <button class="btn btn--primary btn--sm" onclick="newInventaire()">+ Nouvel inventaire</button>
+      <button class="btn btn--primary btn--sm" data-help="Démarre un inventaire du stock produits : tu comptes le réel, l'écart avec le stock théorique est enregistré." onclick="newInventaire()">+ Nouvel inventaire</button>
     </div>
     ${list}
     <div id="inv-detail" style="margin-top:var(--space-4)"></div>`;
@@ -1229,7 +1229,7 @@ function _renderEpalementUI() {
     <!-- Modèles d'abaque : création / édition manuelle (sans Excel) -->
     <div class="drawer-section" style="margin-top:var(--space-4)">
       <div class="drawer-section-title">🗂 Modèles d'abaque
-        <button class="btn btn--primary btn--sm" style="margin-left:var(--space-2)" onclick="epNewModele()">➕ Nouveau modèle</button>
+        <button class="btn btn--primary btn--sm" style="margin-left:var(--space-2)" data-help="Crée un modèle d'abaque (barémage) : la table creux→volume d'un type de cuve, pour lire le volume au centimètre près. À renseigner avant la vendange." onclick="epNewModele()">➕ Nouveau modèle</button>
       </div>
       <div class="drawer-section-content" style="padding:var(--space-4)">
         <div id="ep-modele-editor"></div>

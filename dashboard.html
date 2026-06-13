@@ -316,7 +316,7 @@
   <div class="breadcrumb-flex">
     <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
     <span class="sep">/</span>
-    <h1>📊 Tableau de bord</h1>
+    <h1 data-help="Vue d'ensemble de la cave : volumes en stock, alertes et activité récente. Le point de départ chaque matin.">📊 Tableau de bord</h1>
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
@@ -898,7 +898,7 @@ function renderKPIs() {
 
   el.innerHTML = `
     <div class="widget-title">📊 Indicateurs clés</div>
-    <div class="kpi-grid">
+    <div class="kpi-grid" data-help="Les chiffres clés de ta cave en temps réel : lots actifs, volume total, taux d'occupation, opérations et alertes du jour.">
       <div class="kpi-card"><div class="accent-bar" style="background:var(--color-primary)"></div>
         <div class="kpi-label">Lots actifs</div><div class="kpi-value">${activeLots.length}</div>
       </div>

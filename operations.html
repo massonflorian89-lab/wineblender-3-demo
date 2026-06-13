@@ -170,7 +170,7 @@
   <div class="breadcrumb-flex">
     <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
     <span class="sep">/</span>
-    <h1>⚙️ Opérations cave</h1>
+    <h1 data-help="Les opérations de cave : transferts, soutirages, sulfitages, assemblages, mises en bouteille. Chaque opération est journalisée (qui, quoi, quand, combien).">⚙️ Opérations cave</h1>
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
@@ -245,7 +245,7 @@
 
 </main>
 
-<button class="fab" onclick="openDrawer()" title="Nouvelle opération">+</button>
+<button class="fab" data-help="Enregistre une opération de cave (transfert, soutirage, sulfitage…). Choisis le type, les contenants et les quantités : stock et volumes se mettent à jour automatiquement." onclick="openDrawer()" title="Nouvelle opération">+</button>
 
 <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
 <aside class="drawer" id="drawer">

@@ -57,7 +57,7 @@
   <div class="breadcrumb-flex">
     <a href="app.html" class="home"><img class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
     <span class="sep">/</span>
-    <h1>🧪 Assemblage &amp; échantillons</h1>
+    <h1 data-help="Simulateur d'assemblage et gestion des échantillons : tester des proportions de cépages/lots avant de réaliser l'assemblage en cave.">🧪 Assemblage &amp; échantillons</h1>
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
@@ -73,7 +73,7 @@
     <aside class="asm-tree">
       <div class="asm-tree-hd">
         ${_canAsm ? `<button class="btn btn--secondary btn--sm" onclick="asmNewDossier()" title="Nouveau dossier">📁 +</button>
-        <button class="btn btn--primary btn--sm" style="flex:1" onclick="asmNewEssai()">+ Nouvel essai</button>` : '<span class="muted" style="font-size:12px;padding:4px">Lecture seule</span>'}
+        <button class="btn btn--primary btn--sm" style="flex:1" data-help="Crée un essai d'assemblage : ajoute des lots/cépages avec leurs proportions et compare les profils avant de réaliser le mélange en cave." onclick="asmNewEssai()">+ Nouvel essai</button>` : '<span class="muted" style="font-size:12px;padding:4px">Lecture seule</span>'}
       </div>
       <div id="tree"></div>
     </aside>

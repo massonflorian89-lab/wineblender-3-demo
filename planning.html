@@ -269,7 +269,7 @@
   <div class="breadcrumb-flex">
     <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
     <span class="sep">/</span>
-    <h1>📅 Planning &amp; fiches de travail</h1>
+    <h1 data-help="Planning des tâches et fiches de travail des cavistes — avec créneaux 3×8 en vendange. Imprime une fiche pour le terrain.">📅 Planning &amp; fiches de travail</h1>
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
@@ -291,7 +291,7 @@
       <input type="checkbox" id="hide-done" onchange="Planning.render()"> Masquer les faits
     </label>
     <div class="plng-spacer"></div>
-    <button class="btn btn--primary btn--sm" id="btn-new-task" onclick="Planning.openTask()">+ Nouvelle tâche</button>
+    <button class="btn btn--primary btn--sm" id="btn-new-task" data-help="Programme une tâche pour un caviste (quoi, quand, sur quelle cuve). Elle apparaît sur le planning et sur sa fiche de travail." onclick="Planning.openTask()">+ Nouvelle tâche</button>
   </div>
 
   <div id="late-zone"></div>

@@ -100,7 +100,7 @@
   <div class="breadcrumb-flex">
     <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
     <span class="sep">/</span>
-    <h1>📋 Rapports</h1>
+    <h1 data-help="Exports et synthèses (CSV) : registre des traitements, stock produits, apports, suivi analytique, synthèse qualité.">📋 Rapports</h1>
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
@@ -144,7 +144,7 @@
       </select>
       <div style="flex:1"></div>
       <button class="btn btn--secondary btn--sm" onclick="window.print()">🖨 Imprimer</button>
-      <button class="btn btn--secondary btn--sm" onclick="exportCSV('traitements')">📤 CSV</button>
+      <button class="btn btn--secondary btn--sm" data-help="Télécharge ce tableau en fichier CSV (ouvrable dans Excel/LibreOffice) pour l'archiver ou le transmettre." onclick="exportCSV('traitements')">📤 CSV</button>
     </div>
     <div id="traitements-content">
       <div class="loading-state"><div class="spinner"></div>Chargement…</div>
@@ -461,7 +461,7 @@ function renderTraitements() {
 
   el.innerHTML = `
     <div class="print-header">
-      <h2 style="margin:0 0 4px;font-size:18px">Registre des traitements œnologiques</h2>
+      <h2 style="margin:0 0 4px;font-size:18px" data-help="Le registre réglementaire des traitements : tous les produits œno appliqués, par lot et par date. Exportable en CSV pour un contrôle ou la traçabilité.">Registre des traitements œnologiques</h2>
       <div style="font-size:var(--text-footnote);color:#555">${escapeHtml(tenant?.nom || '')} · ${periodLabel}${catLabel}</div>
       <div style="font-size:12px;color:#888;margin-top:var(--space-1)">Édité le ${fmtDateLong(today)}</div>
     </div>
@@ -561,7 +561,7 @@ function renderStock() {
 
   el.innerHTML = `
     <div class="print-header">
-      <h2 style="margin:0 0 4px;font-size:18px">État du stock — Produits œnologiques</h2>
+      <h2 style="margin:0 0 4px;font-size:18px" data-help="Le stock restant de chaque produit œno, calculé à partir des entrées et des consommations enregistrées dans les opérations.">État du stock — Produits œnologiques</h2>
       <div style="font-size:var(--text-footnote);color:#555">${escapeHtml(tenant?.nom || '')} · Édité le ${fmtDateLong(today)}</div>
     </div>
     ${(alertes || expires || vides) ? `
@@ -658,7 +658,7 @@ function renderApports() {
 
   el.innerHTML = `
     <div class="print-header">
-      <h2 style="margin:0 0 4px;font-size:18px">Bilan des apports vendange</h2>
+      <h2 style="margin:0 0 4px;font-size:18px" data-help="Le récapitulatif des apports de vendange : poids, volumes, rendements et coefficients d'extraction par cépage/parcelle.">Bilan des apports vendange</h2>
       <div style="font-size:var(--text-footnote);color:#555">${escapeHtml(tenant?.nom || '')} · ${periodLabel}</div>
       <div style="font-size:12px;color:#888;margin-top:var(--space-1)">Édité le ${fmtDateLong(today)}</div>
     </div>
