@@ -64,6 +64,7 @@
 <script src="wb3-init.js"></script>
 <script src="auth.js"></script>
 <script src="nav.js"></script>
+<script src="wb3-help.js"></script>
 
 <script>
 'use strict';
@@ -130,11 +131,11 @@ function renderShell(){
     <div id="r-banner"></div>
 
     <div class="recep-card">
-      <h3>➕ Rattacher une cuve de jus</h3>
+      <h3 data-help="<b>Rattacher</b> = dire au bilan du jour qu'une cuve contient le jus produit. La cuve existe déjà et peut être travaillée (collage…) <b>avant</b> d'être rattachée — tu peux le faire le soir ou le lendemain. C'est ça qui te donne le rendement du jour.">➕ Rattacher une cuve de jus</h3>
       <div class="field-row" style="align-items:flex-end;flex-wrap:wrap;gap:var(--space-2)">
         <div class="field"><label class="field-label">Cuve</label>
           <select class="select" id="r-cuve">${_cuveOptions()}</select></div>
-        <div class="field"><label class="field-label">Type de jus</label>
+        <div class="field"><label class="field-label" data-help="<b>Égouttage</b> = jus de goutte (avant pressurage, par gravité). <b>Presse</b> = jus extrait au pressoir. On les sépare pour comparer leurs rendements.">Type de jus</label>
           <select class="select" id="r-type">
             <option value="presse">Presse</option>
             <option value="egouttage">Égouttage</option>
@@ -142,7 +143,7 @@ function renderShell(){
           </select></div>
         <div class="field" style="max-width:150px"><label class="field-label">Volume (hL)</label>
           <input type="number" class="input" id="r-vol" min="0" step="0.1" placeholder="120.0"></div>
-        <button class="btn btn--secondary btn--sm" onclick="mesurerCuve()" title="Mesurer via barémage (creux→hL)">📏 Mesurer</button>
+        <button class="btn btn--secondary btn--sm" onclick="mesurerCuve()" data-help="Calcule le volume en hL à partir du <b>creux</b> mesuré (distance du haut de la cheminée à la surface du jus), via l'abaque de la cuve. La cuve doit être calibrée (Paramètres → Épalement).">📏 Mesurer</button>
         <button class="btn btn--primary btn--sm" onclick="rattacher()">Rattacher</button>
       </div>
       <div class="field-help">La cuve continue de vivre (collage, assemblage…) qu'elle soit rattachée ou non. Le rattachement ne sert qu'au bilan.</div>
@@ -224,7 +225,8 @@ function renderCockpit(){
       <div class="sub">hL · ${fmt(b.volume_egouttage_hl)} égouttage / ${fmt(b.volume_presse_hl)} presse</div></div>
     <div class="kpi"><div class="lbl">Rendement</div><div class="val" style="color:${rdt==null?'':(rdtGood?'#15803d':'#b91c1c')}">${rdt!=null?fmt(rdt):'—'}</div>
       <div class="sub">kg/hL ${obj!=null?`· objectif ${fmt(obj)}`:''}</div></div>
-    <div class="kpi"><div class="lbl">Extraction</div><div class="val" style="color:${coef==null?'':(coefGood?'#15803d':'#b91c1c')}">${coef!=null?fmt(coef)+' %':'—'}</div>
+    <div class="kpi" data-help="<b>Coefficient d'extraction</b> : volume de jus obtenu rapporté au volume théorique attendu (poids ÷ objectif). <b>100 %</b> = pile la cible. Au-dessus = tu as extrait plus de jus que prévu ; en dessous = moins.">
+      <div class="lbl">Extraction</div><div class="val" style="color:${coef==null?'':(coefGood?'#15803d':'#b91c1c')}">${coef!=null?fmt(coef)+' %':'—'}</div>
       <div class="sub">vs objectif (100 % = cible)</div></div>
     <div class="kpi"><div class="lbl">Cuves rattachées</div><div class="val">${b.nb_cuves_rattachees||0}</div>
       <div class="sub">${b.part_egouttage_pct!=null?fmt(b.part_egouttage_pct)+' % égouttage':'—'}</div></div>`;

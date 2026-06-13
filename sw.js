@@ -9,12 +9,12 @@
  * icÃ´nes/manifest. PAS de cache des donnÃ©es mÃ©tier (Supabase) â€” rÃ©servÃ© Ã  9.5
  * (hors-ligne). Les requÃªtes Supabase passent au rÃ©seau, sans cache.
  * ============================================================ */
-const CACHE_NAME = 'wb3-shell-v11-demo-baremage-edit';
+const CACHE_NAME = 'wb3-shell-v12-demo-help';
 
 const SHELL = [
   'index.html', 'app.html', 'shell.html', 'theme.css',
   'lib/supabase.min.js',
-  'config.js', 'db.js', 'auth.js', 'nav.js', 'wb3-init.js', 'toast.js',
+  'config.js', 'db.js', 'auth.js', 'nav.js', 'wb3-init.js', 'toast.js', 'wb3-help.js',
   'manifest.json',
   'img/icon-wineblender-192.png', 'img/icon-wineblender-512.png',
 ];
