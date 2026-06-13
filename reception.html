@@ -72,6 +72,10 @@ let _cuves = [];          // contenants (cuves) du tenant
 let _date  = new Date().toISOString().slice(0,10);
 let _bilan = null;        // ligne v_bilan_reception_jour du jour
 let _lignes = [];         // reception_jour_cuve du jour
+let _candidats = [];      // cuves ayant reçu du jus ce jour (mig 091)
+let _campRows = [];       // bilans de la campagne (pour export/courbe)
+// Début de campagne par défaut : 1er août de l'année courante (vendange).
+let _campFrom = (function(){ const y=new Date().getFullYear(); return `${y}-08-01`; })();
 
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
 function fmt(n){ return n==null||isNaN(n)?'—':Number(n).toLocaleString('fr-FR',{maximumFractionDigits:1}); }
@@ -123,6 +127,8 @@ function renderShell(){
 
     <div class="cockpit" id="r-cockpit"></div>
 
+    <div id="r-banner"></div>
+
     <div class="recep-card">
       <h3>➕ Rattacher une cuve de jus</h3>
       <div class="field-row" style="align-items:flex-end;flex-wrap:wrap;gap:var(--space-2)">
@@ -145,6 +151,17 @@ function renderShell(){
     <div class="recep-card">
       <h3>🧾 Cuves rattachées au <span id="r-day-label">${_date.split('-').reverse().join('/')}</span></h3>
       <div id="r-lignes"></div>
+    </div>
+
+    <div class="recep-card">
+      <h3 style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap">
+        📈 Campagne
+        <span style="font-weight:400;font-size:var(--text-caption);color:var(--color-ink-tertiary)">depuis le</span>
+        <input type="date" id="c-from" class="input" style="max-width:160px" value="${_campFrom}" onchange="loadCampagne()">
+        <div style="flex:1"></div>
+        <button class="btn btn--secondary btn--sm" onclick="exportCampagneCSV()">📥 Export CSV</button>
+      </h3>
+      <div id="r-campagne"><div class="loading-state"><div class="spinner"></div>Chargement…</div></div>
     </div>`;
 }
 
@@ -160,8 +177,32 @@ async function loadDay(){
     const rows = await WB3DB.queryBilanReceptionJour({ from:_date, to:_date });
     _bilan = rows[0] || null;
     _lignes = _bilan ? await WB3DB.listReceptionCuves(_bilan.reception_jour_id) : [];
-  } catch(e){ console.error('[reception] loadDay:', e); toast('Erreur de chargement : '+(WB3DB.errMsg?WB3DB.errMsg(e):e.message),'error'); _bilan=null; _lignes=[]; }
-  renderCockpit(); renderLignes(); renderStatut();
+    _candidats = await WB3DB.receptionCandidats(_date);
+  } catch(e){ console.error('[reception] loadDay:', e); toast('Erreur de chargement : '+(WB3DB.errMsg?WB3DB.errMsg(e):e.message),'error'); _bilan=null; _lignes=[]; _candidats=[]; }
+  renderCockpit(); renderBanner(); renderLignes(); renderStatut();
+  loadCampagne();
+}
+
+// Badge anti-oubli : cuves ayant reçu du jus aujourd'hui mais pas rattachées.
+function renderBanner(){
+  const host = document.getElementById('r-banner'); if (!host) return;
+  const manquantes = (_candidats || []).filter(c => !c.rattachee && c.contenant_id);
+  if (!manquantes.length){ host.innerHTML = ''; return; }
+  host.innerHTML = `
+    <div class="recep-card" style="border-color:#ffcc80;background:#fff8ef">
+      <strong style="color:#e65100">⚠️ ${manquantes.length} cuve(s) ont reçu du jus aujourd'hui mais ne sont pas rattachées.</strong>
+      <div style="margin-top:var(--space-2);display:flex;gap:var(--space-2);flex-wrap:wrap">
+        ${manquantes.map(c => `<button class="btn btn--secondary btn--sm" onclick="prefill('${c.contenant_id}', ${Number(c.volume_entre_hl)||0})">
+            ${escapeHtml(c.contenant_nom||'?')} · ${fmt(c.volume_entre_hl)} hL →</button>`).join('')}
+      </div>
+    </div>`;
+}
+
+// Pré-remplit le formulaire de rattachement depuis une cuve candidate.
+function prefill(cuveId, vol){
+  document.getElementById('r-cuve').value = cuveId;
+  if (vol > 0){ const e=document.getElementById('r-vol'); e.value = Number(vol).toFixed(1); e.dataset.source='baremage'; }
+  document.getElementById('r-vol').focus();
 }
 
 function renderStatut(){
@@ -250,6 +291,91 @@ async function toggleStatut(){
   const next = (_bilan?.statut === 'clos') ? 'ouvert' : 'clos';
   try { await WB3DB.receptionSetStatut(_date, next); toast(next==='clos'?'Bilan clôturé':'Bilan rouvert','success'); await loadDay(); }
   catch(e){ toast('Erreur : '+(WB3DB.errMsg?WB3DB.errMsg(e):e.message),'error'); }
+}
+
+// ── Campagne (Lot 3) ──────────────────────────────────────────────
+async function loadCampagne(){
+  _campFrom = document.getElementById('c-from')?.value || _campFrom;
+  const host = document.getElementById('r-campagne'); if (!host) return;
+  try {
+    _campRows = await WB3DB.queryBilanReceptionJour({ from:_campFrom, to:new Date().toISOString().slice(0,10) });
+  } catch(e){ host.innerHTML = `<div class="tr-empty">Erreur : ${escapeHtml(WB3DB.errMsg?WB3DB.errMsg(e):e.message)}</div>`; return; }
+  renderCampagne();
+}
+
+function renderCampagne(){
+  const host = document.getElementById('r-campagne');
+  const rows = (_campRows||[]).filter(r => Number(r.volume_total_hl) > 0);
+  if (!rows.length){ host.innerHTML = '<div class="tr-empty" style="color:var(--color-ink-tertiary)">Aucun jus rattaché sur la période.</div>'; return; }
+  // Cumuls
+  const kg = rows.reduce((s,r)=>s+(Number(r.poids_total_kg)||0),0);
+  const eg = rows.reduce((s,r)=>s+(Number(r.volume_egouttage_hl)||0),0);
+  const pr = rows.reduce((s,r)=>s+(Number(r.volume_presse_hl)||0),0);
+  const vol = eg + pr;
+  const rdt = vol>0 ? kg/vol : null;
+  const obj = rows.map(r=>Number(r.objectif_kg_hl)).filter(x=>x>0);
+  const objMoy = obj.length ? obj.reduce((a,b)=>a+b,0)/obj.length : null;
+  const coef = (vol>0 && objMoy) ? (vol*objMoy/kg*100) : null;
+  const coefGood = coef!=null && coef>=100;
+
+  // Sparkline rendement (chronologique)
+  const chrono = [...rows].reverse(); // rows sont desc → asc
+  const series = chrono.map(r => r.rendement_kg_hl!=null ? Number(r.rendement_kg_hl) : null).filter(x=>x!=null);
+  const spark = _sparkline(series, objMoy);
+
+  host.innerHTML = `
+    <div class="cockpit">
+      <div class="kpi"><div class="lbl">Raisin cumulé</div><div class="val">${fmtKg(kg)}</div><div class="sub">kg</div></div>
+      <div class="kpi"><div class="lbl">Jus cumulé</div><div class="val">${fmt(vol)}</div><div class="sub">hL · ${fmt(eg)} égout. / ${fmt(pr)} presse</div></div>
+      <div class="kpi"><div class="lbl">Rendement moyen</div><div class="val">${rdt!=null?fmt(rdt):'—'}</div><div class="sub">kg/hL ${objMoy?`· obj. ${fmt(objMoy)}`:''}</div></div>
+      <div class="kpi"><div class="lbl">Extraction</div><div class="val" style="color:${coef==null?'':(coefGood?'#15803d':'#b91c1c')}">${coef!=null?fmt(coef)+' %':'—'}</div><div class="sub">moyenne campagne</div></div>
+      <div class="kpi"><div class="lbl">Jours</div><div class="val">${rows.length}</div><div class="sub">de réception</div></div>
+    </div>
+    ${series.length>1 ? `<div style="margin:var(--space-2) 0"><div class="lbl" style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">Rendement jour par jour (kg/hL)</div>${spark}</div>` : ''}
+    <table class="recep" style="margin-top:var(--space-2)">
+      <thead><tr><th>Jour</th><th style="text-align:right">Raisin (kg)</th><th style="text-align:right">Jus (hL)</th>
+        <th style="text-align:right">Égout./Presse</th><th style="text-align:right">Rdt</th><th style="text-align:right">Extraction</th><th>Statut</th></tr></thead>
+      <tbody>${rows.map(r => {
+        const c = r.coef_extraction_pct!=null?Number(r.coef_extraction_pct):null;
+        return `<tr>
+          <td>${r.date_reception.split('-').reverse().join('/')}</td>
+          <td style="text-align:right">${fmtKg(r.poids_total_kg)}</td>
+          <td style="text-align:right">${fmt(r.volume_total_hl)}</td>
+          <td style="text-align:right;color:var(--color-ink-tertiary)">${fmt(r.volume_egouttage_hl)} / ${fmt(r.volume_presse_hl)}</td>
+          <td style="text-align:right;font-weight:600">${r.rendement_kg_hl!=null?fmt(r.rendement_kg_hl):'—'}</td>
+          <td style="text-align:right;font-weight:600;color:${c==null?'':(c>=100?'#15803d':'#b91c1c')}">${c!=null?fmt(c)+' %':'—'}</td>
+          <td><span class="statut-tag statut-${r.statut}">${r.statut==='clos'?'clos':'ouvert'}</span></td>
+        </tr>`;}).join('')}</tbody>
+    </table>`;
+}
+
+// Mini-courbe SVG (sans dépendance). data = nombres ; ref = ligne objectif.
+function _sparkline(data, ref){
+  if (!data || data.length < 2) return '';
+  const W=560, H=70, P=6;
+  const min = Math.min(...data, ref||Infinity), max = Math.max(...data, ref||-Infinity);
+  const span = (max-min)||1;
+  const x = i => P + i*(W-2*P)/(data.length-1);
+  const y = v => H-P - (v-min)/span*(H-2*P);
+  const pts = data.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const refLine = (ref!=null) ? `<line x1="${P}" y1="${y(ref).toFixed(1)}" x2="${W-P}" y2="${y(ref).toFixed(1)}" stroke="#b91c1c" stroke-dasharray="4 3" stroke-width="1"/>` : '';
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-bg-subtle)">
+    ${refLine}<polyline points="${pts}" fill="none" stroke="#6a1b2a" stroke-width="2"/>
+    ${data.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" fill="#6a1b2a"/>`).join('')}</svg>`;
+}
+
+function exportCampagneCSV(){
+  const rows = (_campRows||[]).filter(r => Number(r.volume_total_hl) > 0);
+  if (!rows.length){ toast('Rien à exporter sur la période','error'); return; }
+  const head = ['Jour','Raisin_kg','Jus_total_hL','Egouttage_hL','Presse_hL','Rendement_kg_hl','Objectif_kg_hl','Extraction_pct','Statut'];
+  const lines = rows.map(r => [r.date_reception, r.poids_total_kg, r.volume_total_hl, r.volume_egouttage_hl,
+    r.volume_presse_hl, r.rendement_kg_hl, r.objectif_kg_hl, r.coef_extraction_pct, r.statut]);
+  const csv = [head, ...lines].map(row => row.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bilan_reception_${_campFrom}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
 }
 </script>
 </body>

@@ -2116,6 +2116,21 @@
     return data;
   }
 
+  // Cuves où du jus est entré le jour J + flag rattaché (mig 091).
+  // Filet anti-oubli. Best-effort : RPC absente → tableau vide.
+  async function receptionCandidats(date) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_reception_candidats', {
+      p_tenant_id: tenantId, p_date: date,
+    });
+    if (error) {
+      if (error.code === 'PGRST202') return [];
+      throw error;
+    }
+    return data || [];
+  }
+
   // Bilan(s) réception jour (vue v_bilan_reception_jour). Optionnel from/to.
   async function queryBilanReceptionJour({ from = null, to = null } = {}) {
     ensureLoggedIn();
@@ -2747,6 +2762,7 @@
     receptionRattacher,
     receptionDetacher,
     receptionSetStatut,
+    receptionCandidats,
     queryBilanReceptionJour,
     listReceptionCuves,
     cancelApport,
