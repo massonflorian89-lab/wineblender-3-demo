@@ -2077,6 +2077,70 @@
     return data;
   }
 
+  // ── Réception coopérative (mig 090 — bilan journalier) ────────
+  // Rattache (ou édite) une cuve de jus à un bilan jour. typeJus ∈
+  // egouttage|presse|autre. Crée l'entête du jour si absente.
+  async function receptionRattacher(date, contenantId, typeJus, volumeHl,
+                                    { lotId = null, source = 'baremage', ligneId = null } = {}) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_reception_rattacher', {
+      p_tenant_id: tenantId, p_date: date, p_contenant_id: contenantId,
+      p_type_jus: typeJus, p_volume_hl: volumeHl,
+      p_lot_id: lotId, p_source: source, p_ligne_id: ligneId,
+    });
+    if (error) {
+      if (error.code === 'PGRST202') throw new Error('[WB3] wb3_reception_rattacher introuvable — migration 090 requise.');
+      throw error;
+    }
+    return data;
+  }
+
+  async function receptionDetacher(ligneId) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { error } = await client.rpc('wb3_reception_detacher', {
+      p_tenant_id: tenantId, p_ligne_id: ligneId,
+    });
+    if (error) throw error;
+    return true;
+  }
+
+  async function receptionSetStatut(date, statut) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_reception_set_statut', {
+      p_tenant_id: tenantId, p_date: date, p_statut: statut,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  // Bilan(s) réception jour (vue v_bilan_reception_jour). Optionnel from/to.
+  async function queryBilanReceptionJour({ from = null, to = null } = {}) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    let q = client.from('v_bilan_reception_jour').select('*').eq('tenant_id', tenantId);
+    if (from) q = q.gte('date_reception', from);
+    if (to)   q = q.lte('date_reception', to);
+    const { data, error } = await q.order('date_reception', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Lignes de rattachement (cuves) d'un bilan jour, avec nom de cuve.
+  async function listReceptionCuves(receptionJourId) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client
+      .from('reception_jour_cuve')
+      .select('*, contenants(id,nom,type,capacite_hl)')
+      .eq('tenant_id', tenantId).eq('reception_jour_id', receptionJourId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
   // Suggestions d'autocomplétion apport (mig 089) : valeurs distinctes
   // apporteur / provenance / cépage du tenant pour les datalists du
   // formulaire (anti-fautes de frappe, sans référentiel structuré).
@@ -2680,6 +2744,11 @@
     cancelOperation,
     applyApport,
     apportSuggestions,
+    receptionRattacher,
+    receptionDetacher,
+    receptionSetStatut,
+    queryBilanReceptionJour,
+    listReceptionCuves,
     cancelApport,
     scissionLot,
     etatCaveAt,

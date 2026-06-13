@@ -481,6 +481,7 @@
     { href: 'cuverie.html',    icon: ICON.tank,           label: 'Cuverie' },
     { href: 'lots.html',       icon: ICON.wine,           label: 'Lots' },
     { href: 'apports.html',    icon: ICON.grape,          label: 'Apports' },
+    { href: 'reception.html',  icon: ICON.grape,          label: 'Réception' },
     { href: 'planning.html',   icon: ICON.calendar,       label: 'Planning', module: 'planning' },
     { href: 'operations.html', icon: ICON.clipboardCheck, label: 'Opérations' },
     { href: 'produits.html',   icon: ICON.flask,          label: 'Produits' },

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Réception — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  .cockpit { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:var(--space-3);
+             margin-bottom:var(--space-4); }
+  .kpi { background:var(--color-bg-elevated); border:1px solid var(--color-border);
+         border-radius:var(--radius-lg); padding:var(--space-4); box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .kpi .lbl { font-size:var(--text-caption); color:var(--color-ink-tertiary); text-transform:uppercase; letter-spacing:.04em; }
+  .kpi .val { font-size:var(--text-display); font-weight:800; margin-top:4px; }
+  .kpi .sub { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
+  .recep-card { background:var(--color-bg-elevated); border:1px solid var(--color-border);
+                border-radius:var(--radius-lg); padding:var(--space-4); margin-bottom:var(--space-4); }
+  .recep-card h3 { margin:0 0 var(--space-3); font-size:var(--text-callout); }
+  table.recep { width:100%; border-collapse:collapse; font-size:var(--text-body-sm,14px); }
+  table.recep th { text-align:left; color:var(--color-ink-tertiary); font-size:var(--text-caption); padding:6px 8px; }
+  table.recep td { padding:6px 8px; border-top:1px solid var(--color-border); }
+  .pill-jus { padding:2px 9px; border-radius:var(--radius-pill); font-size:var(--text-caption); font-weight:600; }
+  .pill-egouttage { background:#e3f2fd; color:#1565c0; }
+  .pill-presse    { background:#fce4ec; color:#ad1457; }
+  .pill-autre     { background:var(--color-bg-subtle); color:var(--color-ink-secondary); }
+  .statut-tag { padding:3px 10px; border-radius:var(--radius-pill); font-weight:700; font-size:var(--text-caption); }
+  .statut-ouvert { background:#fff3e0; color:#e65100; }
+  .statut-clos   { background:#e8f5e9; color:#2e7d32; }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <h1 style="font-size:var(--text-callout);font-weight:600;margin:0;color:#fff">🍇 Réception — bilan du jour</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+  <div id="content">
+    <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-bus.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+let _cuves = [];          // contenants (cuves) du tenant
+let _date  = new Date().toISOString().slice(0,10);
+let _bilan = null;        // ligne v_bilan_reception_jour du jour
+let _lignes = [];         // reception_jour_cuve du jour
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+function fmt(n){ return n==null||isNaN(n)?'—':Number(n).toLocaleString('fr-FR',{maximumFractionDigits:1}); }
+function fmtKg(n){ return Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:0}); }
+function logout(){ WB3Auth.signOut().then(()=>WB3Nav.navigateTop('app.html')); }
+function toast(a,b){ if(window.WB3Toast) return WB3Toast.legacy(a,b); }
+
+// ── Init ──────────────────────────────────────────────────────────
+(async function init(){
+  if (typeof window.WB3DB === 'undefined' || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>';
+    return;
+  }
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>';
+    return;
+  }
+  document.getElementById('tenant-pill').textContent = `🏢 ${ctx.tenant.nom} · ${ctx.tenant.role}`;
+
+  // Garde capacité : migration 090 requise.
+  if (WB3DB.requireCapability) {
+    try { await WB3DB.requireCapability('reception_jour'); }
+    catch (e) {
+      document.getElementById('content').innerHTML =
+        `<div class="empty-state"><div class="icon">🧩</div><div class="title">Module Réception indisponible</div>
+         <div class="desc">${escapeHtml(WB3DB.errMsg?WB3DB.errMsg(e):e.message)}</div></div>`;
+      return;
+    }
+  }
+
+  renderShell();
+  try { _cuves = await WB3DB.listTable('contenants', { select:'id,nom,type,capacite_hl', order:'nom', ascending:true }); }
+  catch(e){ console.warn('[reception] cuves:', e); _cuves = []; }
+  await loadDay();
+})();
+
+function renderShell(){
+  document.getElementById('content').innerHTML = `
+    <div class="recep-card" style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+      <label class="field-label" style="margin:0">📅 Jour de réception</label>
+      <input type="date" id="r-date" class="input" style="max-width:180px" value="${_date}" max="${new Date().toISOString().slice(0,10)}" onchange="onDateChange(this.value)">
+      <span id="r-statut"></span>
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm" id="r-toggle" onclick="toggleStatut()"></button>
+    </div>
+
+    <div class="cockpit" id="r-cockpit"></div>
+
+    <div class="recep-card">
+      <h3>➕ Rattacher une cuve de jus</h3>
+      <div class="field-row" style="align-items:flex-end;flex-wrap:wrap;gap:var(--space-2)">
+        <div class="field"><label class="field-label">Cuve</label>
+          <select class="select" id="r-cuve">${_cuveOptions()}</select></div>
+        <div class="field"><label class="field-label">Type de jus</label>
+          <select class="select" id="r-type">
+            <option value="presse">Presse</option>
+            <option value="egouttage">Égouttage</option>
+            <option value="autre">Autre</option>
+          </select></div>
+        <div class="field" style="max-width:150px"><label class="field-label">Volume (hL)</label>
+          <input type="number" class="input" id="r-vol" min="0" step="0.1" placeholder="120.0"></div>
+        <button class="btn btn--secondary btn--sm" onclick="mesurerCuve()" title="Mesurer via barémage (creux→hL)">📏 Mesurer</button>
+        <button class="btn btn--primary btn--sm" onclick="rattacher()">Rattacher</button>
+      </div>
+      <div class="field-help">La cuve continue de vivre (collage, assemblage…) qu'elle soit rattachée ou non. Le rattachement ne sert qu'au bilan.</div>
+    </div>
+
+    <div class="recep-card">
+      <h3>🧾 Cuves rattachées au <span id="r-day-label">${_date.split('-').reverse().join('/')}</span></h3>
+      <div id="r-lignes"></div>
+    </div>`;
+}
+
+function _cuveOptions(){
+  return '<option value="">— Choisir une cuve —</option>' +
+    _cuves.map(c => `<option value="${c.id}">${escapeHtml(c.nom)}${c.capacite_hl?` (${fmt(c.capacite_hl)} hL)`:''}</option>`).join('');
+}
+
+async function onDateChange(v){ _date = v; document.getElementById('r-day-label').textContent = v.split('-').reverse().join('/'); await loadDay(); }
+
+async function loadDay(){
+  try {
+    const rows = await WB3DB.queryBilanReceptionJour({ from:_date, to:_date });
+    _bilan = rows[0] || null;
+    _lignes = _bilan ? await WB3DB.listReceptionCuves(_bilan.reception_jour_id) : [];
+  } catch(e){ console.error('[reception] loadDay:', e); toast('Erreur de chargement : '+(WB3DB.errMsg?WB3DB.errMsg(e):e.message),'error'); _bilan=null; _lignes=[]; }
+  renderCockpit(); renderLignes(); renderStatut();
+}
+
+function renderStatut(){
+  const statut = _bilan?.statut || 'ouvert';
+  document.getElementById('r-statut').innerHTML = `<span class="statut-tag statut-${statut}">${statut==='clos'?'✅ Clôturé':'🟠 Ouvert'}</span>`;
+  document.getElementById('r-toggle').textContent = statut==='clos' ? '↩︎ Rouvrir le bilan' : '✅ Clôturer le bilan';
+}
+
+function renderCockpit(){
+  const b = _bilan || {};
+  const obj = b.objectif_kg_hl != null ? Number(b.objectif_kg_hl) : null;
+  const rdt = b.rendement_kg_hl != null ? Number(b.rendement_kg_hl) : null;
+  const coef = b.coef_extraction_pct != null ? Number(b.coef_extraction_pct) : null;
+  const coefGood = coef != null && coef >= 100;
+  const rdtGood  = rdt != null && obj != null && rdt <= obj;
+  document.getElementById('r-cockpit').innerHTML = `
+    <div class="kpi"><div class="lbl">Raisin entré</div><div class="val">${fmtKg(b.poids_total_kg)}</div><div class="sub">kg (apports du jour)</div></div>
+    <div class="kpi"><div class="lbl">Jus rattaché</div><div class="val">${fmt(b.volume_total_hl)}</div>
+      <div class="sub">hL · ${fmt(b.volume_egouttage_hl)} égouttage / ${fmt(b.volume_presse_hl)} presse</div></div>
+    <div class="kpi"><div class="lbl">Rendement</div><div class="val" style="color:${rdt==null?'':(rdtGood?'#15803d':'#b91c1c')}">${rdt!=null?fmt(rdt):'—'}</div>
+      <div class="sub">kg/hL ${obj!=null?`· objectif ${fmt(obj)}`:''}</div></div>
+    <div class="kpi"><div class="lbl">Extraction</div><div class="val" style="color:${coef==null?'':(coefGood?'#15803d':'#b91c1c')}">${coef!=null?fmt(coef)+' %':'—'}</div>
+      <div class="sub">vs objectif (100 % = cible)</div></div>
+    <div class="kpi"><div class="lbl">Cuves rattachées</div><div class="val">${b.nb_cuves_rattachees||0}</div>
+      <div class="sub">${b.part_egouttage_pct!=null?fmt(b.part_egouttage_pct)+' % égouttage':'—'}</div></div>`;
+}
+
+function renderLignes(){
+  const host = document.getElementById('r-lignes');
+  if (!_lignes.length){ host.innerHTML = '<div class="tr-empty" style="color:var(--color-ink-tertiary);padding:var(--space-2)">Aucune cuve rattachée à ce jour. Rattache une cuve de jus ci-dessus (le soir ou le lendemain en cas de rush).</div>'; return; }
+  host.innerHTML = `<table class="recep">
+    <thead><tr><th>Cuve</th><th>Type</th><th style="text-align:right">Volume</th><th>Mesure</th><th></th></tr></thead>
+    <tbody>${_lignes.map(l => {
+      const nom = l.contenants?.nom || l.contenant_nom_snap || '?';
+      return `<tr>
+        <td><strong>${escapeHtml(nom)}</strong></td>
+        <td><span class="pill-jus pill-${l.type_jus}">${l.type_jus}</span></td>
+        <td style="text-align:right"><strong>${fmt(l.volume_hl)}</strong> hL</td>
+        <td style="color:var(--color-ink-tertiary);font-size:var(--text-caption)">${l.source_mesure||'—'}</td>
+        <td style="text-align:right"><button class="btn btn--ghost btn--sm" onclick="detacher('${l.id}')" title="Détacher">✕</button></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+// ── Actions ───────────────────────────────────────────────────────
+async function mesurerCuve(){
+  const cuveId = document.getElementById('r-cuve').value;
+  if (!cuveId){ toast('Choisis d\'abord une cuve','error'); return; }
+  const mesure = prompt('Mesure du creux (cm, du haut de la cheminée à la surface du jus) :');
+  if (mesure == null) return;
+  const cm = parseFloat(String(mesure).replace(',','.'));
+  if (isNaN(cm)){ toast('Mesure invalide','error'); return; }
+  try {
+    const hl = await WB3DB.volumeFromMesure(cuveId, cm, 'creux');
+    if (hl == null){ toast('Pas d\'abaque pour cette cuve — saisis le volume à la main','warning'); return; }
+    document.getElementById('r-vol').value = Number(hl).toFixed(1);
+    document.getElementById('r-vol').dataset.source = 'baremage';
+    toast(`Volume mesuré : ${fmt(hl)} hL`,'success');
+  } catch(e){ toast('Mesure impossible : '+(WB3DB.errMsg?WB3DB.errMsg(e):e.message),'error'); }
+}
+
+async function rattacher(){
+  const cuveId = document.getElementById('r-cuve').value;
+  const type   = document.getElementById('r-type').value;
+  const volEl  = document.getElementById('r-vol');
+  const vol    = parseFloat(volEl.value);
+  if (!cuveId){ toast('Choisis une cuve','error'); return; }
+  if (isNaN(vol) || vol <= 0){ toast('Volume invalide','error'); return; }
+  const source = volEl.dataset.source === 'baremage' ? 'baremage' : 'manuel';
+  try {
+    await WB3DB.receptionRattacher(_date, cuveId, type, vol, { source });
+    volEl.value = ''; delete volEl.dataset.source;
+    document.getElementById('r-cuve').value = '';
+    toast('Cuve rattachée','success');
+    await loadDay();
+  } catch(e){ toast('Rattachement impossible : '+(WB3DB.errMsg?WB3DB.errMsg(e):e.message),'error'); }
+}
+
+async function detacher(ligneId){
+  if (!(await WB3UI.confirm('Détacher cette cuve du bilan du jour ?\n(La cuve et son jus ne sont pas affectés.)', { title:'Détacher', okText:'Détacher', danger:true }))) return;
+  try { await WB3DB.receptionDetacher(ligneId); toast('Cuve détachée','success'); await loadDay(); }
+  catch(e){ toast('Erreur : '+(WB3DB.errMsg?WB3DB.errMsg(e):e.message),'error'); }
+}
+
+async function toggleStatut(){
+  const next = (_bilan?.statut === 'clos') ? 'ouvert' : 'clos';
+  try { await WB3DB.receptionSetStatut(_date, next); toast(next==='clos'?'Bilan clôturé':'Bilan rouvert','success'); await loadDay(); }
+  catch(e){ toast('Erreur : '+(WB3DB.errMsg?WB3DB.errMsg(e):e.message),'error'); }
+}
+</script>
+</body>
+</html>
