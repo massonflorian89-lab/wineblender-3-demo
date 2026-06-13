@@ -19,7 +19,13 @@
   const KEY = 'wb3_help_on';
 
   function isOn() { const v = localStorage.getItem(KEY); return v === null ? true : v === '1'; }
-  function setOn(v) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {} apply(v); if (!v) closePop(); }
+  function setOn(v) {
+    try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {}
+    apply(v);
+    if (!v) { closePop(); lastHelpEl = null; }
+    else if (!document.querySelector('[data-help]')) hint('Mode aide activé. Aucune explication sur cette page pour l\'instant — clique un ⓘ là où il y en a.');
+    else hint('Mode aide activé : clique un élément surligné (ⓘ) pour son explication. Re-clique pour t\'en servir normalement.');
+  }
 
   function injectCSS() {
     if (document.getElementById('wb3-help-css')) return;
@@ -50,6 +56,18 @@
       .wb3-help-banner {
         background: #fff8ef; border: 1px solid #ffcc80; color: #7a4a00;
         border-radius: 8px; padding: 7px 12px; margin: 8px 0; font-size: 12.5px;
+      }
+      .wb3-help-pop .wb3-help-tip {
+        display: block; margin-top: 7px; padding-top: 7px;
+        border-top: 1px solid rgba(255,255,255,.18);
+        font-size: 11.5px; color: #ffd9a0;
+      }
+      .wb3-help-toast {
+        position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%);
+        background: #1c1c1c; color: #fff; padding: 9px 16px; border-radius: 22px;
+        font-size: 13px; z-index: 99999; box-shadow: 0 6px 24px rgba(0,0,0,.4);
+        max-width: 90vw; text-align: center; transition: opacity .3s; opacity: 0;
+        pointer-events: none;
       }`;
     document.head.appendChild(s);
   }
@@ -57,7 +75,20 @@
   function apply(on) {
     document.body.classList.toggle('wb3-help-on', on);
     const b = document.getElementById('wb3-help-btn');
-    if (b) { b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+    if (b) {
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.innerHTML = on ? 'ⓘ Aide : ON' : 'ⓘ Aide';
+    }
+  }
+
+  // Petit bandeau éphémère (feedback du toggle).
+  let hintT = null;
+  function hint(msg) {
+    let el = document.getElementById('wb3-help-hint');
+    if (!el) { el = document.createElement('div'); el.id = 'wb3-help-hint'; el.className = 'wb3-help-toast'; document.body.appendChild(el); }
+    el.textContent = msg; el.style.opacity = '1';
+    clearTimeout(hintT); hintT = setTimeout(() => { el.style.opacity = '0'; }, 3500);
   }
 
   function injectButton() {
@@ -77,13 +108,18 @@
   }
 
   let pop = null;
+  let lastHelpEl = null;   // élément dont la bulle est ouverte (pour le « 2e tap »)
   function closePop() { if (pop) { pop.remove(); pop = null; } }
   function showPop(el) {
     closePop();
     const txt = el.getAttribute('data-help'); if (!txt) return;
     pop = document.createElement('div');
     pop.className = 'wb3-help-pop';
-    pop.innerHTML = '<span class="wb3-help-x" aria-label="Fermer">✕</span>' + txt;
+    // Si l'élément est interactif, rappeler qu'un 2e clic l'utilisera normalement.
+    const interactif = el.matches('button, a, input, select, textarea, [onclick], .btn, [role="button"]')
+      || el.querySelector('button, a, input, select, [onclick]');
+    const tip = interactif ? '<span class="wb3-help-tip">↩ Re-clique pour t\'en servir normalement.</span>' : '';
+    pop.innerHTML = '<span class="wb3-help-x" aria-label="Fermer">✕</span>' + txt + tip;
     document.body.appendChild(pop);
     const r = el.getBoundingClientRect();
     const pr = pop.getBoundingClientRect();
@@ -94,14 +130,23 @@
     pop.style.left = Math.max(8, left) + 'px';
   }
 
-  // Clic en mode aide sur un [data-help] → bulle, et on bloque l'action normale.
+  // Clic en mode aide sur un [data-help] :
+  //   1er tap  → affiche la bulle ET bloque l'action (découverte).
+  //   2e tap   sur le MÊME élément (bulle ouverte) → laisse passer l'action
+  //             normale (le bouton fonctionne). Re-cliquer plus tard ré-explique.
   document.addEventListener('click', (e) => {
     if (!document.body.classList.contains('wb3-help-on')) return;
     if (e.target.closest('.wb3-help-pop')) { closePop(); return; }
-    if (e.target.id === 'wb3-help-btn') return;
+    if (e.target.closest('#wb3-help-btn')) return;   // le bouton Aide lui-même
     const t = e.target.closest('[data-help]');
-    if (t) { e.preventDefault(); e.stopPropagation(); showPop(t); }
-    else closePop();
+    if (!t) { lastHelpEl = null; closePop(); return; }
+    if (lastHelpEl === t && pop) {
+      // 2e tap : on n'empêche RIEN → l'action du bouton/élément s'exécute.
+      lastHelpEl = null; closePop();
+      return;
+    }
+    e.preventDefault(); e.stopPropagation();
+    lastHelpEl = t; showPop(t);
   }, true);
   window.addEventListener('scroll', closePop, true);
   window.addEventListener('resize', closePop);
