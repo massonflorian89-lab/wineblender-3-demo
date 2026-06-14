@@ -22,7 +22,7 @@
   function setOn(v) {
     try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) {}
     apply(v);
-    if (!v) { closePop(); lastHelpEl = null; }
+    if (!v) { closePop(); lastHelpEl = null; hint('Mode aide désactivé.'); }
     else if (!document.querySelector('[data-help]')) hint('Mode aide activé. Aucune explication sur cette page pour l\'instant — clique un ⓘ là où il y en a.');
     else hint('Mode aide activé : clique un élément surligné (ⓘ) pour son explication. Re-clique pour t\'en servir normalement.');
   }
@@ -104,7 +104,13 @@
         + 'box-shadow:0 4px 14px rgba(0,0,0,.25);font-weight:600;cursor:pointer';
       document.body.appendChild(btn);
     }
-    btn.addEventListener('click', () => setOn(!isOn()));
+    // Capture + stopPropagation : le toggle s'exécute toujours, même si un
+    // autre gestionnaire du header tente d'intercepter le clic. L'état cible
+    // est lu sur le DOM réel (pas le localStorage) → jamais de désync.
+    btn.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      setOn(!document.body.classList.contains('wb3-help-on'));
+    }, true);
   }
 
   let pop = null;
