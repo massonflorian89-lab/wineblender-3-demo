@@ -71,10 +71,9 @@
   <div id="app" class="asm-layout" style="display:none">
     <!-- Arborescence -->
     <aside class="asm-tree">
-      <div class="asm-tree-hd">
-        ${_canAsm ? `<button class="btn btn--secondary btn--sm" onclick="asmNewDossier()" title="Nouveau dossier">📁 +</button>
-        <button class="btn btn--primary btn--sm" style="flex:1" data-help="Crée un essai d'assemblage : ajoute des lots/cépages avec leurs proportions et compare les profils avant de réaliser le mélange en cave." onclick="asmNewEssai()">+ Nouvel essai</button>` : '<span class="muted" style="font-size:12px;padding:4px">Lecture seule</span>'}
-      </div>
+      <!-- Peuplé par JS (renderTreeHeader) une fois _canAsm connu — ne PAS
+           mettre de ${…} en HTML statique : ce n'est pas un template JS. -->
+      <div class="asm-tree-hd" id="asm-tree-hd"></div>
       <div id="tree"></div>
     </aside>
 
@@ -125,6 +124,7 @@ async function logout(){ await WB3Auth.signOut(); WB3Nav.navigateTop('app.html')
   // Garde module : migration 063 requise (essai + essai_dossier)
   if (WB3DB.ensureModule && !(await WB3DB.ensureModule('assemblage','boot'))) return;
   _canAsm = !WB3DB.can || WB3DB.can('assemblage.edit');
+  renderTreeHeader();
   try {
     [_cuves, _dossiers, _essais] = await Promise.all([
       WB3DB.queryCuverieEtat ? WB3DB.queryCuverieEtat() : Promise.resolve([]),
@@ -169,6 +169,15 @@ function renderTree(){
 }
 
 function selectDossier(id){ _curDossier = id; renderTree(); }
+
+function renderTreeHeader(){
+  const hd = document.getElementById('asm-tree-hd');
+  if(!hd) return;
+  hd.innerHTML = _canAsm
+    ? `<button class="btn btn--secondary btn--sm" onclick="asmNewDossier()" title="Nouveau dossier">📁 +</button>
+       <button class="btn btn--primary btn--sm" style="flex:1" data-help="Crée un essai d'assemblage : ajoute des lots/cépages avec leurs proportions et compare les profils avant de réaliser le mélange en cave." onclick="asmNewEssai()">+ Nouvel essai</button>`
+    : '<span class="muted" style="font-size:12px;padding:4px">Lecture seule</span>';
+}
 
 async function asmNewDossier(){
   if(!_canAsm){ toast('Lecture seule : réservé aux responsables.','error'); return; }
