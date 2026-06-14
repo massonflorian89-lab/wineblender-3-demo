@@ -639,6 +639,52 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
     font-size: var(--text-caption); color: var(--color-ink-secondary); white-space: nowrap;
   }
   .geno-empty { color: var(--color-ink-tertiary); font-style: italic; text-align: center; padding:var(--space-8); }
+
+  /* ═══ Cartes cuverie : remplissage visuel (#1) + densité (#4) + classes (#6) ═══ */
+  /* #1 — La cuve « se remplit » : fond rempli à hauteur du volume, teinté vin.
+     isolation:isolate crée un contexte d'empilement → le remplissage (z-index:-1)
+     passe SOUS le texte mais AU-DESSUS du fond de carte, sans envelopper le
+     contenu (les badges absolus gardent leur position d'origine). */
+  .contenant-card-pro { isolation: isolate; }
+  .cuve-fill {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: -1;
+    border-top: 2px solid rgba(0,0,0,.07);
+    transition: height .35s var(--ease-standard, ease); pointer-events: none;
+  }
+  .contenant-card-pro.empty .cuve-fill,
+  .contenant-card-pro.inactive .cuve-fill { display: none; }
+
+  /* #6 — Classes (ex-styles inline répétés sur chaque carte → DOM plus léger). */
+  .cuve-strip {
+    position: absolute; top: 0; left: 0; right: 0; height: 4px; z-index: 1;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  .lot-statut-badge {
+    padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .4px; flex-shrink: 0;
+  }
+  .lot-nom {
+    font-weight: 500; cursor: pointer; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; flex: 1; min-width: 0;
+  }
+  .lot-jours { font-size: 10px; flex-shrink: 0; white-space: nowrap; }
+  .lot-num   { font-family: monospace; font-size: 10px; opacity: .65; margin-top: 2px; }
+  .wb-alerte-badge {
+    position: absolute; top: 10px; left: 8px; z-index: 3;
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--color-bg-elevated);
+    box-shadow: 0 1px 3px rgba(0,0,0,.25); font-size: 0; line-height: 0; cursor: help;
+  }
+  .vol-trunc { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vol-over  { color: var(--color-danger); font-weight: 700; }
+
+  /* #4 — Mode compact : plus de cuves à l'écran, lignes secondaires masquées. */
+  body.wb3-compact .cuverie-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: var(--space-2); }
+  body.wb3-compact .contenant-card-pro { padding: 8px 10px 9px; }
+  body.wb3-compact .contenant-card-pro .nom { font-size: var(--text-footnote); }
+  body.wb3-compact .card-sub,
+  body.wb3-compact .lot-num { display: none; }
+  #btn-density.active { background: var(--color-primary, #6a1b2a); color: #fff; border-color: var(--color-primary, #6a1b2a); }
 </style>
 </head>
 <body>
@@ -722,6 +768,7 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
     <button class="btn btn--secondary btn--sm" id="btn-cuverie-wall" type="button"
       onclick="openCuverieWall()"
       title="Afficher la cuverie sur un écran mural (TV du chai, lecture seule)">🖥️ Mur</button>
+    <button class="btn btn--secondary btn--sm" id="btn-density" type="button" onclick="toggleDensity()" title="Cartes compactes / confort (plus ou moins de cuves à l'écran, vue grille)">⊞ Compacter</button>
     <div class="view-toggle-group" id="view-mode">
       <button class="active" data-view="grid" title="Vue grille">▦</button>
       <button data-view="table" title="Vue tableau">☰</button>
@@ -1610,6 +1657,7 @@ let userPrefs = {
   default_group: 'none',
   default_sort:  'nom',
   visible_stats: [...STAT_DEFAULTS],
+  card_density:  'confort',   // 'confort' | 'compact' (densité des cartes en vue grille)
 };
 // M2 — Vue plan : mode couleur ('statut'=contenu | 'alerte') + densité (heatmap).
 let planColorMode = 'statut';
@@ -1628,6 +1676,7 @@ async function loadUserPrefs() {
       default_sort:  p.default_sort  || 'nom',
       page_size:     Number(p.page_size) || 50,
       visible_stats: Array.isArray(p.visible_stats) && p.visible_stats.length ? p.visible_stats : STAT_DEFAULTS,
+      card_density:  p.card_density === 'compact' ? 'compact' : 'confort',
       table_columns: Array.isArray(p.table_columns) ? p.table_columns : null,
       plan_color:    p.plan_color === 'alerte' ? 'alerte' : 'statut',   // M2
       plan_dense:    !!p.plan_dense,                                    // M2
@@ -1655,6 +1704,25 @@ function applyUserDefaults() {
   viewMode  = userPrefs.default_view;
   groupMode = userPrefs.default_group;
   sortBy    = userPrefs.default_sort;
+  applyDensity();
+}
+
+// #4 — Densité des cartes (vue grille). Classe sur <body> → tout en CSS.
+function applyDensity() {
+  document.body.classList.toggle('wb3-compact', userPrefs.card_density === 'compact');
+  _updateDensityBtn();
+}
+function _updateDensityBtn() {
+  const b = document.getElementById('btn-density');
+  if (!b) return;
+  const compact = userPrefs.card_density === 'compact';
+  b.innerHTML = compact ? '▦ Agrandir' : '⊞ Compacter';
+  b.classList.toggle('active', compact);
+}
+function toggleDensity() {
+  userPrefs.card_density = userPrefs.card_density === 'compact' ? 'confort' : 'compact';
+  applyDensity();
+  try { if (WB3DB.setUserPref) WB3DB.setUserPref('cuverie', { ...userPrefs, table_columns: columnsConfig }).catch(() => {}); } catch (_) {}
 }
 
 // Helper : retourne la liste ordonnée des colonnes visibles selon la config
@@ -3493,6 +3561,8 @@ function renderGrid(items) {
 }
 
 const COULEUR_STRIP = { rouge:'#b00020', blanc:'#d4c089', rose:'#d89dad', gris:'#9e9ea0' };
+// #1 — Teinte de remplissage (fond de carte). Translucide pour garder le texte lisible.
+const COULEUR_FILL  = { rouge:'rgba(176,0,32,.13)', blanc:'rgba(196,166,90,.20)', rose:'rgba(216,157,173,.20)', gris:'rgba(150,150,154,.16)' };
 
 const ETAT_BADGE_LABELS = {
   plein:'Plein', vidange:'En vidange', vide:'Vide', inactif:'Inactif',
@@ -4122,7 +4192,8 @@ function renderCard(c) {
   const pctReal = c.capacite_hl && volTotal ? Math.round(volTotal / c.capacite_hl * 100) : 0;
   const pctBar  = Math.min(100, pctReal);
   const pct = pctReal;  // alias pour les usages existants (footer-row, _faHTML, etc.)
-  const fillColor = pctReal >= 100 ? '#ef4444' : '#22c55e';
+  // #1 — teinte de remplissage (fond) selon la couleur du vin ; rien si cuve vide.
+  const fillBg = (lots.length && lotPrincipal) ? (COULEUR_FILL[lotPrincipal.couleur] || 'rgba(120,120,120,.12)') : 'transparent';
 
   // Bloc lot(s)
   let lotBlock = '';
@@ -4134,16 +4205,12 @@ function renderCard(c) {
     const numLot = formatLotNumero(lotPrincipal);
     lotBlock = `
       <div class="lot-numero" style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
-        <span style="background:${bg};color:${fg};padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">
-          ${LOT_STATUT_SHORT[lotPrincipal.statut]||lotPrincipal.statut}
-        </span>
-        <span style="font-weight:500;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">
-          ${escapeHtml(lotPrincipal.nom)}${lotPrincipal.millesime ? ` · ${lotPrincipal.millesime}` : ''}
-        </span>
-        ${joursTxt ? `<span style="font-size:10px;color:${joursClr};flex-shrink:0;white-space:nowrap">⏱ ${joursTxt}</span>` : ''}
+        <span class="lot-statut-badge" style="background:${bg};color:${fg}">${LOT_STATUT_SHORT[lotPrincipal.statut]||lotPrincipal.statut}</span>
+        <span class="lot-nom">${escapeHtml(lotPrincipal.nom)}${lotPrincipal.millesime ? ` · ${lotPrincipal.millesime}` : ''}</span>
+        ${joursTxt ? `<span class="lot-jours" style="color:${joursClr}">⏱ ${joursTxt}</span>` : ''}
       </div>
-      ${numLot ? `<div class="meta" style="font-family:monospace;font-size:10px;opacity:.65;margin-top:2px">${escapeHtml(numLot)}</div>` : ''}
-      ${lots.length > 1 ? `<div class="meta" style="cursor:default">+${lots.length - 1} autre lot${lots.length > 2 ? 's' : ''}</div>` : ''}`;
+      ${numLot ? `<div class="lot-num">${escapeHtml(numLot)}</div>` : ''}
+      ${lots.length > 1 ? `<div class="meta card-sub" style="cursor:default">+${lots.length - 1} autre lot${lots.length > 2 ? 's' : ''}</div>` : ''}`;
   }
 
   // D8 — Mini-form FA inline. Détection basée sur faLots (TOUS les lots en
@@ -4213,15 +4280,16 @@ function renderCard(c) {
     const ico = _alerte === 'critique' ? '🔴' : '🟠';
     _alerteHTML = `<span class="wb-alerte-badge"
         title="Alerte ${escapeHtml(_alerte)} : ${escapeHtml(flags.join(', ') || '?')}"
-        style="position:absolute;top:10px;left:8px;z-index:2;width:12px;height:12px;border-radius:50%;background:${bg};border:2px solid var(--color-bg-elevated);box-shadow:0 1px 3px rgba(0,0,0,.25);font-size:0;line-height:0;cursor:help"
+        style="background:${bg}"
         aria-label="Alerte ${escapeHtml(_alerte)}">${ico}</span>`;
   }
 
   el.innerHTML = `
+    <div class="cuve-fill" style="height:${pctBar}%;background:${fillBg}"></div>
     ${_qaHTML}
     ${_alerteHTML}
     ${!c.actif ? '<span class="inactive-badge">inactif</span>' : ''}
-    <div style="position:absolute;top:0;left:0;right:0;height:4px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;background:${stripColor}"></div>
+    <div class="cuve-strip" style="background:${stripColor}"></div>
     <div class="card-head" style="margin-top:var(--space-1)">
       <div>
         <div class="nom">${escapeHtml(c.nom)}</div>
@@ -4229,15 +4297,12 @@ function renderCard(c) {
       </div>
       <div class="type-icon">${TYPE_ICONS[c.type] || '📦'}</div>
     </div>
-    ${locParts.length ? `<div class="meta">${locParts.join(' · ')}</div>` : ''}
-    ${pct > 0
-      ? `<div class="card-fill-bar"><div class="card-fill-fill" style="width:${pctBar}%;background:${fillColor}"></div></div>`
-      : `<div style="height:var(--space-1)"></div>`}
+    ${locParts.length ? `<div class="meta card-sub">${locParts.join(' · ')}</div>` : ''}
+    <div style="height:var(--space-1)"></div>
     ${lotBlock}
     <div class="footer-row" style="min-width:0;gap:6px">
       <span class="etat-badge etat-${etat}" style="flex-shrink:0">${ETAT_BADGE_LABELS[etat]}</span>
-      <span class="vol"
-            style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${pctReal > 100 ? ';color:var(--color-danger);font-weight:700' : ''}"
+      <span class="vol vol-trunc${pctReal > 100 ? ' vol-over' : ''}"
             ${pctReal > 100 ? `title="Sur-capacité : ${pctReal}% (${fmt(volTotal - c.capacite_hl)} hL en trop)"` : ''}>${pct > 0 ? fmt(volTotal)+' / ' : ''}${fmt(c.capacite_hl)} hL${pctReal > 100 ? ' · ' + pctReal + '%' : ''}</span>
     </div>
     ${_faHTML}
