@@ -261,6 +261,19 @@
     .fiche-doc + .fiche-doc { border-top:none; }
     .fiche-doc-break { break-after:page; page-break-after:always; }
   }
+
+  /* Propositions récurrentes */
+  .prop-card { border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-bg-elevated); padding:10px 14px; margin-bottom:var(--space-3); }
+  .prop-hd { font-weight:600; font-size:var(--text-callout); margin-bottom:var(--space-2); }
+  .prop-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid var(--color-border); }
+  .prop-row:first-of-type { border-top:none; }
+  .prop-ic { font-size:1.1em; }
+  .prop-label { flex:1; font-style:italic; color:var(--color-ink-secondary); }
+  .prop-count { font-size:var(--text-footnote); color:var(--color-ink-tertiary); white-space:nowrap; }
+  #prop-overlay .pp-item { display:flex; align-items:center; gap:8px; padding:6px 4px; border-bottom:1px solid var(--color-border); cursor:pointer; }
+  #prop-overlay .pp-item:last-child { border-bottom:none; }
+  #prop-overlay .pp-cuve-nom { font-weight:600; }
+  #prop-overlay #pp-list { max-height:46vh; overflow:auto; }
 </style>
 </head>
 <body>
@@ -293,6 +306,11 @@
     <div class="plng-spacer"></div>
     <button class="btn btn--primary btn--sm" id="btn-new-task" data-help="Programme une tâche pour un caviste (quoi, quand, sur quelle cuve). Elle apparaît sur le planning et sur sa fiche de travail." onclick="Planning.openTask()">+ Nouvelle tâche</button>
   </div>
+
+  <!-- Propositions récurrentes : suggestions en italique → génèrent des tâches
+       sur les cuves concernées (analyse, ouillage, SO₂…). Calculées depuis
+       l'état cuverie ; n'écrivent rien tant qu'on n'a pas cliqué « Programmer ». -->
+  <div id="proposals-zone"></div>
 
   <div id="late-zone"></div>
 
@@ -475,6 +493,151 @@ const Planning = (() => {
       </div>`);
     }
     document.getElementById('content').innerHTML = `<div class="plng-days">${blocks.join('')}</div>`;
+    renderProposals();
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // Propositions récurrentes (analyse vidange / ouillage / SO₂)
+  // Suggestions calculées depuis l'état cuverie. « Programmer » crée
+  // une tâche par cuve concernée (rien n'est écrit avant).
+  // ════════════════════════════════════════════════════════════
+  let _etatRaw = [];
+  const _BARREL_TYPES = new Set(['fut','foudre','demi_muid','cuve_bois']);
+  const _SO2_STATUTS  = new Set(['elevage','vin_filtre','conditionne','pre_mise']);  // élevage + conditionnement
+  const _pnum = v => Number(v) || 0;
+
+  const PROPOSALS = [
+    { id:'analyse_vidange', type:'analyse', icon:'🔬',
+      label:'Contrôle analytique des cuves en vidange',
+      titre:'Contrôle analytique', note:'Cuve entamée (en vidange) — contrôle analytique de suivi.',
+      match:(c)=>{ const v=_pnum(c.volume_total_hl), cap=_pnum(c.capacite_hl); return v>0.05 && cap>0 && v < cap-0.05; } },
+    { id:'ouillage_bois', type:'autre', icon:'🪵',
+      label:'Ouillage des fûts et foudres en élevage',
+      titre:'Ouillage', note:'Ouillage du contenant bois (compensation de l’évaporation).',
+      match:(c)=> _BARREL_TYPES.has(c.contenant_type) && _pnum(c.volume_total_hl) > 0.05 },
+    { id:'so2_libre', type:'analyse', icon:'⚗️',
+      label:'Contrôle du SO₂ libre (élevage / conditionnement)',
+      titre:'Contrôle SO₂ libre', note:'Vérification du SO₂ libre sur lot en élevage / conditionnement.',
+      match:(c)=> _pnum(c.volume_total_hl) > 0.05 && _SO2_STATUTS.has(c.statut) },
+  ];
+
+  function _matched(prop){ return _etatRaw.filter(prop.match); }
+
+  function renderProposals(){
+    const zone = document.getElementById('proposals-zone');
+    if (!zone) return;
+    if (!_canPlan || !_etatRaw.length) { zone.innerHTML = ''; return; }
+    const rows = PROPOSALS.map(p=>{
+      const n = _matched(p).length;
+      const dim = n ? '' : ' style="opacity:.5"';
+      const btn = n
+        ? `<button class="btn btn--secondary btn--sm" onclick="Planning.openProposal('${p.id}')">Programmer…</button>`
+        : `<span class="t-footnote" style="color:var(--color-ink-tertiary)">aucune cuve concernée</span>`;
+      return `<div class="prop-row"${dim}>
+        <span class="prop-ic">${p.icon}</span>
+        <em class="prop-label">${esc(p.label)}</em>
+        <span class="prop-count">${n} cuve${n>1?'s':''}</span>
+        ${btn}
+      </div>`;
+    }).join('');
+    zone.innerHTML = `
+      <div class="prop-card">
+        <div class="prop-hd">💡 Propositions récurrentes <span class="t-footnote" style="color:var(--color-ink-tertiary);font-weight:400">— suggestions, rien n’est créé sans ton clic</span></div>
+        ${rows}
+      </div>`;
+  }
+
+  function openProposal(id){
+    if (!_canPlan) { toast('Lecture seule : réservé aux responsables.', 'error'); return; }
+    const prop = PROPOSALS.find(p=>p.id===id); if (!prop) return;
+    const cuves = _matched(prop);
+    if (!cuves.length) { toast('Aucune cuve concernée actuellement.', 'info'); return; }
+    closeProposal();
+    const creneauField = _hasCreneau ? `
+      <div class="plng-field"><label>Créneau (3×8)</label>
+        <select id="pp-creneau">
+          <option value="">— Sans (équipe unique)</option>
+          <option value="matin">🌅 Matin</option>
+          <option value="aprem">☀️ Après-midi</option>
+          <option value="nuit">🌙 Nuit</option>
+        </select></div>` : '';
+    const list = cuves.map(c=>{
+      const vol = c.volume_total_hl!=null ? `${_pnum(c.volume_total_hl).toLocaleString('fr-FR',{maximumFractionDigits:1})} hL` : '';
+      const lot = c.lot_nom ? ` · ${esc(c.lot_nom)}` : '';
+      return `<label class="pp-item">
+        <input type="checkbox" class="pp-cuve" value="${esc(c.contenant_id)}" checked>
+        <span class="pp-cuve-nom">${esc(c.contenant_nom)}</span>
+        <span class="t-footnote" style="color:var(--color-ink-tertiary)">${vol}${lot}</span>
+      </label>`;
+    }).join('');
+    const ov=document.createElement('div'); ov.id='prop-overlay';
+    ov.innerHTML = `
+      <div class="drawer-backdrop" onclick="Planning.closeProposal()"></div>
+      <aside class="drawer plng-drawer">
+        <div class="drawer-head">
+          <h3>${prop.icon} ${esc(prop.label)}</h3>
+          <button class="close-btn" onclick="Planning.closeProposal()" aria-label="Fermer">×</button>
+        </div>
+        <div class="drawer-body">
+          <p class="t-footnote" style="margin:0 0 var(--space-3)">Une tâche « ${esc(prop.titre)} » sera créée pour chaque cuve cochée. Décoche celles à exclure.</p>
+          <div class="drawer-section">
+            <div class="drawer-section-content">
+              <div class="plng-row">
+                <div class="plng-field"><label>Date *</label><input type="date" id="pp-date" value="${_todayIso()}"></div>
+                <div class="plng-field"><label>Assigné à</label><input type="text" id="pp-who" list="assignee-list" placeholder="Nom"></div>
+                ${creneauField}
+              </div>
+            </div>
+          </div>
+          <div class="drawer-section">
+            <div class="drawer-section-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span>Cuves concernées</span>
+              <span style="font-weight:400"><a href="#" onclick="Planning._ppAll(true);return false">tout</a> · <a href="#" onclick="Planning._ppAll(false);return false">rien</a></span>
+            </div>
+            <div class="drawer-section-content" id="pp-list">${list}</div>
+          </div>
+        </div>
+        <div class="drawer-foot">
+          <div class="actions-right">
+            <button class="btn btn--secondary" onclick="Planning.closeProposal()">Annuler</button>
+            <button class="btn btn--primary" onclick="Planning.programProposal('${prop.id}')">📅 Programmer</button>
+          </div>
+        </div>
+      </aside>`;
+    document.body.appendChild(ov);
+    requestAnimationFrame(()=>{
+      ov.querySelector('.drawer-backdrop')?.classList.add('open');
+      ov.querySelector('.drawer')?.classList.add('open');
+    });
+  }
+
+  function _ppAll(v){ document.querySelectorAll('#pp-list .pp-cuve').forEach(cb=>{ cb.checked = v; }); }
+  function closeProposal(){ document.getElementById('prop-overlay')?.remove(); }
+
+  async function programProposal(id){
+    const prop = PROPOSALS.find(p=>p.id===id); if (!prop) return;
+    const date = document.getElementById('pp-date')?.value;
+    if (!date) { WB3UI.alert('La date est requise.', { title:'Champ manquant' }); return; }
+    const who = document.getElementById('pp-who')?.value.trim() || null;
+    const creneau = _hasCreneau ? (document.getElementById('pp-creneau')?.value || null) : null;
+    const ids = Array.from(document.querySelectorAll('#pp-list .pp-cuve:checked')).map(cb=>cb.value);
+    if (!ids.length) { toast('Sélectionne au moins une cuve.', 'error'); return; }
+    const byId = new Map(_etatRaw.map(c=>[String(c.contenant_id), c]));
+    let ok=0, ko=0;
+    for (const cid of ids){
+      const c = byId.get(String(cid)); if (!c) { ko++; continue; }
+      const fields = {
+        date_prevue: date, type: prop.type, priorite: 1, assignee: who,
+        ...(_hasCreneau && creneau ? { creneau } : {}),
+        titre: prop.titre, contenant_id: c.contenant_id, contenant_nom: c.contenant_nom,
+        lot_nom: c.lot_nom || null, note: prop.note, detail: { proposition: prop.id },
+      };
+      try { await WB3DB.createTache(fields); ok++; }
+      catch(e){ console.error('[planning] proposition', e); ko++; }
+    }
+    closeProposal();
+    toast(ok + ' tâche' + (ok>1?'s':'') + ' programmée' + (ok>1?'s':'') + (ko?` · ${ko} échec(s)`:''), ko?'error':'success');
+    await load(); render();
   }
 
   function _taskRow(t, showDate){
@@ -1225,6 +1388,7 @@ const Planning = (() => {
 
     try{
       const etat=await WB3DB.queryCuverieEtat();
+      _etatRaw = Array.isArray(etat) ? etat : [];   // état complet (type, statut lot…) pour les propositions
       _cuves=etat.map(c=>({ contenant_id:c.contenant_id, contenant_nom:c.contenant_nom, lot_nom:c.lot_nom||null,
                             capacite_hl:c.capacite_hl??null,
                             volume_actuel_hl:(c.volume_total_hl!=null?c.volume_total_hl:(c.volume_actuel_hl??null)), // contenu courant de la cuve
@@ -1257,7 +1421,8 @@ const Planning = (() => {
            openTask, closeTask, onTypeChange, saveTask, setStatut, removeTask,
            addDest, rmDest, onCuveField, onDestInput, planDose,
            dupTask, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop,
-           openFiche, closeFiche, saveConsignes };
+           openFiche, closeFiche, saveConsignes,
+           renderProposals, openProposal, closeProposal, programProposal, _ppAll };
 })();
 
 Planning.init();
