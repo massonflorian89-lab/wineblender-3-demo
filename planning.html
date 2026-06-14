@@ -504,9 +504,14 @@ const Planning = (() => {
   let _etatRaw = [];
   const _BARREL_TYPES = new Set(['fut','foudre','demi_muid','cuve_bois']);
   const _SO2_STATUTS  = new Set(['elevage','vin_filtre','conditionne','pre_mise']);  // élevage + conditionnement
+  const _FA_STATUTS   = new Set(['fa','fml']);  // fermentation alcoolique + malolactique
   const _pnum = v => Number(v) || 0;
 
   const PROPOSALS = [
+    { id:'suivi_fa', type:'analyse', icon:'🌡',
+      label:'Suivi FA : densité + température des cuves en fermentation',
+      titre:'Suivi FA (densité + T°)', note:'Contrôle quotidien densité + température (cuve en FA / FML).',
+      match:(c)=> _pnum(c.volume_total_hl) > 0.05 && _FA_STATUTS.has(c.statut) },
     { id:'analyse_vidange', type:'analyse', icon:'🔬',
       label:'Contrôle analytique des cuves en vidange',
       titre:'Contrôle analytique', note:'Cuve entamée (en vidange) — contrôle analytique de suivi.',
