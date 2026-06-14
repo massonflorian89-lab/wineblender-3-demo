@@ -674,6 +674,15 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
     <a class="cave-sc" href="apports.html?rendement=1" title="Rendement vendange par jour / cépage">📊 Rendement</a>
   </div>
 
+  <!-- Vue à une date passée — snapshot lecture seule (RPC wb3_etat_cave_at, mig 087) -->
+  <div class="hist-bar" id="hist-bar" style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-2)">
+    <label class="hist-pick" data-help="Reconstitue l'état de la cave (quel lot, dans quelle cuve, quel volume) à une date passée. Lecture seule : on ne peut pas modifier le passé, juste le consulter." title="Reconstituer l'état de la cave à une date passée" style="display:inline-flex;align-items:center;gap:6px;font-size:var(--text-footnote);color:var(--color-ink-secondary)">
+      📅 Voir la cuverie à une date passée
+      <input type="date" id="hist-date" onchange="onHistDateChange(this.value)" style="font:inherit;padding:4px 8px;border:1px solid var(--color-border);border-radius:var(--radius-md)">
+    </label>
+    <button class="btn btn--secondary btn--sm" id="btn-hist-reset" style="display:none" onclick="exitHistorical()">⟲ Revenir à aujourd'hui</button>
+  </div>
+
   <!-- Barre de contrôle principale (Idée A) -->
   <div class="action-bar-new">
     <select class="ctrl-select" id="filter-statut" title="Filtrer par état de remplissage">
@@ -1606,6 +1615,10 @@ let userPrefs = {
 let planColorMode = 'statut';
 let planDense     = false;
 
+// Vue cuverie à une date passée (snapshot lecture seule, RPC mig 087).
+let histDate = null;   // 'YYYY-MM-DD' si une date passée est sélectionnée, sinon null
+let histRes  = null;   // dernier résultat wb3_etat_cave_at (mémoïsé pour re-render)
+
 async function loadUserPrefs() {
   try {
     const p = await WB3DB.getUserPref('cuverie');
@@ -1771,6 +1784,8 @@ async function logout() {
   }
   const { tenant } = ctx;
   document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+  // Borne le sélecteur de date historique à aujourd'hui (pas de futur).
+  { const _hd = document.getElementById('hist-date'); if (_hd) _hd.max = new Date().toISOString().slice(0,10); }
 
   // Périmètre caviste : pas de gestion des contenants (consultation + analyses).
   if (WB3DB.isPrivileged && !WB3DB.isPrivileged()) {
@@ -2778,7 +2793,121 @@ function renderPlan(items) {
   });
 }
 
+// ════════════════════════════════════════════════════════════
+// Vue cuverie à une date passée — snapshot lecture seule (mig 087)
+// ════════════════════════════════════════════════════════════
+async function onHistDateChange(v) {
+  if (!v) { exitHistorical(); return; }
+  const today = new Date().toISOString().slice(0, 10);
+  if (v > today)  { toast('La date ne peut pas être dans le futur.', 'error'); const i=document.getElementById('hist-date'); if(i) i.value=''; return; }
+  if (v === today) { exitHistorical(); return; }   // aujourd'hui = vue live
+  await enterHistorical(v);
+}
+
+async function enterHistorical(dateStr) {
+  if (!WB3DB.etatCaveAt) { toast('Vue historique indisponible (migration 087 requise).', 'error'); return; }
+  histDate = dateStr;
+  _histInjectCss();
+  document.body.classList.add('wb3-hist-mode');
+  const btn = document.getElementById('btn-hist-reset'); if (btn) btn.style.display = '';
+  const content = document.getElementById('content');
+  if (content) content.innerHTML = '<div class="loading-state"><div class="spinner"></div>Reconstruction de l’état de la cave…</div>';
+  try {
+    histRes = await WB3DB.etatCaveAt(dateStr);
+  } catch (e) {
+    toast('Reconstruction impossible : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e?.message || e)), 'error');
+    exitHistorical();
+    return;
+  }
+  renderHistorical();
+}
+
+function exitHistorical() {
+  histDate = null; histRes = null;
+  document.body.classList.remove('wb3-hist-mode');
+  const inp = document.getElementById('hist-date'); if (inp) inp.value = '';
+  const btn = document.getElementById('btn-hist-reset'); if (btn) btn.style.display = 'none';
+  render();   // retour à la vue live
+}
+
+function _histFmtDate(iso) {
+  try { return new Date(String(iso) + 'T00:00:00').toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }); }
+  catch (_) { return String(iso); }
+}
+function _histTypeLabel(t) {
+  return ({ cuve:'Cuve', foudre:'Foudre', fut:'Fût', demi_muid:'Demi-muid', cuve_bois:'Cuve bois', pressoir:'Pressoir' })[t] || (t || '—');
+}
+
+function renderHistorical() {
+  const content = document.getElementById('content');
+  if (!content || !histRes) return;
+  const lignes = Array.isArray(histRes.lignes) ? histRes.lignes : [];
+  const byCont = new Map();
+  lignes.forEach(li => { if (!byCont.has(li.contenant_id)) byCont.set(li.contenant_id, []); byCont.get(li.contenant_id).push(li); });
+
+  // Contenants actifs actuels → on montre aussi les cuves vides à cette date.
+  const actifs = contenants.filter(c => c.actif)
+    .sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr', { numeric: true }));
+  let totalVol = 0, nbOccup = 0;
+  const rows = actifs.map(c => {
+    const ls = byCont.get(c.id) || [];
+    if (!ls.length) {
+      return `<tr class="hist-empty"><td>${escapeHtml(c.nom)}</td><td>${_histTypeLabel(c.type)}</td><td>— vide —</td><td class="num">0</td></tr>`;
+    }
+    nbOccup++;
+    return ls.map((li, i) => {
+      const vol = Number(li.volume_hl) || 0; totalVol += vol;
+      const dot = LOT_COULEUR_DOT[li.couleur] || '';
+      const num = li.numero_lot ? `<span class="hist-num">${escapeHtml(String(li.numero_lot))}</span> ` : '';
+      const mill = li.millesime ? ` <span class="t-muted">${escapeHtml(String(li.millesime))}</span>` : '';
+      const lot = `${dot} ${num}${escapeHtml(li.lot_nom || '—')}${mill}`;
+      return `<tr><td>${i === 0 ? escapeHtml(c.nom) : ''}</td><td>${i === 0 ? _histTypeLabel(c.type) : ''}</td><td>${lot}</td><td class="num">${fmt(vol)}</td></tr>`;
+    }).join('');
+  }).join('');
+
+  const partielle = histRes.fiabilite === 'partielle';
+  const banner = `
+    <div class="hist-banner">
+      <div class="hist-banner-main">📅 État de la cave au <b>${_histFmtDate(histRes.date)}</b> — <b>lecture seule</b></div>
+      <div class="hist-banner-sub">${nbOccup} contenant(s) occupé(s) · ${fmt(totalVol)} hL reconstitués${histRes.volumes_null_ignores ? ' · ' + histRes.volumes_null_ignores + ' mouvement(s) à volume inconnu ignoré(s)' : ''}</div>
+      ${partielle ? `<div class="hist-warn">⚠️ Reconstruction <b>partielle</b> : date antérieure au scellement du ${_histFmtDate(histRes.borne_fiabilite)} (ou mouvements anciens sans volume connu). Volumes <b>indicatifs</b>.</div>` : ''}
+    </div>`;
+
+  content.innerHTML = banner + `
+    <table class="hist-table">
+      <thead><tr><th>Contenant</th><th>Type</th><th>Lot</th><th class="num">Volume (hL)</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" class="t-muted" style="text-align:center;padding:var(--space-4)">Aucune cuve.</td></tr>'}</tbody>
+    </table>`;
+}
+
+function _histInjectCss() {
+  if (document.getElementById('hist-css')) return;
+  const s = document.createElement('style'); s.id = 'hist-css';
+  s.textContent = `
+    body.wb3-hist-mode #stats,
+    body.wb3-hist-mode #cave-shortcuts,
+    body.wb3-hist-mode .action-bar-new,
+    body.wb3-hist-mode .filters-bar,
+    body.wb3-hist-mode .travee-sidebar,
+    body.wb3-hist-mode #pagination-bar,
+    body.wb3-hist-mode .speed-dial { display:none !important; }
+    .hist-banner { background:#fff8ef; border:1px solid #ffcc80; border-radius:var(--radius-md); padding:10px 14px; margin-bottom:var(--space-3); }
+    .hist-banner-main { font-size:var(--text-callout); }
+    .hist-banner-sub { font-size:var(--text-footnote); color:var(--color-ink-secondary); margin-top:2px; }
+    .hist-warn { margin-top:6px; font-size:var(--text-footnote); color:#9a3412; }
+    .hist-table { width:100%; border-collapse:collapse; font-size:var(--text-footnote); }
+    .hist-table th, .hist-table td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--color-border); }
+    .hist-table th { font-weight:600; color:var(--color-ink-secondary); }
+    .hist-table td.num, .hist-table th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .hist-table tr.hist-empty td { color:var(--color-ink-tertiary); }
+    .hist-num { display:inline-block; font-size:10px; font-weight:700; background:var(--color-border); color:var(--color-ink-secondary); padding:1px 5px; border-radius:999px; }
+    .hist-table .t-muted { color:var(--color-ink-tertiary); }
+  `;
+  document.head.appendChild(s);
+}
+
 function render() {
+  if (histDate) { renderHistorical(); return; }   // mode date passée : snapshot figé, pas de rendu live
   WBWin.destroy();   // coupe les observers du rendu groupé précédent
   _populateMillesimeFilter();
   renderStats();

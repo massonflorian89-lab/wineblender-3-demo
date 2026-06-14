@@ -1875,13 +1875,21 @@ async function moveTravee(id, direction) {
 // ============================================================
 
 // Liste exhaustive des tuiles possibles dans la cuverie
+// ⚠️ Doit rester aligné sur l'objet `tiles` de renderStats() dans cuverie.html
+// (même ids, même ordre d'affichage). Ajouter une tuile dans cuverie => l'ajouter ici.
 const CUVERIE_STATS = [
-  { id: 'total',     label: 'Contenants',       desc: 'Nombre total + nb inactifs' },
-  { id: 'capacite',  label: 'Capacité totale',  desc: 'Cumul en hectolitres' },
-  { id: 'cuves',     label: `${CUVE_SVG} Cuves`, desc: 'Nombre + capacité totale' },
-  { id: 'foudres',   label: '🛢 Foudres',       desc: 'Nombre + capacité totale' },
-  { id: 'futs',      label: '🛢 Fûts',          desc: 'Nombre + capacité totale' },
-  { id: 'pressoirs', label: '⚙️ Pressoirs',     desc: 'Nombre + capacité totale' },
+  { id: 'total',       label: 'Contenants',         desc: 'Nombre total + nb inactifs' },
+  { id: 'capacite',    label: 'Capacité totale',    desc: 'Cumul en hectolitres' },
+  { id: 'remplissage', label: 'Remplissage global', desc: 'Taux d’occupation de la cave + barre' },
+  { id: 'vides',       label: '⚪ Contenants vides', desc: 'Disponibles immédiatement' },
+  { id: 'fermentation',label: '🌡 En fermentation',  desc: 'Lots en FA + FML actifs' },
+  { id: 'cuves',       label: `${CUVE_SVG} Cuves`,   desc: 'Nombre + capacité totale' },
+  { id: 'foudres',     label: '🛢 Foudres',         desc: 'Nombre + capacité totale' },
+  { id: 'futs',        label: '🛢 Fûts',            desc: 'Nombre + capacité totale' },
+  { id: 'pressoirs',   label: '⚙️ Pressoirs',       desc: 'Nombre + capacité totale' },
+  { id: 'vol_rouge',   label: '🔴 Volume rouge',    desc: 'Total hL des lots rouges' },
+  { id: 'vol_blanc',   label: '⚪ Volume blanc',     desc: 'Total hL des lots blancs' },
+  { id: 'vol_rose',    label: '🌸 Volume rosé',      desc: 'Total hL des lots rosés' },
 ];
 
 const CUVERIE_DEFAULTS = {
@@ -1988,7 +1996,11 @@ async function renderCuverieSettings() {
 }
 
 async function saveCuveriePrefs() {
+  // Merge sur l'existant : NE PAS écraser les prefs gérées ailleurs
+  // (table_columns, plan_color, plan_dense) — sinon la config colonnes /
+  // les réglages de la vue plan seraient perdus à chaque enregistrement ici.
   const newPrefs = {
+    ...cuveriePrefs,
     default_view:  document.querySelector('#pref-view input[name="view"]:checked')?.value   || 'table',
     default_group: document.querySelector('#pref-group input[name="group"]:checked')?.value || 'none',
     default_sort:  document.querySelector('#pref-sort input[name="sort"]:checked')?.value   || 'nom',
