@@ -2202,6 +2202,50 @@
     return data;
   }
 
+  // ── Plan de cave 2D custom (migration 092) ────────────────────
+  // Disposition PARTAGÉE par tenant : position (x,y) de chaque contenant
+  // sur un canevas virtuel (vue plan éditable + vue mur). Lecture = tout
+  // membre du tenant ; écriture = privilégié (RLS).
+  async function getCuveriePlan() {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client
+      .from('cuverie_plan')
+      .select('contenant_id, x, y')
+      .eq('tenant_id', tenantId);
+    if (error) {
+      // Table absente (migration 092 non appliquée) → plan vide, pas d'erreur bloquante.
+      if (error.code === '42P01' || error.code === 'PGRST205' ||
+          /cuverie_plan/.test(error.message || '')) return {};
+      throw error;
+    }
+    const map = {};
+    (data || []).forEach(r => { map[r.contenant_id] = { x: Number(r.x), y: Number(r.y) }; });
+    return map;
+  }
+
+  async function setCuveriePlanPos(contenantId, x, y) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('cuverie_plan');
+    const { error } = await client
+      .from('cuverie_plan')
+      .upsert({
+        tenant_id: tenantId, contenant_id: contenantId,
+        x: Math.round(Number(x) || 0), y: Math.round(Number(y) || 0),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'tenant_id,contenant_id' });
+    if (error) throw error;
+  }
+
+  async function clearCuveriePlan() {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('cuverie_plan');
+    const { error } = await client.from('cuverie_plan').delete().eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
   // ── Scission de lot via RPC (migration 086 — P6) ──────────────
   // Le contenu d'une cuve passe du lot source à un NOUVEAU lot (numéro
   // auto, filiation 'manual', couple sortie/entrée journalisé dans
@@ -2768,6 +2812,9 @@
     cancelApport,
     scissionLot,
     etatCaveAt,
+    getCuveriePlan,
+    setCuveriePlanPos,
+    clearCuveriePlan,
     createCorrectiveOperation,
     convertMultilotToAssemblage,
     softDelete,
