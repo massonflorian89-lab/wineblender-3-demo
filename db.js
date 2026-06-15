@@ -123,6 +123,8 @@
     planning:          { label: 'Planning / fiches de travail',migration: '064',     caps: ['tache', 'fiche_travail'] },  // tache_creneau (070) = OPTIONNEL : dégradé dans la page, ne bloque pas le module
     inventaire:        { label: 'Inventaire',                  migration: '066',     caps: ['inventaire', 'inventaire_ligne'] },
     echantillon:       { label: 'Échantillons clients',        migration: '093',     caps: ['echantillon'] },
+    reception:         { label: 'Réception coopérative',       migration: '090/091', caps: ['reception_jour'] },
+    plan_cave:         { label: 'Plan de cave & mur',          migration: '092',     caps: ['cuverie_plan'] },
   };
 
   let _capCache = null;

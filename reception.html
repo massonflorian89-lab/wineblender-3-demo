@@ -99,16 +99,9 @@ function toast(a,b){ if(window.WB3Toast) return WB3Toast.legacy(a,b); }
   }
   document.getElementById('tenant-pill').textContent = `🏢 ${ctx.tenant.nom} · ${ctx.tenant.role}`;
 
-  // Garde capacité : migration 090 requise.
-  if (WB3DB.requireCapability) {
-    try { await WB3DB.requireCapability('reception_jour'); }
-    catch (e) {
-      document.getElementById('content').innerHTML =
-        `<div class="empty-state"><div class="icon">🧩</div><div class="title">Module Réception indisponible</div>
-         <div class="desc">${escapeHtml(WB3DB.errMsg?WB3DB.errMsg(e):e.message)}</div></div>`;
-      return;
-    }
-  }
+  // Garde module : migration 090 requise ET module « Réception » activé pour la
+  // cave (sinon écran « module indisponible / désactivé »).
+  if (WB3DB.ensureModule && !(await WB3DB.ensureModule('reception', 'content'))) return;
 
   renderShell();
   try { _cuves = await WB3DB.listTable('contenants', { select:'id,nom,type,capacite_hl', order:'nom', ascending:true }); }

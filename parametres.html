@@ -427,13 +427,15 @@ function renderSection() {
 // Modules par cave — créateur de l'app (super-admin plateforme, mig 074)
 //   Active/désactive les modules vendange optionnels par tenant.
 // ============================================================
+// Modules complémentaires (facturables). Apports = SOCLE (toujours actif, retiré d'ici).
 const PLATFORM_MODULES = [
-  { key: 'epalement',         label: '⚖️ Épalement',           mig: '060/061' },
-  { key: 'apports_rendement', label: '📊 Rendement vendange',   mig: '062' },
-  { key: 'planning',          label: '🗓️ Planning / fiches',    mig: '064/070' },
-  { key: 'inventaire',        label: '📦 Inventaire',           mig: '066' },
-  { key: 'assemblage',        label: '🧪 Assemblage / essais',  mig: '063' },
-  { key: 'echantillon',       label: '🍾 Échantillons clients', mig: '093' },
+  { key: 'reception',   label: '🧺 Réception coopérative', mig: '090/091' },
+  { key: 'epalement',   label: '⚖️ Épalement (barémage)',  mig: '060/061' },
+  { key: 'assemblage',  label: '🧪 Assemblage / essais',   mig: '063' },
+  { key: 'echantillon', label: '🍾 Échantillons clients',  mig: '093' },
+  { key: 'planning',    label: '🗓️ Planning / fiches',     mig: '064/070' },
+  { key: 'inventaire',  label: '📦 Inventaire',            mig: '066' },
+  { key: 'plan_cave',   label: '🗺 Plan de cave & mur',    mig: '092' },
 ];
 
 async function renderModulesSection() {

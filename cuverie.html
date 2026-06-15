@@ -1719,6 +1719,7 @@ let histDate = null;   // 'YYYY-MM-DD' si une date passée est sélectionnée, s
 let histRes  = null;   // dernier résultat wb3_etat_cave_at (mémoïsé pour re-render)
 
 // Plan de cave éditable (mig 092) — positions partagées (cuverie_plan).
+let _planCaveOn = true;    // module « Plan de cave & mur » activé pour la cave
 let cavePlanPos = {};      // contenant_id -> {x, y} (unités px du canevas virtuel)
 let _caveEditOn = true;    // édition active (déplacement des cuves) en fenêtre normale
 let _caveResizeBound = false;
@@ -1916,7 +1917,8 @@ async function logout() {
   // Borne le sélecteur de date historique à aujourd'hui (pas de futur).
   { const _hd = document.getElementById('hist-date'); if (_hd) _hd.max = new Date().toISOString().slice(0,10); }
   // Plan de cave : vue réservée aux ordinateurs → masque le bouton ailleurs.
-  if (!_caveAllowed()) document.querySelector('#view-mode [data-view="caveplan"]')?.style.setProperty('display', 'none');
+  try { _planCaveOn = (await WB3DB.checkModule('plan_cave')).available !== false; } catch (_) { _planCaveOn = true; }
+  if (!_caveAllowed() || !_planCaveOn) document.querySelector('#view-mode [data-view="caveplan"]')?.style.setProperty('display', 'none');
 
   // Périmètre caviste : pas de gestion des contenants (consultation + analyses).
   if (WB3DB.isPrivileged && !WB3DB.isPrivileged()) {
@@ -2413,6 +2415,7 @@ function _wallSetup() {
   faFilterOn = false; groupMode = 'none';
   viewMode = (_wv && _wv !== 'auto') ? _wv
            : ((cavePlanPos && Object.keys(cavePlanPos).length) ? 'caveplan' : 'grid');
+  if (viewMode === 'caveplan' && !_planCaveOn) viewMode = 'grid';   // module désactivé → repli
   _wallKeepAwake();
   // Sortie du mode mural : Échap → on retire mode=wall (retour au ?fs=1 normal).
   document.addEventListener('keydown', (e) => {
@@ -3194,6 +3197,13 @@ function renderCavePlan(items) {
   const container = document.getElementById('content');
   const readOnly = !!_wallMode;
 
+  // Garde module : « Plan de cave & mur » désactivé pour la cave.
+  if (!readOnly && !_planCaveOn) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">🧩</div>
+      <div class="title">Module « Plan de cave » désactivé</div>
+      <div class="desc">Module complémentaire non activé pour cette cave (ou migration 092 non appliquée). Active-le dans Paramètres ▸ Modules.</div></div>`;
+    return;
+  }
   // Garde : vue réservée aux ordinateurs (≥ 13", pointeur fin).
   if (!readOnly && !_caveAllowed()) {
     container.innerHTML = `<div class="empty-state"><div class="icon">🖥️</div>
