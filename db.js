@@ -2339,6 +2339,32 @@
     return data;
   }
 
+  // Renomme une entrée du référentiel ET propage le nouveau nom aux
+  // échantillons existants (le champ est dénormalisé en texte).
+  async function renameEchantillonClient(id, oldNom, newNom, role) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('echantillon');
+    const clean = String(newNom || '').trim();
+    if (!clean) throw new Error('[WB3] Nom requis.');
+    const r = (role === 'courtier' ? 'courtier' : 'client');
+    const { error } = await client.from('echantillon_client')
+      .update({ nom: clean }).eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+    if (oldNom && oldNom !== clean) {
+      const patch = {}; patch[r] = clean;
+      await client.from('echantillon').update(patch).eq('tenant_id', tenantId).eq(r, oldNom);
+    }
+  }
+
+  async function deleteEchantillonClient(id) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('echantillon');
+    const { error } = await client.from('echantillon_client').delete().eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
   // ── Scission de lot via RPC (migration 086 — P6) ──────────────
   // Le contenu d'une cuve passe du lot source à un NOUVEAU lot (numéro
   // auto, filiation 'manual', couple sortie/entrée journalisé dans
@@ -2915,6 +2941,8 @@
     deleteEchantillon,
     listEchantillonClients,
     addEchantillonClient,
+    renameEchantillonClient,
+    deleteEchantillonClient,
     createCorrectiveOperation,
     convertMultilotToAssemblage,
     softDelete,

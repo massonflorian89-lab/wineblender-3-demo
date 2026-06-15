@@ -863,7 +863,8 @@ function _renderCuverieSubContent() {
 // Section : Échantillons (réglages des étiquettes)
 // ============================================================
 let _echPrefsCache = {};
-function _echEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+let _echClients = [], _echCourtiers = [];
+function _echEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 const _ECH_AVERY = [
   ['L7159','24 / page — 63,5 × 33,9 mm (L7159/3422)'],
   ['L7160','21 / page — 63,5 × 38,1 mm (L7160/3652)'],
@@ -878,6 +879,8 @@ async function renderEchantillonsSettings(){
   let p = {};
   try { p = (await WB3DB.getUserPref('echantillon')) || {}; } catch(_){}
   _echPrefsCache = { ...p };
+  try { [_echClients, _echCourtiers] = await Promise.all([WB3DB.listEchantillonClients('client'), WB3DB.listEchantillonClients('courtier')]); }
+  catch(_){ _echClients = []; _echCourtiers = []; }
   const cur = p.avery || 'L7159';
   root.innerHTML = `
     <h2>🍾 Échantillons — étiquettes</h2>
@@ -917,7 +920,70 @@ async function renderEchantillonsSettings(){
 
     <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:var(--space-3);border-top:1px solid var(--color-border)">
       <button class="btn" onclick="saveEchantillonsSettings()">💾 Enregistrer</button>
+    </div>
+
+    <h2 style="margin-top:var(--space-6)">Listes Clients & Courtiers</h2>
+    <p class="lead">Gère ici les clients et courtiers proposés à la saisie d'un échantillon (plus de saisie libre : on choisit dans la liste).</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-4)">
+      <div class="drawer-section"><div class="drawer-section-title">👤 Clients</div>
+        <div class="drawer-section-content" style="padding:var(--space-4)">
+          <div style="display:flex;gap:6px;margin-bottom:var(--space-3)">
+            <input type="text" id="ech-add-client" placeholder="Nouveau client" style="flex:1;padding:7px 9px;border:1px solid var(--color-border);border-radius:var(--radius-md);font:inherit"
+              onkeydown="if(event.key==='Enter')echAddPartner('client')">
+            <button class="btn btn--secondary btn--sm" onclick="echAddPartner('client')">+ Ajouter</button>
+          </div>
+          <div id="ech-list-client"></div>
+        </div></div>
+      <div class="drawer-section"><div class="drawer-section-title">🤝 Courtiers</div>
+        <div class="drawer-section-content" style="padding:var(--space-4)">
+          <div style="display:flex;gap:6px;margin-bottom:var(--space-3)">
+            <input type="text" id="ech-add-courtier" placeholder="Nouveau courtier" style="flex:1;padding:7px 9px;border:1px solid var(--color-border);border-radius:var(--radius-md);font:inherit"
+              onkeydown="if(event.key==='Enter')echAddPartner('courtier')">
+            <button class="btn btn--secondary btn--sm" onclick="echAddPartner('courtier')">+ Ajouter</button>
+          </div>
+          <div id="ech-list-courtier"></div>
+        </div></div>
     </div>`;
+  _renderEchPartners();
+}
+
+function _echPartnerRows(arr, role){
+  if (!arr.length) return '<div class="t-footnote" style="color:var(--color-ink-tertiary)">Aucun pour l\'instant.</div>';
+  return arr.map(c => `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--color-border)">
+      <span style="flex:1">${_echEsc(c.nom)}</span>
+      <button class="btn btn--ghost btn--sm" title="Renommer" onclick="echRenamePartner('${c.id}','${role}')">✏️</button>
+      <button class="btn btn--ghost btn--sm" title="Supprimer" onclick="echDeletePartner('${c.id}','${role}')">🗑</button>
+    </div>`).join('');
+}
+function _renderEchPartners(){
+  const c1 = document.getElementById('ech-list-client'); if (c1) c1.innerHTML = _echPartnerRows(_echClients, 'client');
+  const c2 = document.getElementById('ech-list-courtier'); if (c2) c2.innerHTML = _echPartnerRows(_echCourtiers, 'courtier');
+}
+async function _echReloadPartners(){
+  try { [_echClients, _echCourtiers] = await Promise.all([WB3DB.listEchantillonClients('client'), WB3DB.listEchantillonClients('courtier')]); } catch(_){}
+  _renderEchPartners();
+}
+async function echAddPartner(role){
+  const inp = document.getElementById(role === 'courtier' ? 'ech-add-courtier' : 'ech-add-client');
+  const nom = (inp.value || '').trim(); if (!nom) return;
+  try { await WB3DB.addEchantillonClient(nom, role); inp.value = ''; await _echReloadPartners(); }
+  catch(e){ toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
+}
+async function echRenamePartner(id, role){
+  const arr = role === 'courtier' ? _echCourtiers : _echClients;
+  const cur = arr.find(x => x.id === id); if (!cur) return;
+  const nv = await WB3UI.prompt('Renommer « ' + cur.nom + ' » :', { value: cur.nom });
+  if (nv == null) return;
+  const clean = String(nv).trim(); if (!clean || clean === cur.nom) return;
+  try { await WB3DB.renameEchantillonClient(id, cur.nom, clean, role); await _echReloadPartners(); toast('Renommé', 'success'); }
+  catch(e){ toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
+}
+async function echDeletePartner(id, role){
+  const arr = role === 'courtier' ? _echCourtiers : _echClients;
+  const cur = arr.find(x => x.id === id); if (!cur) return;
+  if (!await WB3UI.confirm('Supprimer « ' + cur.nom + ' » de la liste ? (les échantillons existants gardent ce nom)', { title:'Supprimer', okText:'Supprimer', danger:true })) return;
+  try { await WB3DB.deleteEchantillonClient(id); await _echReloadPartners(); }
+  catch(e){ toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
 }
 
 function _echLogoPick(ev){

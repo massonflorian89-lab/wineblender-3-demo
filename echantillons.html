@@ -328,11 +328,10 @@ function openForm(id){
         </div>
 
         <div class="row">
-          <div class="f"><label>Client</label><input type="text" id="d-client" list="cl-list" value="${e?esc(e.client||''):''}" placeholder="Nom du client"></div>
-          <div class="f"><label>Courtier</label><input type="text" id="d-courtier" list="co-list" value="${e?esc(e.courtier||''):''}" placeholder="Courtier (optionnel)"></div>
+          <div class="f"><label>Client</label><select id="d-client" onchange="onPartnerSelect('client')">${_partnerSelectOpts(_clients, e?e.client:'')}</select></div>
+          <div class="f"><label>Courtier</label><select id="d-courtier" onchange="onPartnerSelect('courtier')">${_partnerSelectOpts(_courtiers, e?e.courtier:'')}</select></div>
         </div>
-        <datalist id="cl-list">${clientList}</datalist>
-        <datalist id="co-list">${courtierList}</datalist>
+        <p class="hint" style="margin:-6px 0 8px">Gère les listes dans <a href="parametres.html?section=echantillons" style="color:var(--color-primary)">Paramètres ▸ Échantillons</a>.</p>
 
         <div class="row">
           <div class="f" style="max-width:140px"><label>Nb bouteilles</label><input type="number" min="0" id="d-nb" value="${e?esc(e.nb_bouteilles):'2'}" oninput="calcTotal()"></div>
@@ -360,6 +359,29 @@ function openForm(id){
   calcTotal();
 }
 function closeForm(){ document.getElementById('form-overlay')?.remove(); _editId = null; }
+
+// Menu déroulant client/courtier (plus de saisie libre) + option « Créer ».
+function _partnerSelectOpts(arr, current){
+  let opts = '<option value="">—</option>', found = false;
+  (arr || []).forEach(c => { const s = c.nom === current ? ' selected' : ''; if (c.nom === current) found = true; opts += `<option value="${esc(c.nom)}"${s}>${esc(c.nom)}</option>`; });
+  if (current && !found) opts += `<option value="${esc(current)}" selected>${esc(current)} (hors liste)</option>`;
+  opts += '<option value="__new__">➕ Créer…</option>';
+  return opts;
+}
+async function onPartnerSelect(role){
+  const sel = document.getElementById(role === 'courtier' ? 'd-courtier' : 'd-client');
+  if (!sel || sel.value !== '__new__') return;
+  const prev = sel.dataset.prev || '';
+  const nv = await WB3UI.prompt('Nouveau ' + (role === 'courtier' ? 'courtier' : 'client') + ' :', { placeholder: 'Nom' });
+  const nom = nv == null ? '' : String(nv).trim();
+  if (!nom) { sel.value = prev; return; }
+  try {
+    await WB3DB.addEchantillonClient(nom, role);
+    if (role === 'courtier') _courtiers = await WB3DB.listEchantillonClients('courtier');
+    else _clients = await WB3DB.listEchantillonClients('client');
+    sel.innerHTML = _partnerSelectOpts(role === 'courtier' ? _courtiers : _clients, nom);
+  } catch (e) { toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); sel.value = prev; }
+}
 
 function setSrc(t){
   _srcType = t;
@@ -393,7 +415,9 @@ function calcTotal(){
 async function saveForm(){
   const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
   const num = id => { const v = val(id); return v === '' ? null : Number(String(v).replace(',', '.')); };
-  const client = val('d-client'), courtier = val('d-courtier');
+  let client = val('d-client'), courtier = val('d-courtier');
+  if (client === '__new__') client = '';
+  if (courtier === '__new__') courtier = '';
   const fields = {
     id: _editId || undefined,
     date_echantillon: val('d-date') || todayIso(),
@@ -416,9 +440,7 @@ async function saveForm(){
   };
   if (!fields.vin && !fields.contenant_id && !fields.essai_id) { WB3UI.alert('Renseigne au moins une source (cuve/essai) ou un libellé de vin.', { title:'Champ manquant' }); return; }
   try {
-    // Référentiel : ajoute les nouveaux clients/courtiers à la volée.
-    if (client && !_clients.some(c => c.nom.toLowerCase() === client.toLowerCase())) { try { await WB3DB.addEchantillonClient(client, 'client'); } catch(_){} }
-    if (courtier && !_courtiers.some(c => c.nom.toLowerCase() === courtier.toLowerCase())) { try { await WB3DB.addEchantillonClient(courtier, 'courtier'); } catch(_){} }
+    // Client/courtier sont choisis dans la liste (gérée en Paramètres) — pas de saisie libre.
     await WB3DB.saveEchantillon(fields);
     closeForm();
     await reloadAll();
