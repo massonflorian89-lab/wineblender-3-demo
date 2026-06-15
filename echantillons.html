@@ -554,9 +554,11 @@ function _labelHTML(e, mdl){
   </div>`;
 }
 
-function printLabels(){
+async function printLabels(){
   const perBottle = document.getElementById('lbl-perbottle')?.checked !== false;
   document.getElementById('labels-modal')?.remove();
+  // Recharge les réglages frais (logo à jour même s'il a été changé entre-temps).
+  try { _lblPrefs = (await WB3DB.getUserPref('echantillon')) || _lblPrefs; } catch (_) {}
   const mdl = _lblModel();
   const perPage = mdl.cols * mdl.rows;
 
@@ -577,8 +579,16 @@ function printLabels(){
     html += `<div class="lbl-page" style="${pageStyle}">`
       + labels.slice(i, i + perPage).map(e => _labelHTML(e, mdl)).join('') + '</div>';
   }
-  document.getElementById('labels-root').innerHTML = html;
-  window.print();   // QR inline (SVG) → pas d'attente réseau
+  const root = document.getElementById('labels-root');
+  root.innerHTML = html;
+  // Attendre que le logo (et toute image) soit chargé AVANT d'imprimer,
+  // sinon le logo manque à la 1ʳᵉ impression (data-URL pas encore décodé).
+  const imgs = Array.from(root.querySelectorAll('img'));
+  const ready = Promise.all(imgs.map(im => (im.complete && im.naturalWidth)
+    ? Promise.resolve()
+    : new Promise(res => { im.onload = im.onerror = res; })));
+  await ready;
+  window.print();   // QR = SVG inline, logo désormais chargé
 }
 </script>
 </body>

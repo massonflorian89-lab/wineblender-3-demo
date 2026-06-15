@@ -560,6 +560,35 @@
 
 // ── State ────────────────────────────────────────────────────
 let analyses = [];
+// Tri colonne (clic en-tête) : key + sens (1 asc, -1 desc) ; null = ordre par défaut.
+let _analSortKey = null, _analSortDir = 1;
+function _analSortVal(a, key){
+  switch (key){
+    case '__date':      return a.date_analyse || '';
+    case '__lot':       return (a.lots && a.lots.nom) || '';
+    case '__contenant': return (a.contenants && a.contenants.nom) || '';
+    case 'millesime':   return a.lots ? a.lots.millesime : null;
+    case 'couleur':     return (a.lots && a.lots.couleur) || '';
+    default:            return a[key];
+  }
+}
+function _analCmp(a, b){
+  const va = _analSortVal(a, _analSortKey), vb = _analSortVal(b, _analSortKey);
+  const ea = (va == null || va === ''), eb = (vb == null || vb === '');
+  if (ea && eb) return 0;
+  if (ea) return 1;            // valeurs vides toujours en dernier
+  if (eb) return -1;
+  const c = (typeof va === 'number' && typeof vb === 'number')
+    ? va - vb
+    : String(va).localeCompare(String(vb), 'fr', { numeric: true });
+  return c * _analSortDir;
+}
+function sortByCol(key){
+  if (_analSortKey !== key) { _analSortKey = key; _analSortDir = 1; }   // 1er clic : asc
+  else if (_analSortDir === 1) { _analSortDir = -1; }                   // 2e : desc
+  else { _analSortKey = null; }                                        // 3e : ordre par défaut
+  render();
+}
 let lots     = [];
 let contenants = [];
 let editId   = null;
@@ -833,7 +862,8 @@ function toggleViewMode() {
 
 // ── Render ───────────────────────────────────────────────────
 function render() {
-  const data = filteredAnalyses();
+  let data = filteredAnalyses();
+  if (_analSortKey) data = data.slice().sort(_analCmp);   // tri colonne (copie, ne mute pas la source)
   const area = document.getElementById('content-area');
   document.getElementById('count-label').textContent = data.length + ' analyse' + (data.length !== 1 ? 's' : '');
   _l5Update();   // L5 : bandeau (compteur + chips + réinitialiser)
@@ -949,7 +979,7 @@ function render() {
            onclick="WB3Nav.navigate('qualite-traca.html')" title="Voir dans les diagnostics qualité">⚠ Diagnostics</a>` : ''}
       </td>`;
   // L7 — en vue groupée, on insère des lignes-titres de période (sur la fenêtre paginée).
-  const _grpSections = _grouped ? WB3Chrono.bucket(pageData, a => a.date_analyse) : null;
+  const _grpSections = (_grouped && !_analSortKey) ? WB3Chrono.bucket(pageData, a => a.date_analyse) : null;
   let rows;
   if (_grpSections && _grpSections.length > 1) {
     const colspan = activeCols.length + 1;
@@ -971,7 +1001,7 @@ function render() {
       <table>
         <thead>
           <tr>
-            ${activeCols.map(c => `<th title="${c.t} — glisser pour réordonner" draggable="true" data-col-key="${c.k}">${c.h}</th>`).join('')}
+            ${activeCols.map(c => { const ar = _analSortKey === c.k ? (_analSortDir > 0 ? ' ▲' : ' ▼') : ''; return `<th title="${c.t} — clic : trier · glisser : réordonner" draggable="true" data-col-key="${c.k}" style="cursor:pointer;user-select:none" onclick="sortByCol('${c.k}')">${c.h}${ar}</th>`; }).join('')}
             <th></th>
           </tr>
         </thead>
