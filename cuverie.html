@@ -3134,7 +3134,8 @@ function render() {
 // ════════════════════════════════════════════════════════════
 const CAVE_VW = 1600, CAVE_VH = 900;   // espace virtuel (unités)
 let _caveScale = 1;                     // échelle courante (px écran / unité)
-let _caveSel   = new Set();             // cid sélectionnés (assistant arc/rangée)
+let _caveSel   = new Set();             // cid sélectionnés (assistants rangée/éventail)
+let _caveItems = [];                    // cuves actuellement affichées sur le plan
 
 function _caveAllowed() {
   try { return window.innerWidth >= 1180 && window.matchMedia('(any-pointer: fine)').matches; }
@@ -3172,6 +3173,7 @@ function _caveTileHTML(c, editable) {
 }
 
 function renderCavePlan(items) {
+  _caveItems = items;
   const container = document.getElementById('content');
   const readOnly = !!_wallMode;
 
@@ -3192,7 +3194,7 @@ function renderCavePlan(items) {
       ${editable ? `
       <span class="cave-sep"></span>
       <button class="btn btn--secondary btn--sm cave-arr" onclick="caveArrange('row')" ${n < 2 ? 'disabled' : ''} title="Aligner les cuves cochées en rangée">↦ Rangée</button>
-      <button class="btn btn--secondary btn--sm cave-arr" onclick="caveArrange('arc')" ${n < 2 ? 'disabled' : ''} title="Aligner les cuves cochées en demi-cercle">⌒ Arc</button>
+      <button class="btn btn--secondary btn--sm" onclick="caveFan()" title="Disposer en éventail (rosace) : chaque groupe (A1, A2, B1…) devient un rayon partant d'un foyer. Sur les cuves cochées, ou toutes si aucune n'est cochée.">✣ Éventail</button>
       <span class="cave-hint">${_caveSelHintHTML()}</span>` : '<span class="cave-hint">Édition verrouillée (clique 🔒).</span>'}
       <div style="flex:1"></div>
       <button class="btn btn--secondary btn--sm" onclick="cavePlanReset()" title="Efface toutes les positions enregistrées">↺ Réinitialiser</button>
@@ -3248,7 +3250,7 @@ function _caveScaleNow() {
 
 function _caveSelHintHTML() {
   const n = _caveSel.size;
-  return (n ? n + ' sélectionnée' + (n > 1 ? 's' : '') : 'Coche des cuves, puis Rangée / Arc')
+  return (n ? n + ' sélectionnée' + (n > 1 ? 's' : '') : 'Coche des cuves (Rangée) — ou Éventail pour disposer tous les groupes')
     + ' · <a href="#" onclick="caveSelAll(true);return false">tout</a> · <a href="#" onclick="caveSelAll(false);return false">rien</a>';
 }
 function _caveRefreshToolbar() {
@@ -3307,6 +3309,72 @@ async function caveArrange(mode) {
   try {
     for (const p of place) { const pos = cavePlanPos[p.c.id]; await WB3DB.setCuveriePlanPos(p.c.id, pos.x, pos.y); }
     toast('Aligné en ' + (mode === 'arc' ? 'demi-cercle' : 'rangée'), 'success');
+  } catch (e) { toast('Positions non sauvegardées : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e && e.message || e)), 'error'); }
+}
+
+// Détecte le groupe d'une cuve d'après son nom : « A1-10 » → {grp:'A1', idx:10}.
+function _caveGroupKey(name) {
+  const s = String(name || '').trim();
+  const m = s.match(/^(.*?)[\s._-]*(\d+)\s*$/);
+  if (m && m[1].trim()) return { grp: m[1].trim(), idx: parseInt(m[2], 10) };
+  return { grp: s, idx: 0 };
+}
+
+// Assistant ÉVENTAIL (rosace) : chaque groupe (préfixe du nom) devient un RAYON
+// partant d'un foyer commun ; les rayons s'ouvrent de gauche à droite. La figure
+// est ensuite mise à l'échelle pour tenir dans le canevas.
+async function caveFan() {
+  let list = contenants.filter(c => _caveSel.has(c.id));
+  if (list.length < 2) list = (_caveItems && _caveItems.length) ? _caveItems.slice() : contenants.slice();
+  if (list.length < 2) { toast('Pas assez de cuves.', 'error'); return; }
+
+  const groups = new Map();
+  list.forEach(c => {
+    const k = _caveGroupKey(c.nom);
+    if (!groups.has(k.grp)) groups.set(k.grp, []);
+    groups.get(k.grp).push({ c, idx: k.idx });
+  });
+  const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+  keys.forEach(k => groups.get(k).sort((a, b) => a.idx - b.idx));
+
+  const G = keys.length;
+  const aStart = 150 * Math.PI / 180, aEnd = 30 * Math.PI / 180;   // éventail vers le bas
+  const innerR = Math.max(440, 140 * (G - 1));   // grand foyer → pas d'entassement au centre
+  const stepR  = 150;
+
+  // 1) positions brutes (centre tuile) autour d'un foyer en (0,0)
+  const raw = [];
+  keys.forEach((k, gi) => {
+    const ang = G === 1 ? (aStart + aEnd) / 2 : aStart + (aEnd - aStart) * (gi / (G - 1));
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    groups.get(k).forEach((it, j) => {
+      const r = innerR + j * stepR, sz = _caveTileSize(it.c);
+      raw.push({ id: it.c.id, X: ca * r, Y: sa * r, w: sz.w, h: sz.h });
+    });
+  });
+
+  // 2) ajuste (translate + échelle) pour remplir le canevas avec une marge
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  raw.forEach(p => { minX = Math.min(minX, p.X - p.w / 2); maxX = Math.max(maxX, p.X + p.w / 2);
+                     minY = Math.min(minY, p.Y - p.h / 2); maxY = Math.max(maxY, p.Y + p.h / 2); });
+  const M = 28, availW = CAVE_VW - 2 * M, availH = CAVE_VH - 2 * M;
+  const s = Math.min(availW / Math.max(1, maxX - minX), availH / Math.max(1, maxY - minY), 1);
+  const offX = M + (availW - (maxX - minX) * s) / 2 - minX * s;
+  const offY = M + (availH - (maxY - minY) * s) / 2 - minY * s;
+
+  const ids = [];
+  raw.forEach(p => {
+    const x = offX + p.X * s - p.w / 2, y = offY + p.Y * s - p.h / 2;
+    cavePlanPos[p.id] = {
+      x: Math.round(Math.max(0, Math.min(x, CAVE_VW - p.w))),
+      y: Math.round(Math.max(0, Math.min(y, CAVE_VH - p.h))),
+    };
+    ids.push(p.id);
+  });
+  render();
+  try {
+    for (const id of ids) { const p = cavePlanPos[id]; await WB3DB.setCuveriePlanPos(id, p.x, p.y); }
+    toast('Éventail composé — ' + G + ' groupe' + (G > 1 ? 's' : '') + ' (ajuste à la main si besoin)', 'success');
   } catch (e) { toast('Positions non sauvegardées : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e && e.message || e)), 'error'); }
 }
 
