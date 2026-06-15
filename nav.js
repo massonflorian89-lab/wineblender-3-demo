@@ -684,6 +684,22 @@
       body.wb3-has-nav.wb3-large .wb-main {
         margin-left: max(var(--wb3-nav-w), ${LARGE_W}px);
       }
+      /* ── Anti-FOUC : décalage RÉSERVÉ avant la construction de la sidebar ──
+         Posé sur <html> (présent même quand nav.js est dans le <head>), AVANT
+         le 1er affichage → l'en-tête naît à sa place, sans saut. La bande
+         ::before pré-peint la zone sidebar (couleur de fond) pour éviter le vide. */
+      html.wb3-prenav .wb-header,
+      html.wb3-prenav .wb-main { margin-left: var(--wb3-nav-w); }
+      html.wb3-prenav.wb3-pre-rail .wb-header,
+      html.wb3-prenav.wb3-pre-rail .wb-main { margin-left: var(--wb3-nav-rail); }
+      html.wb3-prenav.wb3-pre-large .wb-header,
+      html.wb3-prenav.wb3-pre-large .wb-main { margin-left: max(var(--wb3-nav-w), ${LARGE_W}px); }
+      html.wb3-prenav body::before {
+        content: ''; position: fixed; left: 0; top: 0; bottom: 0;
+        width: var(--wb3-nav-w); background: var(--wb3-nav-bg); z-index: 299;
+      }
+      html.wb3-prenav.wb3-pre-rail body::before  { width: var(--wb3-nav-rail); }
+      html.wb3-prenav.wb3-pre-large body::before { width: max(var(--wb3-nav-w), ${LARGE_W}px); }
     }
     @media (prefers-reduced-motion: reduce) {
       .wb3-nav,
@@ -721,10 +737,10 @@
     try {
       const qs = new URLSearchParams(window.location.search);
       if (qs.get('fs') === '1' || qs.get('embedded') === '1') return;   // fenêtre indép. / iframe shell → pas de sidebar
-      if (!document.body) return;
-      document.body.classList.add('wb3-has-nav');
-      if (navState === 'rail')  document.body.classList.add('wb3-collapsed');
-      if (navState === 'large') document.body.classList.add('wb3-large');
+      const h = document.documentElement;   // toujours présent (même si nav.js est dans le <head>)
+      h.classList.add('wb3-prenav');
+      if (navState === 'rail')  h.classList.add('wb3-pre-rail');
+      if (navState === 'large') h.classList.add('wb3-pre-large');
     } catch (e) { /* no-op */ }
   })();
 
@@ -988,6 +1004,9 @@
 
     document.body.classList.add('wb3-has-nav');
     applyNavState(navState, false);   // applique rail / normal / large (classes + bouton)
+    // La vraie sidebar est en place → on retire le décalage « pré » de <html>
+    // (le body.wb3-has-nav prend le relais, même valeur de marge → aucun saut).
+    document.documentElement.classList.remove('wb3-prenav', 'wb3-pre-rail', 'wb3-pre-large');
 
     injectHamburger();
     bindNavLinks(nav);
