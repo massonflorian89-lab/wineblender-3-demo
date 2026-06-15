@@ -53,16 +53,16 @@
     @page { size: A4 portrait; margin: 0; }
     html, body { background:#fff; }
     .lbl-page { box-sizing:border-box; display:grid; align-content:start; justify-content:center; page-break-after:always; }
-    .lbl { box-sizing:border-box; padding:2.4mm 3mm; overflow:hidden; display:flex; flex-direction:column; color:#000; line-height:1.2; }
+    .lbl { box-sizing:border-box; padding:1.6mm 2.3mm; overflow:hidden; display:flex; flex-direction:column; color:#000; line-height:1.1; }
     .lbl-head { display:flex; justify-content:space-between; align-items:flex-start; gap:2mm; }
-    .lbl-logo { max-height:7mm; max-width:32mm; object-fit:contain; }
-    .lbl-tel { font-size:.78em; color:#333; text-align:right; }
-    .lbl-vin { font-weight:700; font-size:1.18em; margin:.4mm 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .lbl-row { display:flex; justify-content:space-between; gap:3mm; }
+    .lbl-logo { object-fit:contain; }
+    .lbl-vin { font-weight:700; font-size:1.14em; margin:.5mm 0 .3mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lbl-row { display:flex; justify-content:space-between; gap:2mm; }
     .lbl-row span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .lbl-foot { margin-top:auto; display:flex; justify-content:space-between; align-items:flex-end; gap:2mm; }
+    .lbl-foot { margin-top:auto; display:flex; gap:2mm; align-items:baseline; }
     .lbl-num { font-family:monospace; font-weight:700; }
-    .lbl-date { font-size:.82em; color:#444; }
+    .lbl-date { color:#444; }
+    .lbl-tel { margin-left:auto; text-align:right; color:#333; font-size:.9em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .lbl-qr { flex-shrink:0; }
     .lbl-qr svg { display:block; height:100%; width:100%; }
   }
@@ -180,6 +180,9 @@ function coulClass(c){ return COUL_CLASS[String(c||'').toLowerCase()] || ''; }
   await reloadAll();
   document.getElementById('boot').style.display = 'none';
   document.getElementById('app').style.display = '';
+  // Deep-link depuis un QR scanné : ?ech=<numero> → filtre sur cet échantillon.
+  const echParam = new URLSearchParams(location.search).get('ech');
+  if (echParam) { const s = document.getElementById('f-search'); if (s) s.value = echParam; }
   render();
 })();
 
@@ -453,33 +456,39 @@ function openLabels(){
   document.body.appendChild(ov);
 }
 
-function _qrSvg(numero){
-  try { return '<div class="lbl-qr">' + WB3QR.svg(numero || '', { ecl:'M', scale:3, margin:1 }) + '</div>'; }
+function _qrSvg(text){
+  try { return WB3QR.svg(text || '', { ecl:'M', scale:3, margin:1 }); }
   catch(_){ return ''; }
+}
+// URL absolue vers l'échantillon → un scan iPhone OUVRE l'app (pas une recherche Google).
+function _echUrl(numero){
+  try { return new URL('echantillons.html?ech=' + encodeURIComponent(numero || ''), location.href).href; }
+  catch(_){ return numero || ''; }
 }
 
 function _labelHTML(e, mdl){
-  const tel = _lblPrefs.tel || '';
+  const tel  = _lblPrefs.tel || '';
+  const logoH = mdl.h * 0.30, logoW = mdl.w * 0.50;
   const logo = _lblPrefs.logo
-    ? `<img class="lbl-logo" alt="" src="${esc(_lblPrefs.logo)}">` : '<span></span>';
+    ? `<img class="lbl-logo" alt="" src="${esc(_lblPrefs.logo)}" style="max-height:${logoH.toFixed(1)}mm;max-width:${logoW.toFixed(1)}mm">`
+    : '<span></span>';
   const cuve = (e.source_type === 'cuve' || e.source_type === 'essai') ? _srcLabel(e) : '-';
   const vol  = (e.volume_presente != null && e.volume_presente !== '')
     ? fmt(e.volume_presente) + ' hL'
     : (Number(e.nb_bouteilles) || 0) + '×' + fmt(e.volume_bouteille_l) + ' L';
-  const qr = _lblQrOn() ? _qrSvg(e.numero) : '';
-  // Taille de police proportionnelle à la hauteur d'étiquette (base 33,9 mm).
-  const fs = (8.4 * mdl.h / 33.9);
-  const qrmm = Math.min(mdl.h * 0.42, mdl.w * 0.28);
+  const qrmm = Math.min(mdl.h * 0.32, mdl.w * 0.26, 16);
+  const qr = _lblQrOn()
+    ? `<div class="lbl-qr" style="width:${qrmm.toFixed(1)}mm;height:${qrmm.toFixed(1)}mm">${_qrSvg(_echUrl(e.numero))}</div>`
+    : '<span></span>';
+  // Police proportionnelle à la hauteur (base 33,9 mm), bornée pour ne pas rogner.
+  const fs = Math.max(6.2, Math.min(13, 6.5 * mdl.h / 33.9));
   return `<div class="lbl" style="width:${mdl.w}mm;height:${mdl.h}mm;font-size:${fs.toFixed(2)}pt">
-    <div class="lbl-head">${logo}<div class="lbl-tel">${esc(tel)}</div></div>
+    <div class="lbl-head">${logo}${qr}</div>
     <div class="lbl-vin">${esc(e.vin || '—')}</div>
     <div class="lbl-row"><span>Millésime : ${esc(e.millesime || '-')}</span><span>Lot : ${esc(e.lot_texte || '-')}</span></div>
     <div class="lbl-row"><span>Cuve : ${esc(cuve)}</span><span>Vol : ${esc(vol)}</span></div>
     <div class="lbl-row"><span>Client : ${esc(e.client || '-')}</span></div>
-    <div class="lbl-foot">
-      <div><div class="lbl-num">${esc(e.numero || '')}</div><div class="lbl-date">${esc(frDate(e.date_echantillon))}</div></div>
-      ${qr ? `<div style="width:${qrmm.toFixed(1)}mm;height:${qrmm.toFixed(1)}mm">${qr}</div>` : ''}
-    </div>
+    <div class="lbl-foot"><span class="lbl-num">${esc(e.numero || '')}</span><span class="lbl-date">${esc(frDate(e.date_echantillon))}</span><span class="lbl-tel">${esc(tel)}</span></div>
   </div>`;
 }
 
