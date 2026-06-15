@@ -186,6 +186,7 @@
       <button class="settings-nav-item" data-section="inventaire">📦 Inventaire</button>
       <button class="settings-nav-item" data-section="analyses">🔬 Analyses</button>
       <button class="settings-nav-item" data-section="qualite">⚗️ Qualité</button>
+      <button class="settings-nav-item" data-section="echantillons">🍾 Échantillons</button>
       <button class="settings-nav-item" data-section="cepages">🍇 Cépages</button>
       <button class="settings-nav-item active" data-section="profil">👤 Mon profil</button>
       <button class="settings-nav-item" data-section="corbeille">🗑 Corbeille</button>
@@ -412,6 +413,7 @@ function renderSection() {
   else if (activeSection === 'inventaire')       renderInventaireGroup();
   else if (activeSection === 'analyses')        renderAnalysesSection();
   else if (activeSection === 'qualite')         renderQualiteSection();
+  else if (activeSection === 'echantillons')    renderEchantillonsSettings();
   else if (activeSection === 'cepages')         renderCepagesSection();
   else if (activeSection === 'profil')          renderProfil();
   else if (activeSection === 'corbeille')       renderCorbeille();
@@ -858,6 +860,101 @@ function _renderCuverieSubContent() {
 // ============================================================
 // Menu latéral Paramètres : icônes SVG cohérentes (réutilise WB3Icons)
 // ============================================================
+// Section : Échantillons (réglages des étiquettes)
+// ============================================================
+let _echPrefsCache = {};
+function _echEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+const _ECH_AVERY = [
+  ['L7159','24 / page — 63,5 × 33,9 mm (L7159/3422)'],
+  ['L7160','21 / page — 63,5 × 38,1 mm (L7160/3652)'],
+  ['L7163','14 / page — 99,1 × 38,1 mm (L7163/3653)'],
+  ['L7165','8 / page — 99,1 × 67,7 mm (L7165/3655)'],
+  ['L7168','4 / page — 99,1 × 139 mm (L7168)'],
+];
+
+async function renderEchantillonsSettings(){
+  const root = document.getElementById('settings-content');
+  root.innerHTML = `<div class="loading-state"><div class="spinner"></div>Chargement…</div>`;
+  let p = {};
+  try { p = (await WB3DB.getUserPref('echantillon')) || {}; } catch(_){}
+  _echPrefsCache = { ...p };
+  const cur = p.avery || 'L7159';
+  root.innerHTML = `
+    <h2>🍾 Échantillons — étiquettes</h2>
+    <p class="lead">Réglages des étiquettes imprimées depuis le module Échantillons. Synchronisé entre tes appareils.</p>
+
+    <div class="drawer-section"><div class="drawer-section-title">Coordonnées (haut d'étiquette)</div>
+      <div class="drawer-section-content" style="padding:var(--space-4)">
+        <input type="text" id="ech-tel" value="${_echEsc(p.tel||'')}" placeholder="ex. Caves Richemer · 04 67 …"
+          style="width:100%;max-width:400px;padding:8px 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);font:inherit">
+      </div></div>
+
+    <div class="drawer-section"><div class="drawer-section-title">Logo de la cave</div>
+      <div class="drawer-section-content" style="padding:var(--space-4);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div id="ech-logo-prev" style="width:96px;height:54px;border:1px dashed var(--color-border);border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden">
+          ${p.logo?`<img src="${p.logo}" style="max-width:100%;max-height:100%">`:'<span class="t-footnote" style="color:var(--color-ink-tertiary)">aucun</span>'}
+        </div>
+        <div>
+          <input type="file" id="ech-logo-file" accept="image/*" onchange="_echLogoPick(event)">
+          <button class="btn btn--secondary btn--sm" type="button" onclick="_echLogoClear()" style="margin-left:8px">Retirer</button>
+          <div class="t-footnote" style="color:var(--color-ink-tertiary);margin-top:6px">PNG/JPG ; réduit automatiquement pour l'impression.</div>
+        </div>
+      </div></div>
+
+    <div class="drawer-section"><div class="drawer-section-title">QR code</div>
+      <div class="drawer-section-content" style="padding:var(--space-4)">
+        <label class="toggle" style="display:inline-flex;align-items:center;gap:8px">
+          <input type="checkbox" id="ech-qr" ${p.qr!==false?'checked':''}> Inclure un QR code (numéro d'échantillon) — généré hors-ligne</label>
+      </div></div>
+
+    <div class="drawer-section"><div class="drawer-section-title">Modèle d'étiquettes Avery</div>
+      <div class="drawer-section-content" style="padding:var(--space-4)">
+        <select id="ech-avery" style="max-width:400px;padding:8px 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);font:inherit">
+          ${_ECH_AVERY.map(([k,l])=>`<option value="${k}" ${cur===k?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <p class="t-footnote" style="color:var(--color-ink-tertiary);margin:8px 0 0">À l'impression : régler les marges sur « aucune » et l'échelle sur 100 % pour un alignement correct.</p>
+      </div></div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:var(--space-3);border-top:1px solid var(--color-border)">
+      <button class="btn" onclick="saveEchantillonsSettings()">💾 Enregistrer</button>
+    </div>`;
+}
+
+function _echLogoPick(ev){
+  const f = ev.target.files && ev.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 260, sc = Math.min(1, maxW / img.width);
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(img.width * sc)); cv.height = Math.max(1, Math.round(img.height * sc));
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const url = cv.toDataURL('image/png');
+      _echPrefsCache.logo = url;
+      document.getElementById('ech-logo-prev').innerHTML = '<img src="' + url + '" style="max-width:100%;max-height:100%">';
+    };
+    img.src = rd.result;
+  };
+  rd.readAsDataURL(f);
+}
+function _echLogoClear(){
+  _echPrefsCache.logo = null;
+  const el = document.getElementById('ech-logo-prev');
+  if (el) el.innerHTML = '<span class="t-footnote" style="color:var(--color-ink-tertiary)">aucun</span>';
+}
+async function saveEchantillonsSettings(){
+  const p = {
+    ..._echPrefsCache,
+    tel:   document.getElementById('ech-tel').value.trim(),
+    qr:    document.getElementById('ech-qr').checked,
+    avery: document.getElementById('ech-avery').value,
+  };
+  try { await WB3DB.setUserPref('echantillon', p); _echPrefsCache = { ...p }; toast('Réglages enregistrés', 'success'); }
+  catch(e){ toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e.message||e)), 'error'); }
+}
+
+// ============================================================
 const _SETTINGS_NAV = {
   cuverie_group:  { icon:'tank',           label:'Cuverie' },
   apports_vue:    { icon:'grape',          label:'Apports' },
@@ -867,6 +964,7 @@ const _SETTINGS_NAV = {
   inventaire:     { icon:'package',        label:'Inventaire' },
   analyses:       { icon:'microscope',     label:'Analyses' },
   qualite:        { icon:'shieldCheck',    label:'Qualité' },
+  echantillons:   { icon:'flask',          label:'Échantillons' },
   cepages:        { icon:'leaf',           label:'Cépages' },
   profil:         { icon:'user',           label:'Mon profil' },
   corbeille:      { icon:'trash',          label:'Corbeille' },
