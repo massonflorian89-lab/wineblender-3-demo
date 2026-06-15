@@ -1898,6 +1898,7 @@ const CUVERIE_DEFAULTS = {
   default_sort:  'nom',
   visible_stats: ['total', 'capacite', 'cuves', 'foudres', 'futs', 'pressoirs'],
   page_size:     50,
+  wall_view:     'auto',   // vue affichée sur le mur (TV) : auto | grid | table | plan | caveplan
 };
 
 let cuveriePrefs = { ...CUVERIE_DEFAULTS };
@@ -1925,8 +1926,22 @@ async function renderCuverieSettings() {
         <div style="display:flex;gap:var(--space-2);flex-wrap:wrap" id="pref-view">
           <label class="toggle"><input type="radio" name="view" value="grid" ${cuveriePrefs.default_view==='grid'?'checked':''}> ▦ Grille</label>
           <label class="toggle"><input type="radio" name="view" value="table" ${cuveriePrefs.default_view==='table'?'checked':''}> ☰ Tableau</label>
-          <label class="toggle" style="opacity:0.5"><input type="radio" name="view" value="plan" disabled> 🗺 Plan (à venir)</label>
+          <label class="toggle"><input type="radio" name="view" value="plan" ${cuveriePrefs.default_view==='plan'?'checked':''}> ▥ Plan du chai</label>
+          <label class="toggle"><input type="radio" name="view" value="caveplan" ${cuveriePrefs.default_view==='caveplan'?'checked':''}> 🗺 Plan de cave</label>
         </div>
+        <p class="t-footnote" style="margin:var(--space-2) 0 0">🗺 Plan de cave : disposition libre, réservée à l'ordinateur (≥ 13″).</p>
+      </div>
+    </div>
+
+    <!-- Vue du mur (TV du chai) -->
+    <div class="drawer-section">
+      <div class="drawer-section-title">Vue affichée sur le mur 🖥️</div>
+      <div class="drawer-section-content" style="padding:var(--space-4)">
+        <p class="t-footnote" style="margin:0 0 var(--space-3)">Quelle vue afficher quand tu ouvres le mur. « Auto » = plan de cave s'il est composé, sinon grille.</p>
+        <select id="pref-wallview" style="max-width:320px;padding:8px 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);font:inherit">
+          ${[['auto','Auto (plan de cave si composé, sinon grille)'],['grid','▦ Grille'],['table','☰ Tableau'],['plan','▥ Plan du chai'],['caveplan','🗺 Plan de cave']]
+            .map(([v,l]) => `<option value="${v}" ${(cuveriePrefs.wall_view||'auto')===v?'selected':''}>${l}</option>`).join('')}
+        </select>
       </div>
     </div>
 
@@ -2005,6 +2020,7 @@ async function saveCuveriePrefs() {
     default_group: document.querySelector('#pref-group input[name="group"]:checked')?.value || 'none',
     default_sort:  document.querySelector('#pref-sort input[name="sort"]:checked')?.value   || 'nom',
     page_size:     Number(document.querySelector('#pref-pagesize input[name="pagesize"]:checked')?.value || 50),
+    wall_view:     document.getElementById('pref-wallview')?.value || 'auto',
     visible_stats: Array.from(document.querySelectorAll('#pref-stats input[type="checkbox"]:checked'))
       .map(i => i.dataset.stat),
   };
