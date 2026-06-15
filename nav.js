@@ -712,6 +712,22 @@
     } catch (e) { /* localStorage indispo → largeur par défaut */ }
   })();
 
+  // Anti-FOUC navigation : on RÉSERVE le décalage de la sidebar dès le 1er
+  // affichage (nav.js est en bas de <body>, donc document.body existe ici).
+  // Évite que l'en-tête s'affiche pleine largeur puis « saute » à droite quand
+  // la sidebar s'injecte au DOMContentLoaded. La sidebar elle-même est toujours
+  // construite dans init() ; seul le décalage est posé en avance.
+  (function preApplyNavLayout() {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if (qs.get('fs') === '1' || qs.get('embedded') === '1') return;   // fenêtre indép. / iframe shell → pas de sidebar
+      if (!document.body) return;
+      document.body.classList.add('wb3-has-nav');
+      if (navState === 'rail')  document.body.classList.add('wb3-collapsed');
+      if (navState === 'large') document.body.classList.add('wb3-large');
+    } catch (e) { /* no-op */ }
+  })();
+
   // ============================================================
   // Construction de la nav
   // ============================================================
