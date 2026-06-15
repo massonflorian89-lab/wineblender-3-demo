@@ -108,11 +108,7 @@
 
     <div style="overflow:auto;max-height:calc(100vh - 230px);border:1px solid var(--color-border);border-radius:var(--radius-md)">
       <table class="ech-table" id="ech-table">
-        <thead><tr>
-          <th style="width:28px"><input type="checkbox" id="cb-all" onchange="toggleAll(this.checked)" title="Tout cocher / décocher"></th>
-          <th>N°</th><th>Client</th><th>Vin</th><th>Couleur</th><th>Mill.</th>
-          <th>Source</th><th>Qualité</th><th class="num">Btl</th><th class="num">Vol (L)</th><th>Statut</th><th></th>
-        </tr></thead>
+        <thead id="ech-head"></thead>
         <tbody id="ech-body"></tbody>
       </table>
     </div>
@@ -229,24 +225,84 @@ function _srcLabel(e){
   return e.vin ? '✎ libre' : '—';
 }
 
+// ── Tri colonne (façon cuverie) ────────────────────────────────
+const ECH_COLS = [
+  { k:'__date',    h:'Date' },
+  { k:'numero',    h:'N°' },
+  { k:'client',    h:'Client' },
+  { k:'vin',       h:'Vin' },
+  { k:'couleur',   h:'Couleur' },
+  { k:'millesime', h:'Mill.' },
+  { k:'source',    h:'Source' },
+  { k:'qualite',   h:'Qualité' },
+  { k:'nb',        h:'Btl',     num:true },
+  { k:'vol',       h:'Vol (L)', num:true },
+  { k:'statut',    h:'Statut' },
+];
+let _echSort = '__date', _echDir = -1, _echGrouped = true;
+function _echSortVal(e, key){
+  switch (key){
+    case '__date':    return e.date_echantillon || '';
+    case 'numero':    return e.numero || '';
+    case 'client':    return e.client || '';
+    case 'vin':       return e.vin || '';
+    case 'couleur':   return e.couleur || '';
+    case 'millesime': return e.millesime;
+    case 'source':    return _srcLabel(e).toLowerCase();
+    case 'qualite':   return e.qualite || '';
+    case 'nb':        return Number(e.nb_bouteilles) || 0;
+    case 'vol':       return Number(e.volume_total_l) || 0;
+    case 'statut':    return e.realise ? 1 : 0;
+    default:          return e[key];
+  }
+}
+function _echTie(a, b){   // tri secondaire stable : date desc puis numéro desc
+  return (b.date_echantillon || '').localeCompare(a.date_echantillon || '')
+      || String(b.numero || '').localeCompare(String(a.numero || ''), 'fr', { numeric: true });
+}
+function _echCmp(a, b){
+  const va = _echSortVal(a, _echSort), vb = _echSortVal(b, _echSort);
+  const ea = (va == null || va === ''), eb = (vb == null || vb === '');
+  if (ea && eb) return _echTie(a, b);
+  if (ea) return 1; if (eb) return -1;
+  const c = ((typeof va === 'number' && typeof vb === 'number') ? va - vb
+            : String(va).localeCompare(String(vb), 'fr', { numeric: true })) * _echDir;
+  return c || _echTie(a, b);
+}
+function echSort(key){
+  if (_echSort !== key) { _echSort = key; _echDir = 1; }   // nouvelle colonne : ↑
+  else { _echDir = -_echDir; }                             // même colonne : inverse
+  render();
+}
+function _renderHead(){
+  const head = document.getElementById('ech-head'); if (!head) return;
+  head.innerHTML = `<tr>
+    <th style="width:28px"><input type="checkbox" id="cb-all" onchange="toggleAll(this.checked)" title="Tout cocher / décocher"></th>
+    ${ECH_COLS.map(c => { const ar = _echSort === c.k ? (_echDir > 0 ? ' ▲' : ' ▼') : ''; return `<th class="${c.num ? 'num' : ''}" style="cursor:pointer;user-select:none;white-space:nowrap" onclick="echSort('${c.k}')" title="Trier">${c.h}${ar}</th>`; }).join('')}
+    <th></th></tr>`;
+}
+
 function render(){
-  const list = _filtered();
+  _renderHead();
+  const list = _filtered().slice().sort(_echCmp);
+  _echGrouped = (_echSort === '__date');
   const body = document.getElementById('ech-body');
   if (!list.length) {
-    body.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--color-ink-tertiary);padding:var(--space-6)">Aucun échantillon. Clique « + Nouvel échantillon ».</td></tr>`;
-  } else {
-    // Regroupement par jour (la liste est déjà triée date décroissante).
+    body.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--color-ink-tertiary);padding:var(--space-6)">Aucun échantillon. Clique « + Nouvel échantillon ».</td></tr>`;
+  } else if (_echGrouped) {
     const groups = [], idx = {};
     list.forEach(e => { const d = e.date_echantillon || '—'; if (idx[d] == null) { idx[d] = groups.length; groups.push({ day: d, items: [] }); } groups[idx[d]].items.push(e); });
     body.innerHTML = groups.map(g => {
       const n = g.items.length, btl = g.items.reduce((s, e) => s + (Number(e.nb_bouteilles) || 0), 0);
       const allSel = g.items.every(e => _sel.has(e.id));
-      return `<tr class="day-row"><td colspan="12">
+      return `<tr class="day-row"><td colspan="13">
         <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" class="day-cb" data-day="${esc(g.day)}" ${allSel ? 'checked' : ''} onchange="toggleDay('${esc(g.day)}',this.checked)">
           <b>📅 ${esc(frDate(g.day))}</b> <span class="t-muted">· ${n} échantillon${n > 1 ? 's' : ''} · ${btl} btl</span>
         </label></td></tr>` + g.items.map(rowHTML).join('');
     }).join('');
+  } else {
+    body.innerHTML = list.map(rowHTML).join('');
   }
   const btl = list.reduce((s,e)=>s+(Number(e.nb_bouteilles)||0),0);
   const vol = list.reduce((s,e)=>s+(Number(e.volume_total_l)||0),0);
@@ -288,6 +344,7 @@ function rowHTML(e){
       <button class="icon-btn" title="Supprimer" onclick="removeEch('${e.id}')">🗑</button>` : '';
   return `<tr class="${e.realise?'':'is-todo'}" data-id="${e.id}">
     <td><input type="checkbox" class="ech-cb" ${_sel.has(e.id)?'checked':''} onchange="toggleOne('${e.id}',this.checked)"></td>
+    <td style="white-space:nowrap">${_echGrouped ? '' : esc(frDate(e.date_echantillon))}</td>
     <td><span class="ech-num">${esc(e.numero)}</span></td>
     <td>${esc(e.client||'—')}${e.courtier?`<div class="hint" style="font-size:10px;color:var(--color-ink-tertiary)">${esc(e.courtier)}</div>`:''}</td>
     <td>${esc(e.vin||'—')}</td>
