@@ -487,6 +487,7 @@
     { href: 'produits.html',   icon: ICON.flask,          label: 'Produits' },
     { href: 'analyses.html',   icon: ICON.microscope,     label: 'Analyses' },
     { href: 'assemblage.html', icon: ICON.blend,          label: 'Assemblage', module: 'assemblage' },
+    { href: 'echantillons.html', icon: ICON.blend,        label: 'Échantillons', module: 'echantillon' },
     { href: 'rapports.html',   icon: ICON.report,         label: 'Rapports' },
     'sep',
     { href: 'parametres.html', icon: ICON.settings,       label: 'Paramètres' },
