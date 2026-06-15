@@ -25,6 +25,9 @@
   .ech-table th { font-weight:600; color:var(--color-ink-secondary); position:sticky; top:0; background:var(--color-bg-elevated); z-index:1; }
   .ech-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
   .ech-table tr.is-todo td { background:rgba(245,158,11,.06); }
+  .ech-table tr.day-row td { background:var(--color-bg-subtle); padding:6px 10px; border-top:2px solid var(--color-border); }
+  .t-muted { color:var(--color-ink-tertiary); font-size:var(--text-footnote); font-weight:400; }
+  .ech-cb, .day-cb, #cb-all { width:16px; height:16px; cursor:pointer; }
   .ech-num { font-family:monospace; font-size:11px; color:var(--color-ink-secondary); }
   .ech-coul { display:inline-block; width:10px; height:10px; border-radius:50%; vertical-align:-1px; margin-right:5px; border:1px solid rgba(0,0,0,.15); }
   .coul-rouge{background:#b00020}.coul-blanc{background:#d4c089}.coul-rose{background:#d89dad}.coul-gris{background:#9e9ea0}.coul-orange{background:#e08a2b}
@@ -97,7 +100,7 @@
         <option value="done">Réalisés</option>
       </select>
       <input type="text" id="f-search" class="grow" placeholder="Rechercher client, courtier, vin, cuve, n°…" oninput="applyFilters()">
-      <button class="btn btn--secondary btn--sm" id="btn-labels" onclick="openLabels()" title="Éditer les étiquettes des échantillons filtrés">🏷 Étiquettes</button>
+      <button class="btn btn--secondary btn--sm" id="btn-labels" onclick="openLabels()" title="Imprimer les étiquettes des échantillons cochés">🏷 Étiquettes</button>
       <button class="btn btn--primary btn--sm" id="btn-new" data-help="Enregistre un nouvel échantillon : sa source (cuve ou essai), le client/courtier, le nombre de bouteilles. Un numéro unique est attribué." onclick="openForm()">+ Nouvel échantillon</button>
     </div>
 
@@ -106,7 +109,8 @@
     <div style="overflow:auto;max-height:calc(100vh - 230px);border:1px solid var(--color-border);border-radius:var(--radius-md)">
       <table class="ech-table" id="ech-table">
         <thead><tr>
-          <th>Date</th><th>N°</th><th>Client</th><th>Vin</th><th>Couleur</th><th>Mill.</th>
+          <th style="width:28px"><input type="checkbox" id="cb-all" onchange="toggleAll(this.checked)" title="Tout cocher / décocher"></th>
+          <th>N°</th><th>Client</th><th>Vin</th><th>Couleur</th><th>Mill.</th>
           <th>Source</th><th>Qualité</th><th class="num">Btl</th><th class="num">Vol (L)</th><th>Statut</th><th></th>
         </tr></thead>
         <tbody id="ech-body"></tbody>
@@ -228,13 +232,49 @@ function _srcLabel(e){
 function render(){
   const list = _filtered();
   const body = document.getElementById('ech-body');
-  body.innerHTML = list.length ? list.map(rowHTML).join('')
-    : `<tr><td colspan="12" style="text-align:center;color:var(--color-ink-tertiary);padding:var(--space-6)">Aucun échantillon. Clique « + Nouvel échantillon ».</td></tr>`;
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--color-ink-tertiary);padding:var(--space-6)">Aucun échantillon. Clique « + Nouvel échantillon ».</td></tr>`;
+  } else {
+    // Regroupement par jour (la liste est déjà triée date décroissante).
+    const groups = [], idx = {};
+    list.forEach(e => { const d = e.date_echantillon || '—'; if (idx[d] == null) { idx[d] = groups.length; groups.push({ day: d, items: [] }); } groups[idx[d]].items.push(e); });
+    body.innerHTML = groups.map(g => {
+      const n = g.items.length, btl = g.items.reduce((s, e) => s + (Number(e.nb_bouteilles) || 0), 0);
+      const allSel = g.items.every(e => _sel.has(e.id));
+      return `<tr class="day-row"><td colspan="12">
+        <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" class="day-cb" data-day="${esc(g.day)}" ${allSel ? 'checked' : ''} onchange="toggleDay('${esc(g.day)}',this.checked)">
+          <b>📅 ${esc(frDate(g.day))}</b> <span class="t-muted">· ${n} échantillon${n > 1 ? 's' : ''} · ${btl} btl</span>
+        </label></td></tr>` + g.items.map(rowHTML).join('');
+    }).join('');
+  }
   const btl = list.reduce((s,e)=>s+(Number(e.nb_bouteilles)||0),0);
   const vol = list.reduce((s,e)=>s+(Number(e.volume_total_l)||0),0);
   const todo = list.filter(e=>!e.realise).length;
   document.getElementById('summary').innerHTML =
     `<span>${list.length} échantillon${list.length>1?'s':''}</span> · <span>${btl} bouteilles</span> · <span class="ech-total">${fmt(vol)} L</span>${todo?` · <span class="ech-chip chip-todo">${todo} à préparer</span>`:''}`;
+  _syncSelUI();
+}
+
+// ── Sélection (impression d'étiquettes par lignes cochées) ─────
+let _sel = new Set();
+function toggleOne(id, checked){ if (checked) _sel.add(id); else _sel.delete(id); _syncSelUI(); }
+function toggleDay(day, checked){
+  _filtered().filter(e => (e.date_echantillon || '—') === day).forEach(e => { if (checked) _sel.add(e.id); else _sel.delete(e.id); });
+  render();
+}
+function toggleAll(checked){ if (checked) _filtered().forEach(e => _sel.add(e.id)); else _sel.clear(); render(); }
+function _syncSelUI(){
+  const list = _filtered(), n = _sel.size;
+  const btn = document.getElementById('btn-labels');
+  if (btn){ btn.textContent = '🏷 Étiquettes' + (n ? ` (${n})` : ''); btn.disabled = !n; btn.style.opacity = n ? '' : '.55'; }
+  const all = list.length > 0 && list.every(e => _sel.has(e.id)), some = list.some(e => _sel.has(e.id));
+  const m = document.getElementById('cb-all'); if (m){ m.checked = all; m.indeterminate = some && !all; }
+  document.querySelectorAll('.day-cb').forEach(cb => {
+    const items = list.filter(e => (e.date_echantillon || '—') === cb.dataset.day);
+    const a = items.length > 0 && items.every(e => _sel.has(e.id)), s = items.some(e => _sel.has(e.id));
+    cb.checked = a; cb.indeterminate = s && !a;
+  });
 }
 
 function rowHTML(e){
@@ -246,8 +286,8 @@ function rowHTML(e){
       : `<button class="icon-btn" title="Marquer réalisé" onclick="toggleRealise('${e.id}',true)">✓</button>`) : '';
   const edit = _canEdit ? `<button class="icon-btn" title="Modifier" onclick="openForm('${e.id}')">✏️</button>
       <button class="icon-btn" title="Supprimer" onclick="removeEch('${e.id}')">🗑</button>` : '';
-  return `<tr class="${e.realise?'':'is-todo'}">
-    <td>${frDate(e.date_echantillon)}</td>
+  return `<tr class="${e.realise?'':'is-todo'}" data-id="${e.id}">
+    <td><input type="checkbox" class="ech-cb" ${_sel.has(e.id)?'checked':''} onchange="toggleOne('${e.id}',this.checked)"></td>
     <td><span class="ech-num">${esc(e.numero)}</span></td>
     <td>${esc(e.client||'—')}${e.courtier?`<div class="hint" style="font-size:10px;color:var(--color-ink-tertiary)">${esc(e.courtier)}</div>`:''}</td>
     <td>${esc(e.vin||'—')}</td>
@@ -454,15 +494,15 @@ function _lblModel(){ return AVERY[_lblPrefs.avery] || AVERY[AVERY_DEFAULT]; }
 function _lblQrOn(){ return _lblPrefs.qr !== false; }
 
 function openLabels(){
-  const list = _filtered();
-  if (!list.length) { toast('Aucun échantillon à étiqueter (ajuste les filtres).', 'info'); return; }
+  const n = _sel.size;
+  if (!n) { toast('Coche des échantillons (ou une journée entière) à étiqueter.', 'info'); return; }
   const mdl = _lblModel();
   const ov = document.createElement('div');
   ov.id = 'labels-modal';
   ov.style.cssText = 'position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4)';
   ov.innerHTML = `
     <div style="background:var(--color-bg-elevated);border-radius:var(--radius-lg);max-width:440px;width:92%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-      <h3 style="margin:0 0 4px">🏷 Étiquettes — ${list.length} échantillon${list.length>1?'s':''}</h3>
+      <h3 style="margin:0 0 4px">🏷 Étiquettes — ${n} échantillon${n>1?'s':''} sélectionné${n>1?'s':''}</h3>
       <p class="hint" style="margin:0 0 16px;font-size:var(--text-footnote);color:var(--color-ink-tertiary)">
         Modèle : <b>${esc(mdl.label)}</b> · QR ${_lblQrOn()?'activé':'désactivé'} · logo ${_lblPrefs.logo?'défini':'aucun'}.<br>
         Réglages (modèle, QR, logo, coordonnées) → <a href="parametres.html?section=echantillons" style="color:var(--color-primary)">Paramètres ▸ Échantillons</a>.</p>
@@ -520,12 +560,14 @@ function printLabels(){
   const mdl = _lblModel();
   const perPage = mdl.cols * mdl.rows;
 
+  // Échantillons SÉLECTIONNÉS (cochés), dans l'ordre du registre (par jour).
+  const selected = _filtered().filter(e => _sel.has(e.id));
   const labels = [];
-  _filtered().forEach(e => {
+  selected.forEach(e => {
     const copies = perBottle ? Math.max(1, Number(e.nb_bouteilles) || 1) : 1;
     for (let i = 0; i < copies; i++) labels.push(e);
   });
-  if (!labels.length) { toast('Rien à imprimer.', 'info'); return; }
+  if (!labels.length) { toast('Aucun échantillon sélectionné.', 'info'); return; }
 
   const pageStyle = `width:210mm;min-height:296mm;padding:${mdl.padY}mm ${mdl.padX}mm;`
     + `grid-template-columns:repeat(${mdl.cols}, ${mdl.w}mm);grid-auto-rows:${mdl.h}mm;`
