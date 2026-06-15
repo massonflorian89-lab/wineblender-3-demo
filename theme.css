@@ -2204,3 +2204,20 @@ body.embedded .wb-main   {
     scroll-behavior: auto !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+ * Navigation entre pages — supprime le flash « page brute » /
+ * en-tête bleu qui apparaît au changement d'onglet (rechargement MPA).
+ * ════════════════════════════════════════════════════════════ */
+html { background: var(--color-bg); }   /* pas de flash blanc entre deux pages */
+
+/* Chromium : transition douce inter-pages (cross-fade automatique). */
+@view-transition { navigation: auto; }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 110ms; }
+
+/* Autres navigateurs (Safari/Firefox) : simple fondu d'apparition. */
+@supports not (view-transition-name: none) {
+  @keyframes wb3-page-in { from { opacity: 0; } to { opacity: 1; } }
+  body { animation: wb3-page-in 150ms ease-out both; }
+}
