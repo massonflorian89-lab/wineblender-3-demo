@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#6a1b2a">
 <title>Analyses — WineBlender 3</title>
 <script src="lib/supabase.min.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
 <script src="toast.js"></script>
 <script src="config.js"></script>
 <script src="db.js"></script>
@@ -288,6 +289,24 @@
   }
   .btn-view:hover   { border-color: var(--p); color: var(--p); }
   .btn-view.active  { background: var(--p); color: #fff; border-color: var(--p); }
+  /* ── Rapport d'analyses : impression A4 paysage ── */
+  @media screen { #report-root { display:none; } }
+  @media print {
+    body > *:not(#report-root) { display:none !important; }
+    #report-root { display:block; }
+    @page { size: A4 landscape; margin: 8mm; }
+    html, body { background:#fff; }
+    .report-page { font-size:8pt; color:#000; }
+    .report-head { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #333; padding-bottom:5px; margin-bottom:7px; }
+    .report-title { font-size:15pt; font-weight:700; }
+    .report-sub { font-size:9pt; color:#444; margin-top:2px; }
+    .report-meta { font-size:8pt; color:#444; text-align:right; line-height:1.4; }
+    .report-table { width:100%; border-collapse:collapse; }
+    .report-table th, .report-table td { border:1px solid #b5b5b5; padding:2px 4px; text-align:center; white-space:nowrap; }
+    .report-table th { background:#ececec; font-weight:700; }
+    .report-table td.l { text-align:left; }
+    .report-table tr:nth-child(even) td { background:#fafafa; }
+  }
 </style>
 </head>
 <body>
@@ -301,6 +320,8 @@
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
+    <button class="btn btn--header" onclick="openReportModal()" title="Rapport d'analyses A4 paysage (jour ou sélection)">📄 Rapport</button>
+    <button class="btn btn--header" onclick="openLabImport()" title="Importer des analyses labo (moût, FA, vin fini, VS+SO₂)">🧪 Import labo</button>
     <button class="btn btn--header" onclick="openImportModal()">📥 Importer CSV</button>
     <a class="btn btn--header" href="parametres.html?section=analyses" title="Paramètres analyses">⚙️</a>
     <button class="btn btn--header" onclick="logout()">Déconnexion</button>
@@ -336,6 +357,61 @@
     </div>
   </div>
 </div>
+
+<!-- ── Rapport modal ──────────────────────────────────────── -->
+<div class="modal-backdrop" id="report-modal" onclick="if(event.target===this)closeReportModal()">
+  <div class="modal">
+    <div class="modal-head"><h2>📄 Rapport d'analyses</h2><button class="modal-close" onclick="closeReportModal()">×</button></div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;color:var(--muted);font-size:13px">Imprime un rapport sur une page <b>A4 paysage</b>, pleine largeur.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="radio" name="rep-scope" value="day" checked> Une journée
+          <input type="date" id="rep-date" style="margin-left:6px;padding:6px 8px;border:1px solid var(--border);border-radius:8px">
+        </label>
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="radio" name="rep-scope" value="filter"> Les analyses filtrées (<span id="rep-filter-n">0</span>)</label>
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="radio" name="rep-scope" value="sel"> La sélection courante (<span id="rep-sel-n">0</span>)</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="white-space:nowrap">Titre</label>
+          <input type="text" id="rep-title" value="Rapport d'analyses" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeReportModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="printReport()">🖨 Imprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Import labo (scaffold — aperçu seulement) ───────────── -->
+<div class="modal-backdrop" id="lab-modal" onclick="if(event.target===this)closeLabImport()">
+  <div class="modal" style="max-width:780px">
+    <div class="modal-head"><h2>🧪 Import analyses labo</h2><button class="modal-close" onclick="closeLabImport()">×</button></div>
+    <div class="modal-body">
+      <div style="background:#fff8ef;border:1px solid #ffcc80;border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12.5px;color:#7a4a00">
+        ⚙️ <b>Aperçu uniquement</b> — rien n'est importé pour l'instant. Dépose un fichier (moût, FA, vin fini, VS+SO₂) : je l'affiche pour caler le <b>mapping</b> vers les champs WB3. L'import réel sera branché dès réception d'un exemple de chaque type.
+      </div>
+      <div id="lab-drop" style="border:2px dashed var(--border);border-radius:10px;padding:var(--space-8);text-align:center;cursor:pointer"
+           onclick="document.getElementById('lab-file-in').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--p)'"
+           ondragleave="this.style.borderColor='var(--border)'"
+           ondrop="event.preventDefault();this.style.borderColor='var(--border)';_labHandleDrop(event)">
+        <div style="font-size:32px;margin-bottom:var(--space-2)">🧫</div>
+        <div style="font-weight:600;color:var(--ink)">Déposer un fichier d'analyses</div>
+        <div style="font-size:12px;color:var(--muted);margin:6px 0 12px">CSV ou Excel (.xlsx/.xls) · ou cliquer pour parcourir</div>
+        <button class="btn btn-primary" onclick="event.stopPropagation();document.getElementById('lab-file-in').click()">Choisir un fichier</button>
+      </div>
+      <input type="file" id="lab-file-in" accept=".csv,.txt,.xlsx,.xls" style="display:none" onchange="_labHandleFile(this.files[0])">
+      <div id="lab-preview" style="margin-top:var(--space-4)"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Conteneur d'impression du rapport (rempli à la demande) -->
+<div id="report-root"></div>
 
 <!-- ── Filters ────────────────────────────────────────────── -->
 <div class="filters">
@@ -1547,8 +1623,116 @@ function buildLotFilterPreserve() {
 // ── Helpers ───────────────────────────────────────────────────
 function fmtDate(s) {
   if (!s) return '—';
-  const [y, m, d] = s.split('-');
+  const [y, m, d] = String(s).slice(0, 10).split('-');
   return `${d}/${m}/${y}`;
+}
+
+// ════════════════════════════════════════════════════════════
+// Rapport d'analyses — A4 paysage (jour / sélection / filtres)
+// ════════════════════════════════════════════════════════════
+const REPORT_COLS = [
+  { k:'so2_libre', h:'SO₂L', d:1 }, { k:'so2_total', h:'SO₂T', d:1 }, { k:'so2_actif', h:'SO₂Act', d:2 },
+  { k:'ph', h:'pH', d:2 }, { k:'ta', h:'AT', d:2 }, { k:'acidite_volatile', h:'AV', d:2 },
+  { k:'tav', h:'TAV', d:2 }, { k:'sucres_residuels', h:'SR', d:1 }, { k:'densite', h:'Dens.', d:4 },
+  { k:'temperature', h:'T°', d:1 }, { k:'acide_malique', h:'A.Mal', d:2 }, { k:'acide_lactique', h:'A.Lac', d:2 },
+  { k:'gf_neg5', h:'GF-5', d:1 }, { k:'gf_pos5', h:'GF+5', d:1 }, { k:'co2', h:'CO₂', d:2 }, { k:'turbidite', h:'NTU', d:1 },
+];
+function openReportModal(){
+  const dt = document.getElementById('rep-date'); if (dt && !dt.value) dt.value = todayStr();
+  document.getElementById('rep-filter-n').textContent = filteredAnalyses().length;
+  document.getElementById('rep-sel-n').textContent = _selected.size;
+  document.getElementById('report-modal').classList.add('open');
+}
+function closeReportModal(){ document.getElementById('report-modal').classList.remove('open'); }
+function printReport(){
+  const scope = document.querySelector('input[name="rep-scope"]:checked')?.value || 'day';
+  let data, scopeLabel;
+  if (scope === 'sel') {
+    data = [..._selected].map(id => analyses.find(a => String(a.id) === id)).filter(Boolean);
+    scopeLabel = 'Sélection';
+  } else if (scope === 'filter') {
+    data = filteredAnalyses(); scopeLabel = 'Analyses filtrées';
+  } else {
+    const d = document.getElementById('rep-date').value;
+    data = analyses.filter(a => (a.date_analyse || '').slice(0, 10) === d);
+    scopeLabel = d ? new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' }) : 'Journée';
+  }
+  if (!data.length) { toast('Aucune analyse pour cette sélection.', 'info'); return; }
+  data = data.slice().sort((a, b) => (a.date_analyse || '').localeCompare(b.date_analyse || '')
+    || ((a.lots && a.lots.nom) || '').localeCompare((b.lots && b.lots.nom) || '', 'fr', { numeric: true }));
+  const cols = REPORT_COLS.filter(c => data.some(a => a[c.k] != null));
+  const title = (document.getElementById('rep-title').value || 'Rapport d\'analyses').trim();
+  const tenant = document.getElementById('tenant-pill').textContent.replace('🏢', '').trim();
+  const head = `<th class="l">Date</th><th class="l">Lot</th><th>Mill.</th><th class="l">Cuve</th>` + cols.map(c => `<th>${c.h}</th>`).join('');
+  const rows = data.map(a => {
+    const cells = cols.map(c => {
+      const v = a[c.k]; if (v == null) return '<td>—</td>';
+      const col = WB3Qualite.alertColor(c.k, v, _analTol);
+      return `<td${col ? ` style="color:${col};font-weight:700"` : ''}>${Number(v).toFixed(c.d)}</td>`;
+    }).join('');
+    const lot = a.lots ? esc(a.lots.nom) + (a.lots.couleur ? '' : '') : '—';
+    return `<tr><td class="l">${esc(fmtDate(a.date_analyse))}</td><td class="l">${lot}</td>`
+      + `<td>${a.lots && a.lots.millesime != null ? esc(String(a.lots.millesime)) : '—'}</td>`
+      + `<td class="l">${a.contenants ? esc(a.contenants.nom) : '—'}</td>${cells}</tr>`;
+  }).join('');
+  document.getElementById('report-root').innerHTML = `
+    <div class="report-page">
+      <div class="report-head">
+        <div><div class="report-title">${esc(title)}</div><div class="report-sub">${esc(scopeLabel)} · ${data.length} analyse${data.length > 1 ? 's' : ''}</div></div>
+        <div class="report-meta">${esc(tenant)}<br>Édité le ${new Date().toLocaleString('fr-FR', { dateStyle:'short', timeStyle:'short' })}</div>
+      </div>
+      <table class="report-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  closeReportModal();
+  setTimeout(() => window.print(), 80);
+}
+
+// ════════════════════════════════════════════════════════════
+// Import labo (scaffold) — lit & prévisualise un fichier (CSV/Excel).
+// L'import réel (mapping par type) sera branché avec les fichiers types.
+// ════════════════════════════════════════════════════════════
+function openLabImport(){ document.getElementById('lab-preview').innerHTML = ''; document.getElementById('lab-modal').classList.add('open'); }
+function closeLabImport(){ document.getElementById('lab-modal').classList.remove('open'); }
+function _labHandleDrop(ev){ const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) _labHandleFile(f); }
+function _labDetectSep(text){
+  const l = (text.split(/\r?\n/)[0]) || '', c = { ';':0, ',':0, '\t':0 };
+  for (const ch of l) if (ch in c) c[ch]++;
+  return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || ';';
+}
+function _labHandleFile(file){
+  if (!file) return;
+  const isXlsx = /\.xlsx?$/i.test(file.name);
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      let sheets;
+      if (isXlsx && window.XLSX) {
+        const wb = XLSX.read(rd.result, { type:'array' });
+        sheets = wb.SheetNames.map(n => ({ name:n, rows: XLSX.utils.sheet_to_json(wb.Sheets[n], { header:1, raw:false, defval:'' }) }));
+      } else {
+        const text = (typeof rd.result === 'string') ? rd.result : new TextDecoder('utf-8').decode(rd.result);
+        const sep = _labDetectSep(text);
+        const rows = text.split(/\r?\n/).filter(l => l.length).map(l => l.split(sep));
+        sheets = [{ name:'(texte)', rows }];
+      }
+      _labRenderPreview(file, sheets, isXlsx ? 'Excel' : 'CSV/texte');
+    } catch (e) {
+      document.getElementById('lab-preview').innerHTML = `<p style="color:#b91c1c">Lecture impossible : ${esc(e.message || String(e))}</p>`;
+    }
+  };
+  if (isXlsx) rd.readAsArrayBuffer(file); else rd.readAsText(file, 'utf-8');
+}
+function _labRenderPreview(file, sheets, kind){
+  const box = document.getElementById('lab-preview'), s = sheets[0];
+  const rows = s.rows.slice(0, 9), ncol = Math.min(16, rows.reduce((m, r) => Math.max(m, r.length), 0));
+  const table = `<table style="border-collapse:collapse;font-size:11px;white-space:nowrap"><tbody>${rows.map((r, ri) =>
+    `<tr>${Array.from({ length: ncol }).map((_, ci) =>
+      `<td style="border:1px solid var(--border);padding:2px 6px;${ri === 0 ? 'font-weight:700;background:var(--bg-subtle,#f3f3f3)' : ''}">${esc(String(r[ci] == null ? '' : r[ci]))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  box.innerHTML = `
+    <div style="font-size:12.5px;margin-bottom:6px"><b>${esc(file.name)}</b> · ${kind} · ${sheets.length > 1 ? sheets.length + ' feuilles · ' : ''}${s.rows.length} ligne(s) × ~${ncol} colonne(s)</div>
+    ${sheets.length > 1 ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Feuilles : ${sheets.map(x => esc(x.name)).join(', ')} — aperçu : ${esc(s.name)}</div>` : ''}
+    <div style="overflow:auto;max-height:320px;border:1px solid var(--border);border-radius:8px">${table}</div>
+    <p style="font-size:11.5px;color:var(--muted);margin-top:8px">👉 Envoie-moi ce type de fichier : je branche le mapping (colonnes → SO₂ libre/total, pH, TAV, densité… + reconnaissance moût / FA / vin fini).</p>`;
 }
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
