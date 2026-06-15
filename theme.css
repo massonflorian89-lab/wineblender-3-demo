@@ -2211,13 +2211,9 @@ body.embedded .wb-main   {
  * ════════════════════════════════════════════════════════════ */
 html { background: var(--color-bg); }   /* pas de flash blanc entre deux pages */
 
-/* Chromium : transition douce inter-pages (cross-fade automatique). */
-@view-transition { navigation: auto; }
-::view-transition-old(root),
-::view-transition-new(root) { animation-duration: 110ms; }
-
-/* Autres navigateurs (Safari/Firefox) : simple fondu d'apparition. */
-@supports not (view-transition-name: none) {
-  @keyframes wb3-page-in { from { opacity: 0; } to { opacity: 1; } }
-  body { animation: wb3-page-in 150ms ease-out both; }
-}
+/* Fondu d'apparition de la page (tous navigateurs) → masque le « pop » de
+   l'en-tête / sidebar au rechargement. En prod le cache du Service Worker rend
+   l'effet quasi invisible ; c'est surtout perceptible en dev (Live Server,
+   sans SW, qui re-télécharge tout à chaque navigation). */
+@keyframes wb3-page-in { from { opacity: 0; } to { opacity: 1; } }
+body { animation: wb3-page-in 140ms ease-out both; }
