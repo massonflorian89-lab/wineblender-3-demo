@@ -44,6 +44,34 @@
   .src-tabs button { padding:6px 12px; border:1px solid var(--color-border); border-radius:var(--radius-pill); background:var(--color-bg-elevated); cursor:pointer; font:inherit; }
   .src-tabs button.active { background:var(--color-primary,#6a1b2a); color:#fff; border-color:var(--color-primary,#6a1b2a); }
   .ech-total { font-weight:700; }
+
+  /* ── Étiquettes Avery 24/page (L7159 : 63,5 × 33,9 mm, 3×8) ── */
+  @media screen { #labels-root { display:none; } }
+  @media print {
+    body > *:not(#labels-root) { display:none !important; }
+    #labels-root { display:block; }
+    @page { size: A4 portrait; margin: 0; }
+    html, body { background:#fff; }
+    .lbl-page {
+      width:210mm; min-height:296mm; box-sizing:border-box; padding:13mm 7mm;
+      display:grid; grid-template-columns:repeat(3, 63.5mm); grid-auto-rows:33.9mm;
+      column-gap:2.5mm; row-gap:0; align-content:start; justify-content:center;
+      page-break-after:always;
+    }
+    .lbl {
+      width:63.5mm; height:33.9mm; box-sizing:border-box; padding:2.4mm 3mm;
+      overflow:hidden; display:flex; flex-direction:column; color:#000;
+      font-size:8.5pt; line-height:1.22;
+    }
+    .lbl-tel { font-size:7pt; color:#333; letter-spacing:.3px; }
+    .lbl-vin { font-weight:700; font-size:10pt; margin:.3mm 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lbl-row { display:flex; justify-content:space-between; gap:3mm; }
+    .lbl-row span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lbl-foot { margin-top:auto; display:flex; justify-content:space-between; align-items:flex-end; gap:2mm; }
+    .lbl-num { font-family:monospace; font-size:8pt; font-weight:700; }
+    .lbl-date { font-size:7pt; color:#444; }
+    .lbl-qr { width:12.5mm; height:12.5mm; flex-shrink:0; }
+  }
 </style>
 </head>
 <body>
@@ -389,9 +417,83 @@ async function saveForm(){
   } catch(e){ WB3UI.alert('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e.message || e)), { title:'Erreur' }); }
 }
 
-// ── Étiquettes (Lot 3) — placeholder ──────────────────────────
+// ── Étiquettes Avery 24/page (Lot 3) ──────────────────────────
+const TEL_KEY = 'wb3_ech_label_tel';
+
 function openLabels(){
-  toast('Édition d\'étiquettes : disponible à la prochaine étape (Lot 3).', 'info');
+  const list = _filtered();
+  if (!list.length) { toast('Aucun échantillon à étiqueter (ajuste les filtres).', 'info'); return; }
+  const tel = localStorage.getItem(TEL_KEY) || '';
+  const ov = document.createElement('div');
+  ov.id = 'labels-modal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4)';
+  ov.innerHTML = `
+    <div style="background:var(--color-bg-elevated);border-radius:var(--radius-lg);max-width:440px;width:92%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <h3 style="margin:0 0 4px">🏷 Étiquettes — ${list.length} échantillon${list.length>1?'s':''}</h3>
+      <p class="hint" style="margin:0 0 16px;font-size:var(--text-footnote);color:var(--color-ink-tertiary)">Planche Avery 24/page (L7159). Imprime ce qui est filtré à l'écran.</p>
+      <div class="ech-form">
+        <div class="f"><label>Coordonnées (haut d'étiquette)</label>
+          <input type="text" id="lbl-tel" value="${esc(tel)}" placeholder="ex. Caves Richemer · 04 67 …"></div>
+        <label class="toggle" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <input type="checkbox" id="lbl-perbottle" checked> Une étiquette par bouteille (sinon 1 par échantillon)</label>
+        <label class="toggle" style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <input type="checkbox" id="lbl-qr" checked> Inclure un QR code (n° d'échantillon)</label>
+        <p class="hint" style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin:0 0 14px">Le QR encode le numéro. Généré en ligne ; sans réseau, l'étiquette reste imprimable (sans QR).</p>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn btn--secondary" onclick="document.getElementById('labels-modal').remove()">Annuler</button>
+        <button class="btn btn--primary" onclick="printLabels()">🖨 Imprimer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+function _labelHTML(e, tel, withQR){
+  const cuve = (e.source_type === 'essai') ? _srcLabel(e) : (e.source_type === 'cuve' ? _srcLabel(e) : '-');
+  const vol  = (e.volume_presente != null && e.volume_presente !== '')
+    ? fmt(e.volume_presente) + ' hL'
+    : (Number(e.nb_bouteilles) || 0) + '×' + fmt(e.volume_bouteille_l) + ' L';
+  const qr = withQR
+    ? `<img class="lbl-qr" alt="" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(e.numero || '')}" onerror="this.remove()">`
+    : '';
+  return `<div class="lbl">
+    <div class="lbl-tel">${esc(tel || '')}</div>
+    <div class="lbl-vin">${esc(e.vin || '—')}</div>
+    <div class="lbl-row"><span>Millésime : ${esc(e.millesime || '-')}</span><span>Lot : ${esc(e.lot_texte || '-')}</span></div>
+    <div class="lbl-row"><span>Cuve : ${esc(cuve)}</span><span>Vol : ${esc(vol)}</span></div>
+    <div class="lbl-row"><span>Client : ${esc(e.client || '-')}</span></div>
+    <div class="lbl-foot">
+      <div><div class="lbl-num">${esc(e.numero || '')}</div><div class="lbl-date">${esc(frDate(e.date_echantillon))}</div></div>
+      ${qr}
+    </div>
+  </div>`;
+}
+
+function printLabels(){
+  const tel = document.getElementById('lbl-tel').value.trim();
+  const perBottle = document.getElementById('lbl-perbottle').checked;
+  const withQR = document.getElementById('lbl-qr').checked;
+  localStorage.setItem(TEL_KEY, tel);
+  document.getElementById('labels-modal')?.remove();
+
+  // Déplie : 1 étiquette par bouteille (ou 1 par échantillon).
+  const labels = [];
+  _filtered().forEach(e => {
+    const copies = perBottle ? Math.max(1, Number(e.nb_bouteilles) || 1) : 1;
+    for (let i = 0; i < copies; i++) labels.push(e);
+  });
+  if (!labels.length) { toast('Rien à imprimer.', 'info'); return; }
+
+  // Pages de 24 étiquettes.
+  const root = document.getElementById('labels-root');
+  let html = '';
+  for (let i = 0; i < labels.length; i += 24) {
+    html += '<div class="lbl-page">' + labels.slice(i, i + 24).map(e => _labelHTML(e, tel, withQR)).join('') + '</div>';
+  }
+  root.innerHTML = html;
+  // Laisse le temps aux images QR de se charger avant l'aperçu d'impression.
+  if (withQR) setTimeout(() => window.print(), 350);
+  else window.print();
 }
 </script>
 </body>
