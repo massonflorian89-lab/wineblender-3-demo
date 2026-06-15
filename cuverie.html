@@ -692,10 +692,13 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
   .cave-toolbar .btn[disabled] { opacity: .45; cursor: not-allowed; }
   .cave-sep { width: 1px; align-self: stretch; background: var(--color-border); margin: 2px 4px; }
   .cave-hint { font-size: var(--text-footnote); color: var(--color-ink-tertiary); }
-  /* Plan en plein écran : « contain », tout le plan visible, centré, sans scroll. */
-  .cave-scroll { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-subtle); height: calc(100vh - 150px); }
+  .cave-zoom { display: inline-flex; align-items: center; gap: 3px; }
+  .cave-zoom-lbl { font-size: var(--text-footnote); color: var(--color-ink-secondary); min-width: 42px; text-align: center; }
+  /* Plan zoomable & déplaçable : le canevas grandit pour contenir toutes les cuves. */
+  .cave-scroll { overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-subtle); height: calc(100vh - 150px); }
+  .cave-sizer { position: relative; }
   .cave-canvas {
-    position: relative;
+    position: absolute; top: 0; left: 0; transform-origin: top left;
     background-image:
       linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px);
@@ -717,8 +720,8 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
   .cave-tile-vide { color: var(--color-ink-tertiary); font-style: italic; }
   .cave-tile-vol { font-size: 10px; color: var(--color-ink-tertiary); margin-top: auto; font-variant-numeric: tabular-nums; }
   .cave-tile-alert { position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--color-bg-elevated); z-index: 2; }
-  /* Mur : canevas mis à l'échelle, sans cadre */
-  .cave-scroll.cave-wall { height: calc(100vh - 120px); border: none; background: transparent; }
+  /* Mur : canevas mis à l'échelle (fit), sans scroll ni cadre */
+  .cave-scroll.cave-wall { overflow: hidden; height: calc(100vh - 120px); border: none; background: transparent; }
   html.wb3-wall .cave-scroll.cave-wall { height: calc(100vh - 56px); }
   /* Mode plan : on libère l'écran (stats / filtres / sidebar masqués). */
   body.wb3-caveplan #stats,
@@ -3039,6 +3042,7 @@ function render() {
   WBWin.destroy();   // coupe les observers du rendu groupé précédent
   // Plan de cave : mode plein écran (masque stats/filtres/sidebar via CSS).
   document.body.classList.toggle('wb3-caveplan', viewMode === 'caveplan');
+  if (viewMode !== 'caveplan') _caveZoomSet = false;   // re-fit à la prochaine entrée
   _populateMillesimeFilter();
   renderStats();
   renderTabCounts();
@@ -3125,15 +3129,20 @@ function render() {
 }
 
 // ════════════════════════════════════════════════════════════
-// Plan de cave éditable (mig 092) — placement libre des cuves dans un
-// ESPACE VIRTUEL fixe (CAVE_VW×CAVE_VH) mis à l'échelle de l'écran →
-// cohérent éditeur ↔ mur, et remplit l'écran. Positions PARTAGÉES.
-// Réservé à l'ORDINATEUR (≥ ~13", pointeur fin) — jamais mobile/tablette.
+// Plan de cave éditable (mig 092) — placement libre des cuves sur un
+// canevas qui GRANDIT pour contenir TOUTES les cuves, avec ZOOM
+// (boutons + Ctrl/pincement molette) et DÉPLACEMENT (scroll). Positions
+// PARTAGÉES. Réservé à l'ORDINATEUR (≥ ~13", pointeur fin).
 // Fenêtre normale = éditeur (glisser-déposer + assistant arc/rangée).
 // Mur = lecture seule. Tuiles dimensionnées selon la capacité.
 // ════════════════════════════════════════════════════════════
-const CAVE_VW = 1600, CAVE_VH = 900;   // espace virtuel (unités)
-let _caveScale = 1;                     // échelle courante (px écran / unité)
+const CAVE_MIN_W = 1600, CAVE_MIN_H = 900;   // taille mini du canevas (unités)
+const CAVE_MAX = 12000;                       // borne dure des coordonnées
+let _caveScale = 1;        // = zoom courant (px écran / unité) — pour le drag
+let _caveZoom = 1;         // zoom utilisateur
+let _caveZoomSet = false;  // zoom (fit) déjà initialisé pour cette entrée en vue
+let _caveNeedW = CAVE_MIN_W, _caveNeedH = CAVE_MIN_H;   // taille calculée du canevas
+let _caveWheelBound = false;
 let _caveSel   = new Set();             // cid sélectionnés (assistants rangée/éventail)
 let _caveItems = [];                    // cuves actuellement affichées sur le plan
 
@@ -3149,9 +3158,9 @@ function _caveTileSize(c) {
   return { w, h: Math.round(w * 0.62) };
 }
 
-function _cavePlanDefaultPos(i) {
-  const step = 226, cols = Math.max(1, Math.floor((CAVE_VW - 24) / step));
-  return { x: 16 + (i % cols) * step, y: 16 + Math.floor(i / cols) * 150 };
+function _caveDefaultCols(n) { return Math.max(1, Math.round(Math.sqrt(Math.max(1, n) * 1.18))); }
+function _cavePlanDefaultPos(i, cols) {
+  return { x: 16 + (i % cols) * 226, y: 16 + Math.floor(i / cols) * 150 };
 }
 
 function _caveTileHTML(c, editable) {
@@ -3188,6 +3197,14 @@ function renderCavePlan(items) {
 
   const editable = _caveEditOn && !readOnly;
   const n = _caveSel.size;
+  const zoomCtl = readOnly ? '' : `
+      <span class="cave-sep"></span>
+      <div class="cave-zoom">
+        <button class="btn btn--secondary btn--sm" onclick="caveZoomBy(1/1.2)" title="Dézoomer (Ctrl + molette)">−</button>
+        <span class="cave-zoom-lbl">100%</span>
+        <button class="btn btn--secondary btn--sm" onclick="caveZoomBy(1.2)" title="Zoomer (Ctrl + molette)">+</button>
+        <button class="btn btn--secondary btn--sm" onclick="caveZoomFit()" title="Tout voir">⤢ Tout voir</button>
+      </div>`;
   const toolbar = readOnly ? '' : `
     <div class="cave-toolbar">
       <button class="btn btn--secondary btn--sm${editable ? ' active' : ''}" onclick="toggleCaveEdit()">${editable ? '🔓 Édition' : '🔒 Verrouillé'}</button>
@@ -3196,14 +3213,18 @@ function renderCavePlan(items) {
       <button class="btn btn--secondary btn--sm cave-arr" onclick="caveArrange('row')" ${n < 2 ? 'disabled' : ''} title="Aligner les cuves cochées en rangée">↦ Rangée</button>
       <button class="btn btn--secondary btn--sm" onclick="caveFan()" title="Disposer en éventail (rosace) : chaque groupe (A1, A2, B1…) devient un rayon partant d'un foyer. Sur les cuves cochées, ou toutes si aucune n'est cochée.">✣ Éventail</button>
       <span class="cave-hint">${_caveSelHintHTML()}</span>` : '<span class="cave-hint">Édition verrouillée (clique 🔒).</span>'}
+      ${zoomCtl}
       <div style="flex:1"></div>
       <button class="btn btn--secondary btn--sm" onclick="cavePlanReset()" title="Efface toutes les positions enregistrées">↺ Réinitialiser</button>
     </div>`;
   container.innerHTML = toolbar +
-    `<div class="cave-scroll${readOnly ? ' cave-wall' : ''}"><div class="cave-canvas" id="cave-canvas" style="width:${CAVE_VW}px;height:${CAVE_VH}px"></div></div>`;
+    `<div class="cave-scroll${readOnly ? ' cave-wall' : ''}" id="cave-scroll"><div class="cave-sizer" id="cave-sizer"><div class="cave-canvas" id="cave-canvas"></div></div></div>`;
   const canvas = document.getElementById('cave-canvas');
+
+  const cols = _caveDefaultCols(items.length);
+  let needW = CAVE_MIN_W, needH = CAVE_MIN_H;
   items.forEach((c, i) => {
-    const pos = cavePlanPos[c.id] || _cavePlanDefaultPos(i);
+    const pos = cavePlanPos[c.id] || _cavePlanDefaultPos(i, cols);
     const sz  = _caveTileSize(c);
     const tile = document.createElement('div');
     tile.className = 'cave-tile' + (editable ? ' editable' : '') + (_caveSel.has(c.id) ? ' selected' : '');
@@ -3227,26 +3248,55 @@ function renderCavePlan(items) {
       tile.addEventListener('click', () => onCuveClick(c));
     }
     canvas.appendChild(tile);
+    needW = Math.max(needW, pos.x + sz.w + 16);
+    needH = Math.max(needH, pos.y + sz.h + 16);
   });
-  _caveScaleNow(readOnly);
+  _caveNeedW = needW; _caveNeedH = needH;
+  canvas.style.width = needW + 'px'; canvas.style.height = needH + 'px';
+
+  if (readOnly || !_caveZoomSet) { _caveZoom = _caveFitZoom(); _caveZoomSet = true; }
+  _caveApplyZoom();
+
+  if (!readOnly) {
+    // #cave-scroll est recréé à chaque rendu → on (re)lie la molette à chaque fois.
+    const scroll = document.getElementById('cave-scroll');
+    scroll.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;             // Ctrl + molette (ou pincement) = zoom ; sinon scroll
+      e.preventDefault();
+      const r = scroll.getBoundingClientRect();
+      const px = e.clientX - r.left + scroll.scrollLeft, py = e.clientY - r.top + scroll.scrollTop;
+      const prev = _caveZoom;
+      _caveZoom = Math.max(0.08, Math.min(4, _caveZoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
+      _caveZoomSet = true; _caveApplyZoom();
+      const k = _caveZoom / prev;
+      scroll.scrollLeft = px * k - (e.clientX - r.left);
+      scroll.scrollTop  = py * k - (e.clientY - r.top);
+    }, { passive: false });
+  }
   if (!_caveResizeBound) {
-    window.addEventListener('resize', () => { if (viewMode === 'caveplan') _caveScaleNow(!!_wallMode); });
+    window.addEventListener('resize', () => { if (viewMode === 'caveplan' && _wallMode) { _caveZoom = _caveFitZoom(); _caveApplyZoom(); } });
     _caveResizeBound = true;
   }
 }
 
-// Échelle « contain » : tout le plan visible, centré, occupe l'espace dispo.
-function _caveScaleNow() {
-  const scroll = document.querySelector('.cave-scroll');
-  const canvas = document.getElementById('cave-canvas');
-  if (!scroll || !canvas) return;
-  const availW = scroll.clientWidth, availH = scroll.clientHeight;
-  const s = Math.min(availW / CAVE_VW, availH / CAVE_VH);
-  _caveScale = s;
-  const tx = Math.max(0, (availW - CAVE_VW * s) / 2);
-  canvas.style.transformOrigin = 'top left';
-  canvas.style.transform = `translate(${tx}px, 0) scale(${s})`;
+function _caveFitZoom() {
+  const scroll = document.getElementById('cave-scroll');
+  if (!scroll) return 1;
+  const s = Math.min(scroll.clientWidth / _caveNeedW, scroll.clientHeight / _caveNeedH);
+  return Math.max(0.08, Math.min(1, s));
 }
+function _caveApplyZoom() {
+  const sizer = document.getElementById('cave-sizer'), canvas = document.getElementById('cave-canvas');
+  if (!sizer || !canvas) return;
+  _caveScale = _caveZoom;
+  canvas.style.transformOrigin = 'top left';
+  canvas.style.transform = `scale(${_caveZoom})`;
+  sizer.style.width = (_caveNeedW * _caveZoom) + 'px';
+  sizer.style.height = (_caveNeedH * _caveZoom) + 'px';
+  const lbl = document.querySelector('.cave-zoom-lbl'); if (lbl) lbl.textContent = Math.round(_caveZoom * 100) + '%';
+}
+function caveZoomBy(f) { _caveZoom = Math.max(0.08, Math.min(4, _caveZoom * f)); _caveZoomSet = true; _caveApplyZoom(); }
+function caveZoomFit() { _caveZoom = _caveFitZoom(); _caveZoomSet = true; _caveApplyZoom(); }
 
 function _caveSelHintHTML() {
   const n = _caveSel.size;
@@ -3278,37 +3328,24 @@ async function cavePlanReset() {
   catch (e) { toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e && e.message || e)), 'error'); }
 }
 
-// Assistant : aligne les cuves cochées en rangée ou en demi-cercle.
+// Assistant : aligne les cuves cochées en rangée horizontale.
 async function caveArrange(mode) {
   const sel = contenants.filter(c => _caveSel.has(c.id))
     .sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr', { numeric: true }));
   if (sel.length < 2) return;
-  const cx = CAVE_VW / 2, cy = CAVE_VH / 2;
   const sizes = sel.map(_caveTileSize);
+  const gap = 18;
+  const totalW = sizes.reduce((s, z) => s + z.w, 0) + gap * (sel.length - 1);
+  let x = Math.max(16, (Math.max(CAVE_MIN_W, totalW + 80) - totalW) / 2);
+  const y = 90;
   const place = [];
-  if (mode === 'row') {
-    const gap = 18;
-    const totalW = sizes.reduce((s, z) => s + z.w, 0) + gap * (sel.length - 1);
-    let x = cx - totalW / 2;
-    sel.forEach((c, i) => { place.push({ c, x, y: cy - sizes[i].h / 2 }); x += sizes[i].w + gap; });
-  } else { // arc : demi-cercle, ouverture vers le bas
-    const R = Math.min(CAVE_VW, CAVE_VH) * 0.36;
-    const acx = cx, acy = cy + R * 0.42;
-    sel.forEach((c, i) => {
-      const t = sel.length === 1 ? 0.5 : i / (sel.length - 1);
-      const ang = Math.PI * (1 - t);   // gauche (π) → droite (0)
-      place.push({ c, x: acx + R * Math.cos(ang) - sizes[i].w / 2, y: acy - R * Math.sin(ang) - sizes[i].h / 2 });
-    });
-  }
-  place.forEach((p, i) => {
-    const x = Math.round(Math.max(0, Math.min(p.x, CAVE_VW - sizes[i].w)));
-    const y = Math.round(Math.max(0, Math.min(p.y, CAVE_VH - sizes[i].h)));
-    cavePlanPos[p.c.id] = { x, y };
-  });
+  sel.forEach((c, i) => { place.push({ id: c.id, x: Math.round(x), y }); x += sizes[i].w + gap; });
+  place.forEach(p => { cavePlanPos[p.id] = { x: p.x, y: p.y }; });
+  _caveZoomSet = false;   // refit
   render();
   try {
-    for (const p of place) { const pos = cavePlanPos[p.c.id]; await WB3DB.setCuveriePlanPos(p.c.id, pos.x, pos.y); }
-    toast('Aligné en ' + (mode === 'arc' ? 'demi-cercle' : 'rangée'), 'success');
+    for (const p of place) await WB3DB.setCuveriePlanPos(p.id, p.x, p.y);
+    toast('Aligné en rangée', 'success');
   } catch (e) { toast('Positions non sauvegardées : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : (e && e.message || e)), 'error'); }
 }
 
@@ -3339,10 +3376,10 @@ async function caveFan() {
 
   const G = keys.length;
   const aStart = 150 * Math.PI / 180, aEnd = 30 * Math.PI / 180;   // éventail vers le bas
-  const innerR = Math.max(440, 140 * (G - 1));   // grand foyer → pas d'entassement au centre
-  const stepR  = 150;
+  const innerR = Math.max(440, 150 * (G - 1));   // grand foyer → pas d'entassement au centre
+  const stepR  = 156;
 
-  // 1) positions brutes (centre tuile) autour d'un foyer en (0,0)
+  // Positions brutes (centre tuile) autour d'un foyer en (0,0) — taille naturelle.
   const raw = [];
   keys.forEach((k, gi) => {
     const ang = G === 1 ? (aStart + aEnd) / 2 : aStart + (aEnd - aStart) * (gi / (G - 1));
@@ -3353,24 +3390,21 @@ async function caveFan() {
     });
   });
 
-  // 2) ajuste (translate + échelle) pour remplir le canevas avec une marge
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  raw.forEach(p => { minX = Math.min(minX, p.X - p.w / 2); maxX = Math.max(maxX, p.X + p.w / 2);
-                     minY = Math.min(minY, p.Y - p.h / 2); maxY = Math.max(maxY, p.Y + p.h / 2); });
-  const M = 28, availW = CAVE_VW - 2 * M, availH = CAVE_VH - 2 * M;
-  const s = Math.min(availW / Math.max(1, maxX - minX), availH / Math.max(1, maxY - minY), 1);
-  const offX = M + (availW - (maxX - minX) * s) / 2 - minX * s;
-  const offY = M + (availH - (maxY - minY) * s) / 2 - minY * s;
+  // Translation seule (PAS de compression) : le canevas grandit, le zoom « tout
+  // voir » s'occupe de tout afficher → rosace à taille réelle, lisible au zoom.
+  let minX = Infinity, minY = Infinity;
+  raw.forEach(p => { minX = Math.min(minX, p.X - p.w / 2); minY = Math.min(minY, p.Y - p.h / 2); });
+  const M = 30, offX = M - minX, offY = M - minY;
 
   const ids = [];
   raw.forEach(p => {
-    const x = offX + p.X * s - p.w / 2, y = offY + p.Y * s - p.h / 2;
     cavePlanPos[p.id] = {
-      x: Math.round(Math.max(0, Math.min(x, CAVE_VW - p.w))),
-      y: Math.round(Math.max(0, Math.min(y, CAVE_VH - p.h))),
+      x: Math.round(Math.max(0, Math.min(p.X - p.w / 2 + offX, CAVE_MAX))),
+      y: Math.round(Math.max(0, Math.min(p.Y - p.h / 2 + offY, CAVE_MAX))),
     };
     ids.push(p.id);
   });
+  _caveZoomSet = false;   // refit pour montrer toute la rosace
   render();
   try {
     for (const id of ids) { const p = cavePlanPos[id]; await WB3DB.setCuveriePlanPos(id, p.x, p.y); }
@@ -3390,8 +3424,7 @@ function _caveDragStart(e, cid) {
   const move = (ev) => {
     const s = _caveScale || 1;
     let nx = origX + (ev.clientX - startX) / s, ny = origY + (ev.clientY - startY) / s;
-    nx = Math.max(0, Math.min(nx, CAVE_VW - tw));
-    ny = Math.max(0, Math.min(ny, CAVE_VH - th));
+    nx = Math.max(0, Math.min(nx, CAVE_MAX)); ny = Math.max(0, Math.min(ny, CAVE_MAX));
     tile.style.left = nx + 'px'; tile.style.top = ny + 'px';
   };
   const up = () => {
@@ -3400,6 +3433,14 @@ function _caveDragStart(e, cid) {
     tile.classList.remove('dragging');
     const x = Math.round(parseFloat(tile.style.left) || 0), y = Math.round(parseFloat(tile.style.top) || 0);
     cavePlanPos[cid] = { x, y };
+    // Agrandit le canevas si la cuve a été posée au-delà (scroll cohérent).
+    const grewW = Math.max(_caveNeedW, x + tw + 16), grewH = Math.max(_caveNeedH, y + th + 16);
+    if (grewW !== _caveNeedW || grewH !== _caveNeedH) {
+      _caveNeedW = grewW; _caveNeedH = grewH;
+      const cv = document.getElementById('cave-canvas');
+      if (cv) { cv.style.width = _caveNeedW + 'px'; cv.style.height = _caveNeedH + 'px'; }
+      _caveApplyZoom();
+    }
     if (WB3DB.setCuveriePlanPos) WB3DB.setCuveriePlanPos(cid, x, y)
       .catch(err => toast('Position non sauvegardée : ' + (WB3DB.errMsg ? WB3DB.errMsg(err) : (err && err.message || err)), 'error'));
   };
