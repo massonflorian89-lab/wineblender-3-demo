@@ -320,8 +320,6 @@
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
-    <button class="btn btn--header" onclick="openReportModal()" title="Rapport d'analyses A4 paysage (jour ou sélection)">📄 Rapport</button>
-    <button class="btn btn--header" onclick="openLabImport()" title="Importer des analyses labo (moût, FA, vin fini, VS+SO₂)">🧪 Import labo</button>
     <button class="btn btn--header" onclick="openImportModal()">📥 Importer CSV</button>
     <a class="btn btn--header" href="parametres.html?section=analyses" title="Paramètres analyses">⚙️</a>
     <button class="btn btn--header" onclick="logout()">Déconnexion</button>
@@ -445,6 +443,8 @@
   <button class="btn-reset" onclick="resetFilters()">✕ Réinitialiser</button>
   <div class="filters-spacer"></div>
   <span id="count-label" style="font-size:12px;color:var(--muted);"></span>
+  <button class="btn-view" onclick="openReportModal()" title="Rapport d'analyses A4 paysage (jour ou sélection)">📄 Rapport</button>
+  <button class="btn-view" onclick="openLabImport()" title="Importer des analyses labo (moût, FA, vin fini, VS+SO₂)">🧪 Import labo</button>
   <button class="btn-view" id="btn-view-toggle" onclick="toggleViewMode()">📈 Suivi</button>
 </div>
 
