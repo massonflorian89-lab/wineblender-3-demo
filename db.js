@@ -2246,6 +2246,98 @@
     if (error) throw error;
   }
 
+  // ── Module Échantillons (migration 093) ───────────────────────
+  // Registre des échantillons clients + référentiel clients/courtiers.
+  // Écriture réservée aux privilégiés (RLS). Dégrade proprement si 093
+  // pas encore appliquée (table absente → liste vide).
+  async function listEchantillons(opts = {}) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    let q = client.from('echantillon').select('*').eq('tenant_id', tenantId);
+    if (opts.from) q = q.gte('date_echantillon', opts.from);
+    if (opts.to)   q = q.lte('date_echantillon', opts.to);
+    if (typeof opts.realise === 'boolean') q = q.eq('realise', opts.realise);
+    q = q.order('date_echantillon', { ascending: false }).order('numero', { ascending: false });
+    const { data, error } = await q;
+    if (error) { if (error.code === '42P01' || error.code === 'PGRST205') return []; throw error; }
+    return data || [];
+  }
+
+  // Numéro auto : E<AA>-NNNN, séquence annuelle par tenant.
+  async function nextEchantillonNumero() {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const yy = String(new Date().getFullYear()).slice(-2);
+    const { data } = await client.from('echantillon')
+      .select('numero').eq('tenant_id', tenantId).like('numero', 'E' + yy + '-%');
+    let max = 0;
+    (data || []).forEach(r => { const m = /-(\d+)$/.exec(r.numero || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+    return 'E' + yy + '-' + String(max + 1).padStart(4, '0');
+  }
+
+  async function saveEchantillon(fields) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('echantillon');
+    if (fields.id) {
+      const patch = { ...fields }; delete patch.id; delete patch.tenant_id; delete patch.volume_total_l;
+      patch.updated_at = new Date().toISOString();
+      const { data, error } = await client.from('echantillon')
+        .update(patch).eq('id', fields.id).eq('tenant_id', tenantId).select('*').single();
+      if (error) throw error;
+      return data;
+    }
+    const row = { ...fields, tenant_id: tenantId };
+    delete row.id; delete row.volume_total_l;
+    if (!row.numero) row.numero = await nextEchantillonNumero();
+    if (state.user) row.created_by = state.user.id;
+    const { data, error } = await client.from('echantillon').insert(row).select('*').single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function setEchantillonRealise(id, val) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('echantillon');
+    const { error } = await client.from('echantillon')
+      .update({ realise: !!val, updated_at: new Date().toISOString() })
+      .eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  async function deleteEchantillon(id) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('echantillon');
+    const { error } = await client.from('echantillon').delete().eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  async function listEchantillonClients(role) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    let q = client.from('echantillon_client').select('*').eq('tenant_id', tenantId);
+    if (role) q = q.eq('role', role);
+    const { data, error } = await q.order('nom', { ascending: true });
+    if (error) { if (error.code === '42P01' || error.code === 'PGRST205') return []; throw error; }
+    return data || [];
+  }
+
+  async function addEchantillonClient(nom, role) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('echantillon');
+    const clean = String(nom || '').trim();
+    if (!clean) throw new Error('[WB3] Nom requis.');
+    const { data, error } = await client.from('echantillon_client')
+      .upsert({ tenant_id: tenantId, nom: clean, role: (role === 'courtier' ? 'courtier' : 'client') },
+              { onConflict: 'tenant_id,role,nom' })
+      .select('*').single();
+    if (error) throw error;
+    return data;
+  }
+
   // ── Scission de lot via RPC (migration 086 — P6) ──────────────
   // Le contenu d'une cuve passe du lot source à un NOUVEAU lot (numéro
   // auto, filiation 'manual', couple sortie/entrée journalisé dans
@@ -2815,6 +2907,13 @@
     getCuveriePlan,
     setCuveriePlanPos,
     clearCuveriePlan,
+    listEchantillons,
+    nextEchantillonNumero,
+    saveEchantillon,
+    setEchantillonRealise,
+    deleteEchantillon,
+    listEchantillonClients,
+    addEchantillonClient,
     createCorrectiveOperation,
     convertMultilotToAssemblage,
     softDelete,
