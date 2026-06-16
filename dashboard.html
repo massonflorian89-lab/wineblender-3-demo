@@ -18,12 +18,12 @@
   .dash-hero {
     background: linear-gradient(135deg, #0d2137 0%, #1a3a55 60%, #2e5d7a 100%);
     border-radius: var(--radius-lg);
-    padding: var(--space-5) var(--space-6);
+    padding: 14px 20px;
     color: #fff;
     margin-bottom: var(--space-4);
     display: flex;
     align-items: center;
-    gap: var(--space-6);
+    gap: var(--space-4);
     flex-wrap: wrap;
     position: relative;
     overflow: hidden;
@@ -49,7 +49,7 @@
     position: absolute; inset: 0;
     background: linear-gradient(100deg, rgba(6,14,24,.55) 0%, rgba(6,14,24,.24) 45%, rgba(6,14,24,.05) 100%);
   }
-  .hero-greeting, .hero-clock, .hero-actions, .weather-strip, .weather-feature {
+  .hero-greeting, .hero-clock, .hero-actions, .weather-bar {
     position: relative; z-index: 1;
   }
   .hero-greeting .greet-line, .hero-clock { text-shadow: 0 1px 6px rgba(0,0,0,.35); }
@@ -161,14 +161,14 @@
 
   .hero-greeting { flex: 1; min-width: 200px; }
   .hero-greeting .greet-line {
-    font-size: 26px; font-weight: 700; letter-spacing: -.3px;
-    margin-bottom:var(--space-1);
+    font-size: 19px; font-weight: 700; letter-spacing: -.2px;
+    margin-bottom: 1px;
   }
   .hero-greeting .greet-date {
-    font-size: var(--text-callout); opacity: .7;
+    font-size: 11.5px; opacity: .7;
   }
   .hero-clock {
-    font-size: 48px; font-weight: 700; letter-spacing: -1px;
+    font-size: 28px; font-weight: 700; letter-spacing: -.5px;
     font-variant-numeric: tabular-nums; opacity: .92;
     flex-shrink: 0;
   }
@@ -177,7 +177,7 @@
     margin-left: auto;
   }
   .hero-btn {
-    padding: 7px 14px; border-radius: 8px; font-size:var(--text-footnote); font-weight: 600;
+    padding: 5px 11px; border-radius: 8px; font-size: 12px; font-weight: 600;
     cursor: pointer; transition: all .15s; border: none;
   }
   .hero-btn-primary {
@@ -191,82 +191,75 @@
   .hero-btn-ghost:hover { background: rgba(255,255,255,.2); }
   .hero-btn-ghost.active { background: rgba(232,176,74,.2); border-color: #e8b04a; color: #e8b04a; }
 
-  /* ── Weather feature (panneau vedette, toujours visible) ──── */
-  .weather-feature {
+  /* ── Weather bar (compacte, une seule ligne) ─────────────── */
+  .weather-bar {
     width: 100%;
-    margin-top: var(--space-4);
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid rgba(255,255,255,.14);
     display: flex;
     align-items: center;
-    gap: var(--space-4);
+    gap: 10px;
     flex-wrap: wrap;
-    background: rgba(255,255,255,.10);
-    border: 1px solid rgba(255,255,255,.20);
-    border-radius: 16px;
-    padding: 16px 20px;
-    backdrop-filter: blur(8px) saturate(140%);
-    -webkit-backdrop-filter: blur(8px) saturate(140%);
-    box-shadow: 0 8px 24px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  .weather-feature {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    padding-right: 10px;
+    border-right: 1px solid rgba(255,255,255,.16);
   }
   .wf-icon {
-    font-size: 58px; line-height: 1; flex-shrink: 0;
-    filter: drop-shadow(0 3px 10px rgba(0,0,0,.3));
+    font-size: 22px; line-height: 1; flex-shrink: 0;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,.3));
     animation: wfIconFloat 4.5s ease-in-out infinite;
   }
-  @keyframes wfIconFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-  .wf-main { display: flex; flex-direction: column; gap: 1px; min-width: 150px; flex-shrink: 0; }
-  .wf-temp { font-size: 36px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
-  .wf-temp .wf-tmin { font-size: 17px; font-weight: 600; opacity: .6; margin-left: 4px; }
-  .wf-label { font-size: var(--text-callout); font-weight: 700; }
-  .wf-sub { font-size: var(--text-footnote); opacity: .72; }
-  .wf-details {
-    display: flex; flex-wrap: wrap; gap: var(--space-2);
-    margin-left: auto;
-  }
+  @keyframes wfIconFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+  .wf-temp { font-size: 16px; font-weight: 800; letter-spacing: -.3px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wf-temp .wf-tmin { font-size: 11px; font-weight: 600; opacity: .6; margin-left: 2px; }
+  .wf-label { font-size: 11.5px; font-weight: 600; opacity: .82; white-space: nowrap; }
+  .wf-details { display: flex; flex-wrap: wrap; gap: 5px; }
   .wf-chip {
-    display: flex; align-items: center; gap: 7px;
-    background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.14);
-    border-radius: 10px;
-    padding: 7px 11px;
+    display: flex; align-items: center; gap: 4px;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.13);
+    border-radius: 7px;
+    padding: 3px 7px;
+    white-space: nowrap;
   }
-  .wf-chip .di-icon { font-size: var(--text-callout); flex-shrink: 0; }
-  .wf-chip .di-val  { font-weight: 700; font-size: 13px; line-height: 1.1; }
-  .wf-chip .di-lbl  { opacity: .65; font-size: 10px; line-height: 1.1; }
+  .wf-chip .di-icon { font-size: 11px; flex-shrink: 0; }
+  .wf-chip .di-val  { font-weight: 700; font-size: 11px; line-height: 1; }
 
   /* ── Weather strip (sélecteur de jour) ───────────────────── */
   .weather-strip {
-    width: 100%;
-    margin-top: var(--space-3);
     display: flex;
-    gap: var(--space-2);
+    gap: 5px;
     overflow-x: auto;
-    padding-bottom: 2px;
     scrollbar-width: none;
+    margin-left: auto;
   }
   .weather-strip::-webkit-scrollbar { display: none; }
   .weather-day {
-    background: rgba(255,255,255,.1);
-    border: 1px solid rgba(255,255,255,.15);
-    border-radius: 10px;
-    padding: 8px 12px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 7px;
+    padding: 3px 7px;
     text-align: center;
     cursor: pointer;
-    transition: background .15s, border-color .15s, transform .15s;
+    transition: background .15s, border-color .15s;
     flex-shrink: 0;
-    min-width: 68px;
-    position: relative;
+    min-width: 42px;
+    line-height: 1.15;
   }
-  .weather-day:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.3); transform: translateY(-1px); }
+  .weather-day:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.28); }
   .weather-day.today { border-color: #e8b04a; }
   .weather-day.selected {
-    background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.5);
-    box-shadow: 0 0 0 2px rgba(232,176,74,.45);
+    background: rgba(255,255,255,.2);
+    box-shadow: 0 0 0 1.5px rgba(232,176,74,.5);
   }
-  .wd-label { font-size:var(--text-caption); font-weight: 700; opacity: .7; text-transform: uppercase; letter-spacing: .4px; margin-bottom:var(--space-1); }
-  .wd-icon  { font-size: 22px; margin: 2px 0; }
-  .wd-temps { font-size: 12px; font-weight: 600; opacity: .9; }
+  .wd-label { font-size: 8.5px; font-weight: 700; opacity: .65; text-transform: uppercase; letter-spacing: .3px; }
+  .wd-icon  { font-size: 13px; margin: 1px 0; }
+  .wd-temps { font-size: 10px; font-weight: 600; opacity: .88; }
   .wd-temps .tmax { color: #ffd080; }
-  .wd-temps .tmin { opacity: .65; }
+  .wd-temps .tmin { opacity: .6; }
 
   /* ── Widget config panel ─────────────────────────────────── */
   .widget-config-panel {
@@ -502,20 +495,17 @@
       <button class="hero-btn hero-btn-ghost" onclick="refresh()">↻ Actualiser</button>
     </div>
 
-    <!-- Weather feature (panneau vedette, détail toujours visible) -->
-    <div class="weather-feature" id="weather-feature" style="display:none">
-      <div class="wf-icon" id="wf-icon">🌡</div>
-      <div class="wf-main">
-        <div class="wf-temp" id="wf-temp">—°</div>
-        <div class="wf-label" id="wf-label">—</div>
-        <div class="wf-sub" id="wf-sub">—</div>
+    <!-- Météo : barre compacte (détail toujours visible + sélecteur de jour) -->
+    <div class="weather-bar">
+      <div class="weather-feature" id="weather-feature" style="display:none">
+        <span class="wf-icon" id="wf-icon">🌡</span>
+        <span class="wf-temp" id="wf-temp">—°</span>
+        <span class="wf-label" id="wf-label">—</span>
+        <div class="wf-details" id="wf-details"></div>
       </div>
-      <div class="wf-details" id="wf-details"></div>
-    </div>
-
-    <!-- Weather strip (sélecteur de jour, full width) -->
-    <div class="weather-strip" id="weather-strip">
-      <div style="opacity:.5;font-size:var(--text-footnote);align-self:center;padding:0 4px">🌡 Chargement météo…</div>
+      <div class="weather-strip" id="weather-strip">
+        <div style="opacity:.5;font-size:11px;align-self:center;padding:0 4px">🌡 Chargement météo…</div>
+      </div>
     </div>
   </div>
 
@@ -710,9 +700,9 @@ function renderWeatherFeature(i) {
   if (!d || i == null || !d.time?.[i]) return;
 
   const today = new Date().toISOString().slice(0,10);
-  const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const days = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const isToday = d.time[i] === today;
-  const dayName = isToday ? "Aujourd'hui" : days[new Date(d.time[i]+'T12:00:00').getDay()];
+  const dayPrefix = isToday ? '' : days[new Date(d.time[i]+'T12:00:00').getDay()] + ' · ';
 
   // Humidity: average of hourly values for that day (24 values per day)
   const humStart = i * 24;
@@ -727,20 +717,19 @@ function renderWeatherFeature(i) {
 
   document.getElementById('wf-icon').textContent = WMO_ICON[code] || '🌡';
   document.getElementById('wf-temp').innerHTML = `${tmax}°<span class="wf-tmin">/ ${tmin}°</span>`;
-  document.getElementById('wf-label').textContent = WMO_LABEL[code] || `Code ${code}`;
-  document.getElementById('wf-sub').textContent = dayName;
+  document.getElementById('wf-label').textContent = dayPrefix + (WMO_LABEL[code] || `Code ${code}`);
 
   const chips = [
     { icon:'🌧', val: d.precipitation_sum[i] != null ? `${d.precipitation_sum[i]} mm` : '—', lbl:'Précipitations' },
     { icon:'💨', val: d.windspeed_10m_max[i] != null ? `${Math.round(d.windspeed_10m_max[i])} km/h${windDir?' '+windDir:''}` : '—', lbl:'Vent max' },
     humidity != null ? { icon:'💧', val:`${humidity} %`, lbl:'Humidité moy.' } : null,
-    d.uv_index_max?.[i] != null ? { icon:'☀️', val:`${d.uv_index_max[i]}`, lbl:'Indice UV max' } : null,
+    d.uv_index_max?.[i] != null ? { icon:'☀️', val:`UV ${d.uv_index_max[i]}`, lbl:'Indice UV max' } : null,
   ].filter(Boolean);
 
   document.getElementById('wf-details').innerHTML = chips.map(c =>
-    `<div class="wf-chip">
+    `<div class="wf-chip" title="${escapeHtml(c.lbl)}">
       <span class="di-icon">${c.icon}</span>
-      <div><div class="di-val">${escapeHtml(String(c.val))}</div><div class="di-lbl">${escapeHtml(c.lbl)}</div></div>
+      <span class="di-val">${escapeHtml(String(c.val))}</span>
     </div>`
   ).join('');
 
