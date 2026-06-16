@@ -12,10 +12,10 @@
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="WineBlender">
+<meta name="apple-mobile-web-app-title" content="VitiFlux">
 <link rel="apple-touch-icon" href="img/icon-wineblender-192.png">
 <script src="pwa.js" defer></script>
-<title>WineBlender 3</title>
+<title>VitiFlux</title>
 <style>
   :root {
     --p: #6a1b2a;
@@ -74,6 +74,13 @@
     text-align: center;
     color: var(--muted);
     font-size: 12.5px;
+    margin-bottom: 4px;
+  }
+  .login-credit {
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: .4px;
     margin-bottom: 22px;
   }
   .login-card label {
@@ -127,41 +134,6 @@
     display: none;
   }
   .login-error.show { display: block; }
-
-  /* Séparateur "— ou —" entre les deux modes de connexion */
-  .login-separator {
-    display: flex; align-items: center; gap: 12px;
-    margin: 18px 0 6px; color: #999; font-size: 12px;
-  }
-  .login-separator::before,
-  .login-separator::after {
-    content: ''; flex: 1; height: 1px; background: #e0e0e0;
-  }
-
-  /* Bouton magic link : style secondaire (contour plutôt que plein) */
-  .login-card button.secondary {
-    margin-top: 12px;
-    background: #fff;
-    color: var(--p);
-    border: 1.5px solid var(--p);
-  }
-  .login-card button.secondary:hover {
-    background: var(--p);
-    color: #fff;
-  }
-
-  /* Message de succès (lien magique envoyé) */
-  .login-info {
-    margin-top: 14px;
-    padding: 10px 12px;
-    background: #e8f5e9;
-    border-left: 3px solid #2e7d32;
-    border-radius: 6px;
-    color: #1b5e20;
-    font-size: 12.5px;
-    display: none;
-  }
-  .login-info.show { display: block; }
 
   /* ============ APP PRINCIPALE (placeholder) ============ */
   .app { display: none; min-height: 100vh; }
@@ -314,7 +286,7 @@
      avec restoreSession ; disparaît au chargement des ressources). -->
 <div id="wb3-splash" aria-hidden="true">
   <img decoding="async" src="img/icon-wineblender-transparent.png" alt="">
-  <div class="wb3-splash-name">WineBlender 3</div>
+  <div class="wb3-splash-name">VitiFlux</div>
   <div class="wb3-splash-ver">v0.79</div>
   <div class="wb3-splash-slow" id="wb3-splash-slow">Chargement de la cave…</div>
 </div>
@@ -354,9 +326,10 @@
 <!-- ============ ÉCRAN DE LOGIN ============ -->
 <div class="login-screen" id="login-screen">
   <div class="login-card">
-    <img decoding="async" class="login-logo" src="img/icon-wineblender-transparent.png" alt="WineBlender">
-    <h1>WineBlender 3</h1>
+    <img decoding="async" class="login-logo" src="img/icon-wineblender-transparent.png" alt="VitiFlux">
+    <h1>VitiFlux</h1>
     <div class="sub">Connexion à l'espace de traçabilité</div>
+    <div class="login-credit">Oenovae</div>
 
     <form id="login-form">
       <label for="email">Email</label>
@@ -368,21 +341,14 @@
       <button type="submit" id="login-btn">Se connecter</button>
     </form>
 
-    <div class="login-separator"><span>ou</span></div>
-
-    <button type="button" id="magic-btn" class="secondary">
-      📧 Recevoir un lien magique
-    </button>
-
     <div class="login-error" id="login-error"></div>
-    <div class="login-info" id="login-info"></div>
   </div>
 </div>
 
 <!-- ============ APPLICATION PRINCIPALE ============ -->
 <div class="app" id="app">
   <header class="app-header">
-    <h1><img decoding="async" class="app-logo" src="img/icon-wineblender-192.png" alt="">WineBlender 3</h1>
+    <h1><img decoding="async" class="app-logo" src="img/icon-wineblender-192.png" alt="">VitiFlux</h1>
     <span class="tenant-badge" id="tenant-badge">—</span>
     <span class="user-info" id="user-info">—</span>
     <button onclick="WB3App.logout()">Déconnexion</button>
@@ -417,6 +383,12 @@
           <div class="icon">🍇</div>
           <div class="name">Apports</div>
           <div class="desc">Réception vendange</div>
+          <span class="soon live">● disponible</span>
+        </a>
+        <a class="module-card active" href="reception.html">
+          <div class="icon">🍇</div>
+          <div class="name">Réception</div>
+          <div class="desc">Bilan rendement du jour (coop)</div>
           <span class="soon live">● disponible</span>
         </a>
         <a class="module-card active" href="operations.html">
@@ -487,9 +459,7 @@ const ui = {
   app:         document.getElementById('app'),
   loginForm:   document.getElementById('login-form'),
   loginBtn:    document.getElementById('login-btn'),
-  magicBtn:    document.getElementById('magic-btn'),
   loginError:  document.getElementById('login-error'),
-  loginInfo:   document.getElementById('login-info'),
   emailInput:  document.getElementById('email'),
   passInput:   document.getElementById('password'),
   tenantBadge: document.getElementById('tenant-badge'),
@@ -506,16 +476,9 @@ function setStatus(text, level = 'ok') {
 function showLoginError(msg) {
   ui.loginError.textContent = msg;
   ui.loginError.classList.add('show');
-  ui.loginInfo.classList.remove('show');
 }
 
 function hideLoginError() {
-  ui.loginError.classList.remove('show');
-}
-
-function showLoginInfo(msg) {
-  ui.loginInfo.textContent = msg;
-  ui.loginInfo.classList.add('show');
   ui.loginError.classList.remove('show');
 }
 
@@ -544,35 +507,6 @@ ui.loginForm.addEventListener('submit', async (e) => {
   } finally {
     ui.loginBtn.disabled = false;
     ui.loginBtn.textContent = 'Se connecter';
-  }
-});
-
-// Handler du bouton "Recevoir un lien magique".
-// L'utilisateur saisit son email (champ partagé avec le formulaire mot de passe)
-// et clique : Supabase envoie un email contenant un lien de connexion. Au clic
-// sur le lien dans le mail, retour sur cette page, authentification automatique,
-// puis bascule vers shell.html via onAuthChange.
-ui.magicBtn.addEventListener('click', async () => {
-  hideLoginError();
-  const email = ui.emailInput.value.trim();
-  if (!email) {
-    showLoginError('Saisissez votre email avant de demander un lien magique.');
-    ui.emailInput.focus();
-    return;
-  }
-  ui.magicBtn.disabled = true;
-  ui.magicBtn.textContent = 'Envoi du lien…';
-  try {
-    await WB3Auth.signInWithMagicLink(email);
-    showLoginInfo(
-      '✓ Lien envoyé à ' + email + '. Vérifiez votre boîte mail (et vos spams) ' +
-      'puis cliquez sur le lien pour vous connecter.'
-    );
-  } catch (err) {
-    showLoginError(err.message || 'Impossible d\'envoyer le lien magique.');
-  } finally {
-    ui.magicBtn.disabled = false;
-    ui.magicBtn.textContent = '📧 Recevoir un lien magique';
   }
 });
 

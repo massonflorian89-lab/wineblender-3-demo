@@ -8,7 +8,7 @@
 <link rel="shortcut icon" href="img/favicon.ico">
 <link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
 <meta name="theme-color" content="#6a1b2a">
-<title>Assemblage — WineBlender 3</title>
+<title>Assemblage — VitiFlux</title>
 <script src="lib/supabase.min.js"></script>
 <script src="toast.js"></script>
 <script src="config.js"></script>
@@ -49,13 +49,64 @@
   .kpi-mini .val { font-weight:700; font-size:1.1rem; }
   .kpi-mini .lbl { font-size:var(--text-caption); color:var(--color-ink-tertiary); }
   .pill-warn { color:#b91c1c; font-weight:600; }
+
+  /* ── Fiche caviste (modal + impression A4) ─────────────────── */
+  .fiche-overlay { position:fixed; inset:0; z-index:1000; background:rgba(30,24,20,.55);
+    display:none; overflow:auto; padding:24px 16px; }
+  .fiche-overlay.open { display:block; }
+  .fiche-toolbar { position:sticky; top:0; z-index:2; display:flex; gap:8px; flex-wrap:wrap;
+    align-items:center; max-width:820px; margin:0 auto 12px; background:var(--color-bg-elevated);
+    border:1px solid var(--color-border); border-radius:var(--radius-md); padding:8px 12px; box-shadow:0 4px 18px rgba(0,0,0,.15); }
+  .fiche-toolbar .spacer { flex:1; }
+  /* Feuille A4 */
+  #fiche-print-root { max-width:820px; margin:0 auto; background:#fff; color:#1a1410;
+    border-radius:6px; padding:22mm 18mm; box-shadow:0 6px 30px rgba(0,0,0,.3);
+    font-family:-apple-system,Segoe UI,Roboto,sans-serif; }
+  .fch-hdr { display:flex; align-items:center; gap:14px; border-bottom:2px solid #6b2737; padding-bottom:10px; margin-bottom:14px; }
+  .fch-hdr img { height:46px; width:auto; }
+  .fch-hdr .brand { font-size:13px; color:#6b2737; font-weight:700; letter-spacing:.5px; }
+  .fch-hdr .ttl { font-size:20px; font-weight:800; color:#1a1410; line-height:1.1; }
+  .fch-hdr .cave { font-size:12px; color:#7a6a5e; }
+  .fch-meta { display:grid; grid-template-columns:repeat(3,1fr); gap:8px 16px; margin-bottom:16px; }
+  .fch-meta .cell { font-size:12px; }
+  .fch-meta .lbl { color:#7a6a5e; text-transform:uppercase; letter-spacing:.4px; font-size:10px; display:block; margin-bottom:2px; }
+  .fch-meta input { font-size:13px; font-weight:600; border:none; border-bottom:1px solid #d9cec4;
+    background:transparent; color:#1a1410; width:100%; padding:1px 0; }
+  .fch-meta .vol-badge { display:inline-block; background:#6b2737; color:#fff; font-weight:800;
+    font-size:15px; padding:3px 12px; border-radius:20px; }
+  .fch-card { border:1px solid #e3d8cd; border-radius:6px; padding:10px 12px; margin-bottom:14px; }
+  .fch-card > .cap { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+    color:#6b2737; margin-bottom:8px; }
+  table.fch-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+  table.fch-tbl th { text-align:left; padding:4px 6px; border-bottom:1.5px solid #cdbfb2; color:#7a6a5e; font-size:10px; text-transform:uppercase; }
+  table.fch-tbl td { padding:4px 6px; border-bottom:1px solid #efe7df; }
+  table.fch-tbl tfoot td { border-top:1.5px solid #cdbfb2; font-weight:800; border-bottom:none; }
+  table.fch-tbl .num { text-align:right; }
+  .fch-chk { list-style:none; margin:0; padding:0; }
+  .fch-chk li { display:flex; align-items:flex-start; gap:8px; padding:3px 0; font-size:12.5px; }
+  .fch-chk input[type=checkbox]{ width:15px; height:15px; margin-top:1px; accent-color:#6b2737; flex:none; }
+  .fch-notes { width:100%; min-height:70px; border:1px dashed #cdbfb2; border-radius:4px;
+    font-size:12.5px; padding:6px 8px; resize:vertical; font-family:inherit; color:#1a1410; background:#fffdfb; }
+  .fch-dest input { font-size:13px; font-weight:600; border:none; border-bottom:1px solid #d9cec4; background:transparent; width:60%; }
+  .fch-foot { display:flex; justify-content:space-between; font-size:10px; color:#9b8c80; margin-top:14px; border-top:1px solid #efe7df; padding-top:6px; }
+
+  @media print {
+    @page { size:A4; margin:10mm; }
+    body * { visibility:hidden; }
+    #fiche-print-root, #fiche-print-root * { visibility:visible; }
+    #fiche-print-root { position:absolute; left:0; top:0; width:100%; max-width:none;
+      box-shadow:none; border-radius:0; padding:0; margin:0; }
+    .fiche-toolbar { display:none !important; }
+    .fch-card { break-inside:avoid; }
+    .fch-notes { min-height:120px; }
+  }
 </style>
 </head>
 <body>
 
 <header class="wb-header">
   <div class="breadcrumb-flex">
-    <a href="app.html" class="home"><img class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <a href="app.html" class="home"><img class="home-logo" src="img/icon-wineblender-192.png" alt="">VitiFlux</a>
     <span class="sep">/</span>
     <h1 data-help="Simulateur d'assemblage et gestion des échantillons : tester des proportions de cépages/lots avant de réaliser l'assemblage en cave.">🧪 Assemblage &amp; échantillons</h1>
   </div>
@@ -87,6 +138,19 @@
   </div>
 </main>
 
+<!-- Fiche caviste (modal imprimable A4) — peuplé par openFicheCaviste() -->
+<div class="fiche-overlay" id="fiche-overlay" onclick="if(event.target===this)closeFiche()">
+  <div class="fiche-toolbar">
+    <strong style="color:var(--color-ink)">🖨 Fiche d'assemblage caviste</strong>
+    <span class="spacer"></span>
+    <button class="btn btn--primary btn--sm" onclick="printFiche()">🖨 Imprimer</button>
+    <button class="btn btn--secondary btn--sm" onclick="fichePushPlanning()">📅 Vers planning</button>
+    <button class="btn btn--secondary btn--sm" onclick="fichePushCuverie()">🍷 Vers cuverie</button>
+    <button class="btn btn--ghost btn--sm" onclick="closeFiche()">✕ Fermer</button>
+  </div>
+  <div id="fiche-print-root"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -100,6 +164,8 @@ let _curEssai  = null;   // essai en cours d'édition (objet complet)
 let _curDossier = null;  // dossier sélectionné (filtre arbre)
 let _dirty     = false;
 let _canAsm    = true;   // rôle autorisé à créer/modifier des essais (caviste = lecture seule)
+let _tenantNom = '';     // nom de la cave (en-tête fiche)
+let _caveLogo  = '';     // logo data-URL (partagé prefs 'echantillon'), sinon icône app
 
 // Paramètres pondérés = ceux exposés par v_cuverie_etat (dernière analyse
 // du lot principal). AV/densité non dans la vue → non pondérés ici.
@@ -120,6 +186,9 @@ async function logout(){ await WB3Auth.signOut(); WB3Nav.navigateTop('app.html')
   const ctx = await WB3AppBoot.requireReadyContext({ maxWaitMs: 8000 });
   if (!ctx) { document.getElementById('boot').innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Session expirée</div></div>'; return; }
   document.getElementById('tenant-pill').textContent = `🏢 ${ctx.tenant.nom} · ${ctx.tenant.role}`;
+  _tenantNom = ctx.tenant.nom || '';
+  // Logo de cave partagé avec le module Échantillons (prefs 'echantillon')
+  try { const ep = await WB3DB.getUserPref('echantillon'); if (ep && ep.logo) _caveLogo = ep.logo; } catch(_){}
   WB3Auth.onAuthChange(({ user }) => { if (!user) WB3Nav.navigateTop('app.html'); });
   // Garde module : migration 063 requise (essai + essai_dossier)
   if (WB3DB.ensureModule && !(await WB3DB.ensureModule('assemblage','boot'))) return;
@@ -234,6 +303,7 @@ function renderPanel(){
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:var(--space-3)">
       <input class="input" id="essai-nom" value="${escapeHtml(e.nom)}" style="font-weight:700;font-size:1.05rem;flex:1"
              oninput="_curEssai.nom=this.value;_dirty=true">
+      ${(e.lignes||[]).length?`<button class="btn btn--secondary btn--sm" onclick="openFicheCaviste()" title="Fiche d'assemblage imprimable (caviste)">🖨 Fiche</button>`:''}
       ${_canAsm ? `<button class="btn btn--primary btn--sm" onclick="saveEssai()">💾 ${e.id?'Enregistrer':'Créer'}</button>
       ${e.id?`<button class="btn btn--secondary btn--sm" onclick="copyEssai()">⧉ Copier</button>
               <button class="btn btn--ghost btn--sm" onclick="delEssai()" title="Supprimer">🗑</button>`:''}` : '<span class="muted" style="font-size:12px;align-self:center">Lecture seule (responsables)</span>'}
@@ -420,6 +490,187 @@ async function delEssai(){
     renderTree(); document.getElementById('panel').innerHTML='<div class="empty-state"><div class="icon">🧪</div><div class="title">Essai supprimé</div></div>';
   } catch(e){ toast(/policy|permission|row-level/i.test(e.message)?'Droits insuffisants (créateur ou admin/œnologue)':('Erreur : '+e.message),'error'); }
 }
+
+// ══════════════════════════════════════════════════════════════
+//  FICHE D'ASSEMBLAGE CAVISTE (import du modèle WB2, imprimable A4)
+//  Données propres stockées dans _curEssai.params.fiche (jsonb, pas
+//  de migration). Réutilise lignes (sources) + _calcResultat (volumes,
+//  analyses, échantillons). Boutons : Imprimer · Planning · Cuverie.
+// ══════════════════════════════════════════════════════════════
+
+// Consignes cave par défaut (reprises de la fiche WB2)
+const CHK_DEFAUTS = [
+  'Souder la cuve de destination avant de commencer',
+  'Mettre le CO₂ en haut des 2 cuves pendant le transfert',
+  'Faire le transfert sous gaz',
+  'Brasser à l’azote la cuve de destination après transfert',
+  'Mesurer les creux',
+  'Prendre un échantillon (haut et bas) de la cuve finale',
+  'Écrire la pancarte',
+  'Neiger cuves de départ et destination en vidange',
+];
+
+// Garantit la présence de params.fiche avec des valeurs par défaut
+function _ficheEnsure(e){
+  e.params = e.params || {};
+  const f = e.params.fiche = e.params.fiche || {};
+  if (f.caviste == null)  f.caviste = '';
+  if (f.date == null)     f.date = new Date().toISOString().slice(0,10);
+  if (f.version == null)  f.version = 1;
+  if (f.destination == null) f.destination = '';
+  if (!Array.isArray(f.consignes) || !f.consignes.length)
+    f.consignes = CHK_DEFAUTS.map(t => ({ txt:t, done:false }));
+  if (f.notes == null)    f.notes = '';
+  return f;
+}
+
+function openFicheCaviste(){
+  if (!_curEssai || !(_curEssai.lignes||[]).length){ toast('Ajoute des cuves avant d’éditer la fiche.','error'); return; }
+  _ficheEnsure(_curEssai);
+  renderFiche();
+  document.getElementById('fiche-overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeFiche(){
+  document.getElementById('fiche-overlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// Écrit un champ de la fiche (déclenche _dirty pour persistance via saveEssai)
+function _ficheSet(field, val){ const f=_ficheEnsure(_curEssai); f[field]=val; _dirty=true; }
+function _ficheChk(i, checked){ const f=_ficheEnsure(_curEssai); if(f.consignes[i]) f.consignes[i].done=!!checked; _dirty=true; }
+
+function renderFiche(){
+  const e = _curEssai; const f = _ficheEnsure(e); const pr = e.params||{};
+  const res = _calcResultat(e);
+  const logo = _caveLogo || 'img/icon-wineblender-192.png';
+  const volModeLbl = pr.mode==='vol' ? 'Volume (hL)' : '% assemblage';
+
+  // Table des sources (cuve · lot · part · analyses)
+  const srcRows = (e.lignes||[]).map((l,i)=>{
+    const eg = res.ech.lignes[i] || {};
+    const part = pr.mode==='vol' ? fmt(eg.vol)+' hL' : fmt(l.ratio_pct)+' %';
+    return `<tr>
+      <td style="font-weight:600">${escapeHtml(l.contenant_nom||'?')}</td>
+      <td>${escapeHtml(l.lot_nom||'—')}</td>
+      <td class="num">${part}</td>
+      <td class="num">${fmt(eg.vol)}</td>
+      ${PARAMS_ANA.map(a=>`<td class="num">${l.analyses&&l.analyses[a.k]!=null?fmt(l.analyses[a.k],a.d):'—'}</td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('fiche-print-root').innerHTML = `
+    <div class="fch-hdr">
+      <img src="${logo}" alt="" onerror="this.style.display='none'">
+      <div style="flex:1">
+        <div class="brand">WINEBLENDER</div>
+        <div class="ttl">Fiche d'assemblage des vins</div>
+        <div class="cave">${escapeHtml(_tenantNom)}</div>
+      </div>
+    </div>
+
+    <div class="fch-meta">
+      <div class="cell"><span class="lbl">Référence (essai)</span><b>${escapeHtml(e.nom)}</b></div>
+      <div class="cell"><span class="lbl">Volume total assemblé</span><span class="vol-badge">${fmt(res.volume_total)} hL</span></div>
+      <div class="cell"><span class="lbl">Date</span>
+        <input type="date" value="${f.date}" onchange="_ficheSet('date',this.value)"></div>
+      <div class="cell"><span class="lbl">Caviste</span>
+        <input type="text" value="${escapeHtml(f.caviste)}" placeholder="Nom" oninput="_ficheSet('caviste',this.value)"></div>
+      <div class="cell"><span class="lbl">Version</span>
+        <input type="number" min="1" value="${f.version}" oninput="_ficheSet('version',parseInt(this.value)||1)"></div>
+      <div class="cell fch-dest"><span class="lbl">Cuve de destination</span>
+        <input type="text" value="${escapeHtml(f.destination)}" placeholder="Cuve cible" oninput="_ficheSet('destination',this.value)"></div>
+    </div>
+
+    <div class="fch-card">
+      <div class="cap">Composition de l'assemblage — ${volModeLbl}</div>
+      <table class="fch-tbl">
+        <thead><tr><th>Cuve de départ</th><th>Lot</th><th class="num">Part</th><th class="num">Vol. (hL)</th>
+          ${PARAMS_ANA.map(a=>`<th class="num">${a.l}</th>`).join('')}</tr></thead>
+        <tbody>${srcRows}</tbody>
+        <tfoot><tr><td colspan="3" class="num">Assemblage final</td>
+          <td class="num">${fmt(res.volume_total)}</td>
+          ${PARAMS_ANA.map(a=>`<td class="num">${res.ana[a.k]!=null?fmt(res.ana[a.k],a.d):'—'}</td>`).join('')}
+        </tr></tfoot>
+      </table>
+    </div>
+
+    <div class="fch-card">
+      <div class="cap">Consignes cave — à cocher au fil de l'opération</div>
+      <ul class="fch-chk">
+        ${f.consignes.map((c,i)=>`<li>
+          <input type="checkbox" ${c.done?'checked':''} onchange="_ficheChk(${i},this.checked)">
+          <span>${escapeHtml(c.txt)}</span></li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="fch-card">
+      <div class="cap">Suivi & notes</div>
+      <textarea class="fch-notes" placeholder="Observations, creux mesurés, échantillons prélevés…"
+        oninput="_ficheSet('notes',this.value)">${escapeHtml(f.notes)}</textarea>
+    </div>
+
+    <div class="fch-foot">
+      <span>Wineblender · ${escapeHtml(_tenantNom)}</span>
+      <span>Imprimé le ${new Date().toLocaleDateString('fr-FR')}</span>
+    </div>`;
+}
+
+function printFiche(){
+  // Le contenu est déjà à l'écran (#fiche-print-root) ; @media print isole la feuille.
+  window.print();
+}
+
+// Construit un résumé texte de la fiche pour la note de tâche cuverie/planning
+function _ficheNote(){
+  const e=_curEssai, f=_ficheEnsure(e), res=_calcResultat(e);
+  const src=(e.lignes||[]).map((l,i)=>{
+    const eg=res.ech.lignes[i]||{};
+    return `• ${l.contenant_nom||'?'} : ${e.params.mode==='vol'?fmt(eg.vol)+' hL':fmt(l.ratio_pct)+' %'}`;
+  }).join('\n');
+  return `Assemblage « ${e.nom} » → ${f.destination||'cuve cible'}\n`
+       + `Volume : ${fmt(res.volume_total)} hL · Caviste : ${f.caviste||'—'}\n`
+       + `Composition :\n${src}`;
+}
+
+async function fichePushPlanning(){
+  if(!_canAsm){ toast('Lecture seule : réservé aux responsables.','error'); return; }
+  const e=_curEssai, f=_ficheEnsure(e);
+  if(_dirty && e.id){ try{ await saveEssai(); }catch(_){} }
+  try {
+    await WB3DB.createTache({
+      date_prevue: f.date || new Date().toISOString().slice(0,10),
+      type: 'assemblage',
+      titre: `Assemblage : ${e.nom}`,
+      note: _ficheNote(),
+      contenant_nom: f.destination || null,
+      priorite: 2,
+    });
+    toast('Tâche d’assemblage planifiée au '+(f.date||'jour J'),'success');
+  } catch(err){ toast('Erreur planning : '+err.message,'error'); }
+}
+
+async function fichePushCuverie(){
+  if(!_canAsm){ toast('Lecture seule : réservé aux responsables.','error'); return; }
+  const e=_curEssai, f=_ficheEnsure(e);
+  if(_dirty && e.id){ try{ await saveEssai(); }catch(_){} }
+  // Pousse une opération d'assemblage « à réaliser aujourd'hui » dans la cuverie
+  // (via le planning, type assemblage). La réalisation atomique du graphe de
+  // lots (RPC 051) reste l'étape de validation terrain à part.
+  try {
+    await WB3DB.createTache({
+      date_prevue: new Date().toISOString().slice(0,10),
+      type: 'assemblage',
+      titre: `Assemblage à réaliser : ${e.nom}`,
+      note: _ficheNote(),
+      contenant_nom: f.destination || null,
+      priorite: 2,
+    });
+    toast('Opération d’assemblage poussée en cuverie (jour J)','success');
+  } catch(err){ toast('Erreur cuverie : '+err.message,'error'); }
+}
+
+window.addEventListener('keydown', ev => { if(ev.key==='Escape' && document.getElementById('fiche-overlay').classList.contains('open')) closeFiche(); });
 
 window.addEventListener('beforeunload', ev => { if(_dirty){ ev.preventDefault(); ev.returnValue=''; } });
 </script>

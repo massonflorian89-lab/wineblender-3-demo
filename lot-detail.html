@@ -8,7 +8,7 @@
 <link rel="shortcut icon" href="img/favicon.ico">
 <link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
 <meta name="theme-color" content="#6a1b2a">
-<title>Fiche lot — WineBlender 3</title>
+<title>Fiche lot — VitiFlux</title>
 <link rel="stylesheet" href="theme.css">
 <script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
 <style>
@@ -419,7 +419,7 @@
 
 <header class="wb-header">
   <div class="breadcrumb-flex">
-    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">VitiFlux</a>
     <span class="sep">/</span>
     <a href="lots.html" class="home">🍷 Lots</a>
     <span class="sep">/</span>
@@ -624,7 +624,7 @@ async function loadAndRender(lotId) {
     }
 
     document.getElementById('page-title').textContent = lot.nom;
-    document.title = `${lot.nom} — WineBlender 3`;
+    document.title = `${lot.nom} — VitiFlux`;
 
     opLots.sort((a, b) =>
       new Date(b.operations.date_operation) - new Date(a.operations.date_operation)
@@ -836,7 +836,7 @@ function buildDossier() {
         <div>Date &amp; cachet<br><br>&nbsp;</div>
       </div>
       <div class="dp-foot">
-        Document généré par WineBlender 3 le ${escapeHtml(editLe)} —
+        Document généré par VitiFlux le ${escapeHtml(editLe)} —
         traçabilité conforme : opérations réalisées verrouillées, journal de mouvements immuable.
         Lot ID ${escapeHtml(lot.id)}.
       </div>

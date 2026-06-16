@@ -769,7 +769,7 @@
     const logo = document.createElement('a');
     logo.href = 'app.html';
     logo.className = 'wb3-nav-logo';
-    logo.innerHTML = `<img class="n-icon" src="img/icon-wineblender-192.png" alt="WineBlender" /><span class="n-text">WineBlender 3</span>`;
+    logo.innerHTML = `<img class="n-icon" src="img/icon-wineblender-192.png" alt="VitiFlux" /><span class="n-text">VitiFlux</span>`;
     logoRow.appendChild(logo);
 
     nav.appendChild(logoRow);

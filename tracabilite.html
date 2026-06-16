@@ -8,7 +8,7 @@
 <link rel="shortcut icon" href="img/favicon.ico">
 <link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
 <meta name="theme-color" content="#6a1b2a">
-<title>Traçabilité — WineBlender 3</title>
+<title>Traçabilité — VitiFlux</title>
 <link rel="stylesheet" href="theme.css">
 <script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
 <style>
@@ -280,7 +280,7 @@
 
 <header class="wb-header">
   <div class="breadcrumb-flex">
-    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <a href="app.html" class="home"><img decoding="async" class="home-logo" src="img/icon-wineblender-192.png" alt="">VitiFlux</a>
     <span class="sep">/</span>
     <span id="bc-parent" style="color:rgba(255,255,255,.65);font-size:var(--text-caption)">…</span>
     <span class="sep">/</span>
@@ -419,7 +419,7 @@ let _searchDebounce = null;
 
 async function loadGlobal() {
   document.getElementById('page-title').textContent = 'Traçabilité';
-  document.title = 'Traçabilité globale — WineBlender 3';
+  document.title = 'Traçabilité globale — VitiFlux';
   document.getElementById('bc-parent').innerHTML = '';
 
   renderGlobalShell();
@@ -722,7 +722,7 @@ function renderLot(detail, filiation, mouvements) {
   const { lot, apports, opLots, prodByOp, contByOp, othersByOp } = detail;
 
   document.getElementById('page-title').textContent = lot.nom;
-  document.title = `Traçabilité ${lot.nom} — WineBlender 3`;
+  document.title = `Traçabilité ${lot.nom} — VitiFlux`;
 
   // Breadcrumb
   const bcP = document.getElementById('bc-parent');
@@ -1182,7 +1182,7 @@ function renderCuve(detail, mouvements) {
   const { cont, lotConts, opConts, lotsByOp, prodByOp, analyses } = detail;
 
   document.getElementById('page-title').textContent = cont.nom;
-  document.title = `Traçabilité ${cont.nom} — WineBlender 3`;
+  document.title = `Traçabilité ${cont.nom} — VitiFlux`;
 
   const bcP = document.getElementById('bc-parent');
   bcP.innerHTML = `<a href="cuverie.html" style="color:rgba(255,255,255,.65);font-size:var(--text-caption)">🏺 Cuverie</a>

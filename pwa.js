@@ -35,9 +35,9 @@
   function _toastUpdate() {
     try {
       if (window.WB3Toast) {
-        WB3Toast.show({ level: 'info', message: 'Mise à jour de WineBlender disponible.',
+        WB3Toast.show({ level: 'info', message: 'Mise à jour de VitiFlux disponible.',
           action: { label: 'Recharger', timeoutMs: 15000, onClick: function () { location.reload(); } } });
-      } else if (confirm('Mise à jour de WineBlender disponible. Recharger maintenant ?')) {
+      } else if (confirm('Mise à jour de VitiFlux disponible. Recharger maintenant ?')) {
         location.reload();
       }
     } catch (_) {}
@@ -90,14 +90,14 @@
     if (document.getElementById('wb3-pwa-banner') || !document.body) return;
     var b = document.createElement('div');
     b.id = 'wb3-pwa-banner'; b.className = 'wb3-pwa-banner';
-    b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Installer WineBlender');
+    b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Installer VitiFlux');
     if (ios) {
       b.innerHTML = '<img src="img/icon-wineblender-192.png" alt="" width="32" height="32">' +
-        '<span class="wb3-pwa-msg">Installer WineBlender : touchez <b>Partager</b> puis « Sur l’écran d’accueil ».</span>' +
+        '<span class="wb3-pwa-msg">Installer VitiFlux : touchez <b>Partager</b> puis « Sur l’écran d’accueil ».</span>' +
         '<button class="wb3-pwa-x" aria-label="Fermer">✕</button>';
     } else {
       b.innerHTML = '<img src="img/icon-wineblender-192.png" alt="" width="32" height="32">' +
-        '<span class="wb3-pwa-msg">Installer WineBlender sur cet appareil ?</span>' +
+        '<span class="wb3-pwa-msg">Installer VitiFlux sur cet appareil ?</span>' +
         '<button class="wb3-pwa-install">Installer</button>' +
         '<button class="wb3-pwa-later">Plus tard</button>';
     }

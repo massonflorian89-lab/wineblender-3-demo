@@ -1,6 +1,6 @@
 {
-  "name": "WineBlender 3",
-  "short_name": "WineBlender",
+  "name": "VitiFlux",
+  "short_name": "VitiFlux",
   "description": "Traçabilité de cave — apports, opérations, cuverie, analyses.",
   "start_url": "app.html",
   "scope": "./",
