@@ -463,6 +463,10 @@ const OP_TYPES = {
   desacidification: { icon:'⬇️', label:'Désacidification',   color:'#0277bd', bg:'#e1f5fe' },
   mise_en_bouteille:{ icon:'🍾', label:'Mise en bouteille',  color:'#1b5e20', bg:'#e8f5e9' },
   sortie_lot:       { icon:'📤', label:'Sortie lot',         color:'#c62828', bg:'#ffebee' },
+  // noCreate : jamais créée via ce formulaire générique — uniquement par
+  // wb3_set_agrement (mig 094, bouton « Agrément » du lot), qui pose
+  // aussi lots.agrement_statut. Conservée ici pour l'icône/libellé.
+  agrement:         { icon:'🔒', label:'Agrément',           color:'#e65100', bg:'#fff0e0', noCreate:true },
   autre:            { icon:'⚙️', label:'Autre',               color:'#546e7a', bg:'#eceff1' },
   // ── Ajustements de cave ──────────────────────────────────────
   complement_de_plein:       { icon:'💧', label:'Complément plein',    color:'#01579b', bg:'#e1f5fe', ajust:true },
@@ -1338,7 +1342,7 @@ function renderTypeGrid() {
   if (!grid) return;
   const cur = document.getElementById('f-type')?.value || '';
 
-  const stdEntries  = Object.entries(OP_TYPES).filter(([, t]) => !t.ajust);
+  const stdEntries  = Object.entries(OP_TYPES).filter(([, t]) => !t.ajust && !t.noCreate);
   const ajustEntries= Object.entries(OP_TYPES).filter(([, t]) =>  t.ajust);
 
   const makeCard = ([key, t]) => `

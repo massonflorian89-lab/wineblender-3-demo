@@ -781,6 +781,7 @@
                volume_initial_hl, volume_actuel_hl,
                notes, actif, date_entree,
                appellation, destination, type_lot,
+               societe, agrement_statut,
                numero_lot)
         )
       `)
@@ -2367,6 +2368,61 @@
     if (error) throw error;
   }
 
+  // ── Référentiel Société (négoce/coop…) — mig 094 ────────────────
+  async function listLotSocietes() {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.from('lot_societe').select('*')
+      .eq('tenant_id', tenantId).order('nom', { ascending: true });
+    if (error) { if (error.code === '42P01' || error.code === 'PGRST205') return []; throw error; }
+    return data || [];
+  }
+
+  async function addLotSociete(nom) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const clean = String(nom || '').trim();
+    if (!clean) throw new Error('[WB3] Nom requis.');
+    const { data, error } = await client.from('lot_societe')
+      .upsert({ tenant_id: tenantId, nom: clean }, { onConflict: 'tenant_id,nom' })
+      .select('*').single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Renomme l'entrée du référentiel ET propage le nouveau nom aux lots
+  // existants (le champ lots.societe est dénormalisé en texte).
+  async function renameLotSociete(id, oldNom, newNom) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const clean = String(newNom || '').trim();
+    if (!clean) throw new Error('[WB3] Nom requis.');
+    const { error } = await client.from('lot_societe')
+      .update({ nom: clean }).eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+    if (oldNom && oldNom !== clean) {
+      await client.from('lots').update({ societe: clean }).eq('tenant_id', tenantId).eq('societe', oldNom);
+    }
+  }
+
+  async function deleteLotSociete(id) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { error } = await client.from('lot_societe').delete().eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  // ── Verrou Agrément — mig 094 ────────────────────────────────────
+  async function setAgrementLot(lotId, statut, notes = null) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_set_agrement', {
+      p_tenant_id: tenantId, p_lot_id: lotId, p_statut: statut, p_notes: notes,
+    });
+    if (error) throw error;
+    return data;
+  }
+
   // ── Scission de lot via RPC (migration 086 — P6) ──────────────
   // Le contenu d'une cuve passe du lot source à un NOUVEAU lot (numéro
   // auto, filiation 'manual', couple sortie/entrée journalisé dans
@@ -2945,6 +3001,11 @@
     addEchantillonClient,
     renameEchantillonClient,
     deleteEchantillonClient,
+    listLotSocietes,
+    addLotSociete,
+    renameLotSociete,
+    deleteLotSociete,
+    setAgrementLot,
     createCorrectiveOperation,
     convertMultilotToAssemblage,
     softDelete,

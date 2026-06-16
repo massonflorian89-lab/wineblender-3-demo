@@ -32,6 +32,7 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
      Thème 'dark' figé (appliqué via data-theme dans le <head>) → contraste AA,
      anti-burn-in sur écran allumé H24. Filtre figé = TOUT (cf. _wallSetup). */
   html.wb3-wall .cave-shortcuts,
+  html.wb3-wall .cave-subbar,
   html.wb3-wall .action-bar-new,
   html.wb3-wall .filters-bar,
   html.wb3-wall .speed-dial,
@@ -377,12 +378,48 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
   th.col-th-dragging { opacity:.35; }
   th.col-th-drag-over { box-shadow:inset 3px 0 0 var(--color-primary); background:var(--color-primary-soft) !important; }
 
+  /* ===== Colonnes redimensionnables (largeur persistée par utilisateur) ===== */
+  /* table-layout:fixed + width:auto → les <col> imposent des largeurs exactes,
+     le wrapper overflow-x:auto gère le débordement horizontal. */
+  .data-table--resizable { table-layout:fixed; width:auto; }
+  .data-table--resizable thead th { position:relative; overflow:hidden; text-overflow:ellipsis; }
+  .data-table--resizable tbody td { overflow:hidden; word-break:break-word; }
+  .data-table--resizable tbody td.num { word-break:normal; }
+  .col-resize {
+    position:absolute; top:0; right:0; width:7px; height:100%;
+    cursor:col-resize; user-select:none; z-index:3;
+    border-right:2px solid transparent;
+  }
+  .col-resize:hover, .col-resize.dragging { border-right-color:var(--color-primary); }
+
   /* ===== Barre de contrôle simplifiée (Idée A) ===== */
+  /* ===== Hub cuverie compact — réduit le bandeau au-dessus du tableau =====
+     Surcharges LOCALES (cuverie uniquement) : on ne touche pas theme.css.
+     Le mode mur (html.wb3-wall …) garde ses grandes tailles (sélecteurs plus
+     spécifiques). */
+  .wb-main { padding-top: var(--space-3); }
+  /* Cartes KPI : padding + typo réduits, grille plus dense */
+  .stats-grid { gap: var(--space-2); margin-bottom: var(--space-2);
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  .stat-card { padding: 6px 12px; }
+  .stat-card .value { font-size: 17px; margin-top: 0; line-height: 1.1; }
+  .stat-card .label { font-size: 10px; letter-spacing: .4px; }
+  .stat-card .sub { font-size: 10px; margin-top: 0; }
+  /* Marges verticales resserrées entre les barres empilées */
+  .filters-bar { padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
+  /* Sous-barre fusionnée : raccourcis (gauche) + date passée (droite) sur 1 rangée */
+  .cave-subbar { display: flex; align-items: center; gap: var(--space-4);
+    flex-wrap: wrap; margin: 0 0 var(--space-2); }
+  .cave-subbar .cave-shortcuts { margin: 0 !important; }
+  .cave-subbar #hist-bar { margin: 0 0 0 auto !important; }
+  /* Masquage de la bande KPI (toggle 📊 KPI, persisté) */
+  body.wb3-nostats #stats { display: none !important; }
+
   .action-bar-new {
     display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
-    padding: var(--space-2) var(--space-3);
+    padding: 6px var(--space-3);
     background: var(--color-bg-elevated); border-radius: var(--radius-md);
-    margin-bottom: var(--space-3); border: 1px solid var(--color-border);
+    margin-bottom: var(--space-2); border: 1px solid var(--color-border);
     box-shadow: var(--shadow-1);
   }
   .ctrl-select {
@@ -760,22 +797,24 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
     <div class="stat-card"><div class="label">Chargement…</div><div class="value">—</div></div>
   </div>
 
-  <!-- Raccourcis cave (C3) : remonte en surface les écrans enfouis.
-       Les pages cibles gèrent elles-mêmes l'indisponibilité d'un module
-       (ensureModule), donc un raccourci ne mène jamais à un écran cassé. -->
-  <div class="cave-shortcuts" id="cave-shortcuts" aria-label="Raccourcis cave">
-    <a class="cave-sc" href="parametres.html?section=epalement" title="Mesure de volume / abaques d'épalement">⚖️ Épalement</a>
-    <a class="cave-sc" href="parametres.html?section=inventaire" title="Inventaire cuves / produits">📦 Inventaire</a>
-    <a class="cave-sc" href="apports.html?rendement=1" title="Rendement vendange par jour / cépage">📊 Rendement</a>
-  </div>
+  <!-- Sous-barre : raccourcis cave (C3) + vue à une date passée sur une seule
+       rangée (gain de hauteur). Les pages cibles gèrent l'indisponibilité d'un
+       module (ensureModule), un raccourci ne mène jamais à un écran cassé. -->
+  <div class="cave-subbar">
+    <div class="cave-shortcuts" id="cave-shortcuts" aria-label="Raccourcis cave">
+      <a class="cave-sc" href="parametres.html?section=epalement" title="Mesure de volume / abaques d'épalement">⚖️ Épalement</a>
+      <a class="cave-sc" href="parametres.html?section=inventaire" title="Inventaire cuves / produits">📦 Inventaire</a>
+      <a class="cave-sc" href="apports.html?rendement=1" title="Rendement vendange par jour / cépage">📊 Rendement</a>
+    </div>
 
-  <!-- Vue à une date passée — snapshot lecture seule (RPC wb3_etat_cave_at, mig 087) -->
-  <div class="hist-bar" id="hist-bar" style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-2)">
-    <label class="hist-pick" data-help="Reconstitue l'état de la cave (quel lot, dans quelle cuve, quel volume) à une date passée. Lecture seule : on ne peut pas modifier le passé, juste le consulter." title="Reconstituer l'état de la cave à une date passée" style="display:inline-flex;align-items:center;gap:6px;font-size:var(--text-footnote);color:var(--color-ink-secondary)">
-      📅 Voir la cuverie à une date passée
-      <input type="date" id="hist-date" onchange="onHistDateChange(this.value)" style="font:inherit;padding:4px 8px;border:1px solid var(--color-border);border-radius:var(--radius-md)">
-    </label>
-    <button class="btn btn--secondary btn--sm" id="btn-hist-reset" style="display:none" onclick="exitHistorical()">⟲ Revenir à aujourd'hui</button>
+    <!-- Vue à une date passée — snapshot lecture seule (RPC wb3_etat_cave_at, mig 087) -->
+    <div class="hist-bar" id="hist-bar" style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-left:auto">
+      <label class="hist-pick" data-help="Reconstitue l'état de la cave (quel lot, dans quelle cuve, quel volume) à une date passée. Lecture seule : on ne peut pas modifier le passé, juste le consulter." title="Reconstituer l'état de la cave à une date passée" style="display:inline-flex;align-items:center;gap:6px;font-size:var(--text-footnote);color:var(--color-ink-secondary)">
+        📅 Voir la cuverie à une date passée
+        <input type="date" id="hist-date" onchange="onHistDateChange(this.value)" style="font:inherit;padding:4px 8px;border:1px solid var(--color-border);border-radius:var(--radius-md)">
+      </label>
+      <button class="btn btn--secondary btn--sm" id="btn-hist-reset" style="display:none" onclick="exitHistorical()">⟲ Revenir à aujourd'hui</button>
+    </div>
   </div>
 
   <!-- Barre de contrôle principale (Idée A) -->
@@ -818,6 +857,7 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
       onclick="openCuverieWall()"
       title="Afficher la cuverie sur un écran mural (TV du chai, lecture seule)">🖥️ Mur</button>
     <button class="btn btn--secondary btn--sm" id="btn-density" type="button" onclick="toggleDensity()" title="Cartes compactes / confort (plus ou moins de cuves à l'écran, vue grille)">⊞ Compacter</button>
+    <button class="btn btn--secondary btn--sm" id="btn-stats" type="button" onclick="toggleStats()" title="Masquer / afficher les indicateurs (KPI)">📊 KPI</button>
     <div class="view-toggle-group" id="view-mode">
       <button class="active" data-view="grid" title="Vue grille">▦</button>
       <button data-view="table" title="Vue tableau">☰</button>
@@ -1442,7 +1482,10 @@ const COLUMNS_CATALOG = [
         : '';
       return convertBtn + ls.map(l => {
         const [bg,fg] = (LOT_STATUT_COLORS[l.statut]||'#eee|#555').split('|');
+        const lock = l.agrement_statut === 'en_attente'
+          ? `<span title="Agrément en attente — mouvements bloqués" style="margin-right:var(--space-1)">🔒</span>` : '';
         return `<div style="white-space:nowrap">`+
+          lock+
           `<span style="background:${bg};color:${fg};padding:1px 6px;border-radius:999px;font-size:10px;font-weight:600;margin-right:var(--space-1)">${LOT_STATUT_SHORT[l.statut]||l.statut}</span>`+
           `${LOT_COULEUR_DOT[l.couleur]||''} <span style="font-weight:500;cursor:pointer">${escapeHtml(l.nom)}${l.millesime?' <span style="color:var(--color-ink-tertiary)">'+l.millesime+'</span>':''}</span>`+
           (l.volume_hl!=null?` <span style="color:var(--color-ink-tertiary)">${fmt(l.volume_hl)} hL</span>`:'')+
@@ -1506,6 +1549,13 @@ const COLUMNS_CATALOG = [
     render: (c) => {
       const ls = lotsMap.get(c.id)||[];
       const unique = [...new Set(ls.map(l=>l.appellation).filter(Boolean))];
+      return unique.length ? unique.map(v=>`<span class="tag">${escapeHtml(v)}</span>`).join(' ') : '<span class="text-muted">—</span>';
+    }
+  },
+  { key: 'lot_societe', label: 'Société', sortable: false, defaultVisible: false,
+    render: (c) => {
+      const ls = lotsMap.get(c.id)||[];
+      const unique = [...new Set(ls.map(l=>l.societe).filter(Boolean))];
       return unique.length ? unique.map(v=>`<span class="tag">${escapeHtml(v)}</span>`).join(' ') : '<span class="text-muted">—</span>';
     }
   },
@@ -1738,6 +1788,7 @@ async function loadUserPrefs() {
       page_size:     Number(p.page_size) || 50,
       visible_stats: Array.isArray(p.visible_stats) && p.visible_stats.length ? p.visible_stats : STAT_DEFAULTS,
       card_density:  p.card_density === 'compact' ? 'compact' : 'confort',
+      hide_stats:    !!p.hide_stats,
       wall_view:     ['grid','table','plan','caveplan'].includes(p.wall_view) ? p.wall_view : 'auto',
       table_columns: Array.isArray(p.table_columns) ? p.table_columns : null,
       plan_color:    p.plan_color === 'alerte' ? 'alerte' : 'statut',   // M2
@@ -1767,6 +1818,21 @@ function applyUserDefaults() {
   groupMode = userPrefs.default_group;
   sortBy    = userPrefs.default_sort;
   applyDensity();
+  applyStatsVisibility();
+}
+
+// #5 — Masquer/afficher la bande KPI (#stats). Pref persistée par utilisateur.
+function applyStatsVisibility() {
+  document.body.classList.toggle('wb3-nostats', !!userPrefs.hide_stats);
+  const b = document.getElementById('btn-stats');
+  if (!b) return;
+  b.classList.toggle('active', !userPrefs.hide_stats);
+  b.title = userPrefs.hide_stats ? 'Afficher les indicateurs (KPI)' : 'Masquer les indicateurs (KPI)';
+}
+function toggleStats() {
+  userPrefs.hide_stats = !userPrefs.hide_stats;
+  applyStatsVisibility();
+  try { if (WB3DB.setUserPref) WB3DB.setUserPref('cuverie', { ...userPrefs, table_columns: columnsConfig }).catch(() => {}); } catch (_) {}
 }
 
 // #4 — Densité des cartes (vue grille). Classe sur <body> → tout en CSS.
@@ -1787,12 +1853,97 @@ function toggleDensity() {
   try { if (WB3DB.setUserPref) WB3DB.setUserPref('cuverie', { ...userPrefs, table_columns: columnsConfig }).catch(() => {}); } catch (_) {}
 }
 
-// Helper : retourne la liste ordonnée des colonnes visibles selon la config
+// Helper : retourne la liste ordonnée des colonnes visibles selon la config.
+// Fusionne la largeur persistée (columnsConfig[].width) sur l'objet du catalogue.
 function getVisibleColumns() {
   return columnsConfig
     .filter(c => c.visible)
-    .map(c => COLUMNS_CATALOG.find(col => col.key === c.key))
+    .map(c => { const cat = COLUMNS_CATALOG.find(col => col.key === c.key);
+                return cat ? { ...cat, width: Number(c.width) || colDefaultWidth(cat) } : null; })
     .filter(Boolean);
+}
+
+// ── Redimensionnement des colonnes (largeur persistée par utilisateur) ──
+const MIN_COL_W = 56, MAX_COL_W = 640;
+// Largeurs par défaut (px) — généreuses pour les colonnes riches.
+const COL_DEFAULT_W = {
+  nom: 190, type: 120, materiau: 110, capacite_hl: 110, travee: 110,
+  localisation: 120, marque: 120, annee_mise_service: 90, prix_achat: 100,
+  tags: 150, actif: 90, lot: 250, volume_actuel_hl: 110, pct_fill: 150,
+  lot_couleur: 130, lot_millesime: 100, lot_type: 130, lot_statut: 110,
+  lot_appellation: 130, lot_destination: 130, fa_saisie: 190,
+};
+function colDefaultWidth(cat) {
+  if (COL_DEFAULT_W[cat.key]) return COL_DEFAULT_W[cat.key];
+  return cat.numeric ? 100 : 140;
+}
+
+// <colgroup> : checkbox (38) · colonnes data (largeurs) · actions (120)
+function tableColgroup(cols) {
+  return `<colgroup><col style="width:38px">`
+    + cols.map(col => `<col data-col-key="${col.key}" style="width:${col.width}px">`).join('')
+    + `<col style="width:140px"></colgroup>`;
+}
+
+// Écrit la largeur dans columnsConfig + persiste (sans re-render : la largeur
+// est déjà appliquée en live sur le <col>).
+function persistColWidth(key, w) {
+  const entry = columnsConfig.find(c => c.key === key);
+  if (!entry) return;
+  entry.width = Math.round(w);
+  userPrefs.table_columns = columnsConfig;
+  try { if (WB3DB.setUserPref) WB3DB.setUserPref('cuverie', { ...userPrefs, table_columns: columnsConfig }).catch(() => {}); } catch (_) {}
+}
+
+// Branche les poignées de redimensionnement (drag sur le bord droit d'un <th>).
+let _colResizing = false;
+function bindColumnResize(container) {
+  container.querySelectorAll('.col-resize').forEach(handle => {
+    // Empêche le drag natif de réordonnancement de démarrer sur la poignée
+    handle.addEventListener('dragstart', e => { e.preventDefault(); e.stopPropagation(); });
+    // Neutralise le clic de fin de resize (sinon déclenche le tri de la colonne)
+    handle.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); });
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      _colResizing = true;
+      const key = handle.dataset.colKey;
+      const table = handle.closest('table');
+      const colEl = table && table.querySelector(`colgroup col[data-col-key="${key}"]`);
+      const th = handle.closest('th');
+      if (!colEl || !th) return;
+      const startX = e.clientX;
+      const startW = th.offsetWidth;
+      const prevDraggable = th.getAttribute('draggable');
+      th.setAttribute('draggable', 'false');   // neutralise le drag pendant le resize
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      const clamp = x => Math.max(MIN_COL_W, Math.min(MAX_COL_W, startW + (x - startX)));
+      const move = ev => { colEl.style.width = clamp(ev.clientX) + 'px'; };
+      const up = ev => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        if (prevDraggable !== null) th.setAttribute('draggable', prevDraggable);
+        persistColWidth(key, clamp(ev.clientX));
+        setTimeout(() => { _colResizing = false; }, 0);  // laisse passer le clic trailing
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    });
+    // Double-clic sur la poignée → revient à la largeur par défaut de la colonne
+    handle.addEventListener('dblclick', e => {
+      e.preventDefault(); e.stopPropagation();
+      const key = handle.dataset.colKey;
+      const entry = columnsConfig.find(c => c.key === key);
+      if (entry) delete entry.width;
+      userPrefs.table_columns = columnsConfig;
+      try { if (WB3DB.setUserPref) WB3DB.setUserPref('cuverie', { ...userPrefs, table_columns: columnsConfig }).catch(() => {}); } catch (_) {}
+      render();
+    });
+  });
 }
 
 // ============================================================
@@ -3727,12 +3878,13 @@ function renderGroupedTable(items) {
   const cols = getVisibleColumns();
   container.innerHTML = `
     <div style="overflow-x:auto">
-    <table class="data-table">
+    <table class="data-table data-table--resizable">
+      ${tableColgroup(cols)}
       <thead>
         <tr>
-          <th style="width:36px"></th>
+          <th></th>
           ${cols.map(col => renderTableHeader(col)).join('')}
-          <th style="width:36px"></th>
+          <th></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -3935,7 +4087,7 @@ function renderActivityFeed() {
   const OP_ICONS = {
     relogement:'🔀', traitement:'🧪', analyse:'🔬', sulfitage:'🧂',
     levurage:'🦠', chaptalisation:'🍬', collage:'🫧', malo:'🧫',
-    filtration:'⚗️', autre:'📋',
+    filtration:'⚗️', autre:'📋', agrement:'🔒',
   };
   const rows = recentOps.slice(0, 10).map(op => {
     const icon  = OP_ICONS[op.type_operation] || '📋';
@@ -4634,8 +4786,15 @@ function renderCard(c) {
     const joursTxt = fmtDays(jours);
     const joursClr = jours != null && jours > 365 ? '#d97706' : 'var(--color-ink-tertiary)';
     const numLot = formatLotNumero(lotPrincipal);
+    // Agrément en attente (sur n'importe quel lot de la cuve) : cadenas visuel,
+    // mouvements physiques bloqués au niveau base (trg_op_lots_agrement_lock, mig 094).
+    const lockedLot = lots.find(l => l.agrement_statut === 'en_attente');
+    const lockBadge = lockedLot
+      ? `<span class="lot-statut-badge" title="Agrément en attente pour ${escapeHtml(lockedLot.nom)} — mouvements bloqués" style="background:#fff0e0;color:#e65100">🔒</span>`
+      : '';
     lotBlock = `
       <div class="lot-numero" style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
+        ${lockBadge}
         <span class="lot-statut-badge" style="background:${bg};color:${fg}">${LOT_STATUT_SHORT[lotPrincipal.statut]||lotPrincipal.statut}</span>
         <span class="lot-nom">${escapeHtml(lotPrincipal.nom)}${lotPrincipal.millesime ? ` · ${lotPrincipal.millesime}` : ''}</span>
         ${joursTxt ? `<span class="lot-jours" style="color:${joursClr}">⏱ ${joursTxt}</span>` : ''}
@@ -4751,12 +4910,13 @@ function renderTable(items) {
   const cols = getVisibleColumns();
   container.innerHTML = `
     <div style="overflow-x:auto">
-    <table class="data-table">
+    <table class="data-table data-table--resizable">
+      ${tableColgroup(cols)}
       <thead>
         <tr>
-          <th style="width:36px;text-align:center"><input type="checkbox" id="select-all-cb" title="Tout sélectionner/désélectionner"></th>
+          <th style="text-align:center"><input type="checkbox" id="select-all-cb" title="Tout sélectionner/désélectionner"></th>
           ${cols.map(col => renderTableHeader(col)).join('')}
-          <th style="width:36px"></th>
+          <th></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -4798,7 +4958,7 @@ function _renderTableActionsCell(c) {
        onpointerdown="event.stopPropagation()"
        onclick="event.stopPropagation();${a.js}">${a.ico}</button>`
   ).join('');
-  return `<td style="white-space:nowrap;text-align:right;padding:2px 6px">${btns}</td>`;
+  return `<td style="white-space:nowrap;text-align:right;padding:2px 6px;overflow:visible">${btns}</td>`;
 }
 
 // Construit UNE ligne tableau contenant (markup identique au tableau
@@ -4818,19 +4978,21 @@ function renderTableHeader(col) {
   const active = isFilterActive(col.key);
   const filterBtn = `<button class="col-filter-btn${active ? ' active' : ''}" title="${active ? 'Filtre actif – modifier' : 'Filtrer'}" onclick="openFilterDropdown(event,'${col.key}')">▾</button>`;
   const drag = ` draggable="true" data-col-key="${col.key}"`;
-  if (!col.sortable) return `<th${drag}${col.numeric ? ' class="num"' : ''}>${escapeHtml(col.label)}${filterBtn}</th>`;
+  // Poignée de redimensionnement (bord droit) — double-clic = largeur auto
+  const grip = `<span class="col-resize" data-col-key="${col.key}" draggable="false" title="Glisser pour redimensionner · double-clic pour réinitialiser"></span>`;
+  if (!col.sortable) return `<th${drag}${col.numeric ? ' class="num"' : ''}>${escapeHtml(col.label)}${filterBtn}${grip}</th>`;
   const isSorted = sortBy === col.sortKey;
   const cls = ['sortable'];
   if (col.numeric) cls.push('num');
   if (isSorted) cls.push('sorted');
   if (isSorted && sortAsc) cls.push('asc');
-  return `<th${drag} class="${cls.join(' ')}" data-sort="${col.sortKey}">${escapeHtml(col.label)}${filterBtn}</th>`;
+  return `<th${drag} class="${cls.join(' ')}" data-sort="${col.sortKey}">${escapeHtml(col.label)}${filterBtn}${grip}</th>`;
 }
 
 function bindHeaderSort(container) {
   container.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
-      if (_thDragKey) return; // ignore le clic déclenché en fin de drag
+      if (_thDragKey || _colResizing) return; // ignore le clic de fin de drag/resize
       const colKey = th.dataset.sort;
       if (sortBy === colKey) sortAsc = !sortAsc;
       else { sortBy = colKey; sortAsc = true; }
@@ -4841,6 +5003,7 @@ function bindHeaderSort(container) {
     });
   });
   bindHeaderDragDrop(container);
+  bindColumnResize(container);
 }
 
 let _thDragKey = null;

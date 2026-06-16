@@ -5208,6 +5208,8 @@ const LOT_FIELDS_DEFAULTS = {
 
 let lotFieldsPrefs = { ...LOT_FIELDS_DEFAULTS };
 
+let _paramSocietes = [];
+
 async function renderLotsVinSection() {
   const root = _getLotsSubRoot();
   root.innerHTML = '<div class="loading-state"><div class="spinner"></div>Chargement…</div>';
@@ -5215,6 +5217,7 @@ async function renderLotsVinSection() {
     const p = await WB3DB.getUserPref('lot_fields');
     lotFieldsPrefs = { ...LOT_FIELDS_DEFAULTS, ...(p || {}) };
   } catch(e) { console.warn(e); }
+  try { _paramSocietes = await WB3DB.listLotSocietes(); } catch(e) { _paramSocietes = []; }
   _renderLotsVinUI();
 }
 
@@ -5270,6 +5273,7 @@ function _renderLotsVinUI() {
             { key:'lot_statut',       label:'Étape',        field:'statut'      },
             { key:'lot_appellation',  label:'Appellation',  field:'appellation' },
             { key:'lot_destination',  label:'Destination',  field:'destination' },
+            { key:'lot_societe',      label:'Société',      field:'societe'     },
           ].map(col => {
             const active = LOT_FIELDS_CATALOG.find(f=>f.key===col.field)?.always || lotFieldsPrefs[col.field] !== false;
             return `<span class="tag" style="padding:5px 10px;font-size:12px;${active?'':'opacity:.4'}">
@@ -5282,7 +5286,66 @@ function _renderLotsVinUI() {
         </p>
       </div>
     </div>
+
+    <div class="drawer-section" style="margin-top:var(--space-4)">
+      <div class="drawer-section-title">🏢 Société</div>
+      <div class="drawer-section-content" style="padding:var(--space-4)">
+        <p class="t-footnote" style="margin:0 0 var(--space-3)">Structures juridiques proposées à la saisie sur un lot (ex : négoce, cave coopérative). Renommer une entrée met à jour tous les lots existants qui la référencent.</p>
+        <div style="display:flex;gap:6px;margin-bottom:var(--space-3);max-width:400px">
+          <input type="text" id="societe-add" placeholder="Nouvelle société" style="flex:1;padding:7px 9px;border:1px solid var(--color-border);border-radius:var(--radius-md);font:inherit"
+            onkeydown="if(event.key==='Enter')paramAddSociete()">
+          <button class="btn btn--secondary btn--sm" onclick="paramAddSociete()">+ Ajouter</button>
+        </div>
+        <div id="societe-list" style="max-width:400px"></div>
+      </div>
+    </div>
   `;
+  _renderSocieteList();
+}
+
+function _renderSocieteList() {
+  const el = document.getElementById('societe-list');
+  if (!el) return;
+  if (!_paramSocietes.length) { el.innerHTML = '<div class="t-footnote" style="color:var(--color-ink-tertiary)">Aucune pour l\'instant.</div>'; return; }
+  el.innerHTML = _paramSocietes.map(s => `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--color-border)">
+      <span style="flex:1">${escapeHtml(s.nom)}</span>
+      <button class="btn btn--ghost btn--sm" title="Renommer" onclick="paramRenameSociete('${s.id}')">✏️</button>
+      <button class="btn btn--ghost btn--sm" title="Supprimer" onclick="paramDeleteSociete('${s.id}')">🗑</button>
+    </div>`).join('');
+}
+
+async function paramAddSociete() {
+  const inp = document.getElementById('societe-add');
+  const nom = (inp.value || '').trim(); if (!nom) return;
+  try {
+    await WB3DB.addLotSociete(nom);
+    inp.value = '';
+    _paramSocietes = await WB3DB.listLotSocietes();
+    _renderSocieteList();
+  } catch(e) { toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
+}
+
+async function paramRenameSociete(id) {
+  const cur = _paramSocietes.find(x => x.id === id); if (!cur) return;
+  const nv = await WB3UI.prompt('Renommer « ' + cur.nom + ' » :', { value: cur.nom });
+  if (nv == null) return;
+  const clean = String(nv).trim(); if (!clean || clean === cur.nom) return;
+  try {
+    await WB3DB.renameLotSociete(id, cur.nom, clean);
+    _paramSocietes = await WB3DB.listLotSocietes();
+    _renderSocieteList();
+    toast('Renommé', 'success');
+  } catch(e) { toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
+}
+
+async function paramDeleteSociete(id) {
+  const cur = _paramSocietes.find(x => x.id === id); if (!cur) return;
+  if (!await WB3UI.confirm(`Supprimer « ${cur.nom} » de la liste ? (les lots existants gardent ce nom)`, { title:'Supprimer', okText:'Supprimer', danger:true })) return;
+  try {
+    await WB3DB.deleteLotSociete(id);
+    _paramSocietes = await WB3DB.listLotSocietes();
+    _renderSocieteList();
+  } catch(e) { toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); }
 }
 
 function _lotFieldToggle(checkbox) {
