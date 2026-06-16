@@ -306,9 +306,19 @@
   @media (max-width:580px) { .dash-grid { grid-template-columns:1fr; } }
 
   .dash-widget {
+    position: relative;
     background: var(--color-bg-elevated); border: 1px solid var(--color-border);
     border-radius: var(--radius-lg); padding: var(--space-4);
   }
+  .dash-widget.dragging { opacity: .4; }
+  .dash-widget.drag-over { outline: 2px dashed var(--color-primary); outline-offset: 2px; }
+  .widget-drag-handle {
+    position: absolute; top: var(--space-2); right: var(--space-2);
+    cursor: grab; font-size: 14px; line-height: 1; color: var(--color-ink-tertiary);
+    opacity: .3; transition: opacity .15s; user-select: none;
+  }
+  .dash-widget:hover .widget-drag-handle { opacity: .9; }
+  .widget-drag-handle:active { cursor: grabbing; }
   .widget-title {
     font-size: var(--text-caption); font-weight: 700; text-transform: uppercase;
     letter-spacing: .6px; color: var(--color-ink-tertiary); margin: 0 0 var(--space-3);
@@ -549,6 +559,7 @@ let operations = [];
 let apports    = [];
 let produitsLots  = [];   // widget DLUO
 let lotContenants = [];   // compteur cuverie (lot↔contenant, statut)
+let taches        = [];   // widget planning du jour
 let _alertesCount = 0;    // partagé renderAlertes → KPIs (évite duplication logique)
 let _rtUnsub      = null; // désabonnement Realtime
 let _rtTimer      = null; // débounce Realtime
@@ -741,6 +752,7 @@ function renderWeatherFeature(i) {
 // ============================================================
 const WIDGET_DEFS = [
   { id:'kpis',           title:'Indicateurs clés',     icon:'📊', span:3, render: renderKPIs           },
+  { id:'planning_jour',  title:'Planning du jour',      icon:'📅', span:1, render: renderPlanningJour   },
   { id:'lots_statut',    title:'Lots — statuts',        icon:'🍷', span:1, render: renderLotsStatut     },
   { id:'volumes_couleur',title:'Stock par couleur',     icon:'🎨', span:1, render: renderVolumesCouleur },
   { id:'ops_recentes',   title:'Opérations récentes',  icon:'⚙️', span:2, render: renderOpsRecentes    },
@@ -752,7 +764,7 @@ const WIDGET_DEFS = [
   { id:'produits_dluo',  title:'Stock produits — DLUO', icon:'📦', span:1, render: renderProduitsDluo   },
 ];
 
-const DEFAULT_WIDGETS = ['kpis','lots_statut','volumes_couleur','ops_recentes','alertes','alertes_so2','fa_encours','produits_dluo','contenants','apports'];
+const DEFAULT_WIDGETS = ['kpis','planning_jour','lots_statut','volumes_couleur','ops_recentes','alertes','alertes_so2','fa_encours','produits_dluo','contenants','apports'];
 let activeWidgets = [...DEFAULT_WIDGETS];
 let _configOpen   = false;
 let modeVendange  = false;   // cockpit « Vendanges du jour » (préférence perso)
@@ -940,6 +952,8 @@ async function loadAlertePrefs() {
   } catch(e) { /* use defaults */ }
 }
 
+let _dragWidgetId = null;
+
 function renderDashboardGrid() {
   const grid = document.getElementById('dash-grid');
   grid.innerHTML = '';
@@ -949,9 +963,49 @@ function renderDashboardGrid() {
     const div = document.createElement('div');
     div.className = `dash-widget${def.span > 1 ? ' span-'+def.span : ''}`;
     div.id = `w-${id}`;
-    div.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+    div.dataset.widgetId = id;
+    div.innerHTML = `<span class="widget-drag-handle" draggable="true" title="Déplacer ce widget">⠿</span><div class="widget-body"><div class="loading-state"><div class="spinner"></div></div></div>`;
     grid.appendChild(div);
+    bindWidgetDrag(div);
     def.render();
+  });
+}
+
+// Réorganisation des widgets par drag-and-drop (poignée ⠿, persisté via
+// activeWidgets — déjà la source de vérité de l'ordre, sauvegardée par
+// saveWidgetPrefs()). La poignée est en dehors de .widget-body pour ne
+// jamais être effacée par les renderX() qui font innerHTML sur ce dernier.
+function bindWidgetDrag(div) {
+  const handle = div.querySelector('.widget-drag-handle');
+  handle.addEventListener('dragstart', e => {
+    _dragWidgetId = div.dataset.widgetId;
+    div.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', _dragWidgetId); } catch(_) {}
+  });
+  handle.addEventListener('dragend', () => {
+    div.classList.remove('dragging');
+    _dragWidgetId = null;
+    document.querySelectorAll('.dash-widget.drag-over').forEach(d => d.classList.remove('drag-over'));
+  });
+  div.addEventListener('dragover', e => {
+    if (!_dragWidgetId || _dragWidgetId === div.dataset.widgetId) return;
+    e.preventDefault();
+    div.classList.add('drag-over');
+  });
+  div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+  div.addEventListener('drop', e => {
+    e.preventDefault();
+    div.classList.remove('drag-over');
+    const targetId = div.dataset.widgetId;
+    if (!_dragWidgetId || _dragWidgetId === targetId) return;
+    const from = activeWidgets.indexOf(_dragWidgetId);
+    const to   = activeWidgets.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    activeWidgets.splice(from, 1);
+    activeWidgets.splice(to, 0, _dragWidgetId);
+    saveWidgetPrefs();
+    renderDashboardGrid();
   });
 }
 
@@ -1050,13 +1104,22 @@ async function loadAll() {
   }).then(d => { lotContenants = d; _recomputeContVolumes(); renderContenants(); renderKPIs(); renderAlertes(); })
     .catch(() => { lotContenants = []; });
 
-  await Promise.allSettled([pLots, pContenants, pOperations, pApports, pAnalyses, pProduits, pLotCont]);
+  // Planning : tâches des 30 derniers jours → aujourd'hui (suffisant pour
+  // le badge « en retard » sans tirer tout l'historique du module planning).
+  const todayStr30 = new Date().toISOString().slice(0,10);
+  const pTaches = (WB3DB.listTaches
+    ? WB3DB.listTaches({ from: new Date(Date.now()-30*86400000).toISOString().slice(0,10), to: todayStr30 })
+    : Promise.resolve([]))
+    .then(d => { taches = d; renderPlanningJour(); })
+    .catch(() => { taches = []; });
+
+  await Promise.allSettled([pLots, pContenants, pOperations, pApports, pAnalyses, pProduits, pLotCont, pTaches]);
 }
 
 // ============================================================
 // Rendus des widgets
 // ============================================================
-function _getWEl(id) { return document.getElementById(`w-${id}`); }
+function _getWEl(id) { const w = document.getElementById(`w-${id}`); return w ? w.querySelector('.widget-body') : null; }
 
 // Volume réel par cuve = Σ lot_contenants.volume_hl (contenants n'a PAS
 // de colonne volume). Annote chaque contenant.volume_actuel_hl pour que
@@ -1333,6 +1396,36 @@ function renderAlertes() {
     alertes.slice(0,8).map(a =>
       `<div class="alert-item"><span class="alert-icon">${a.icon}</span><span class="alert-msg" style="color:${lvlColor[a.lvl]||'inherit'}">${a.msg}</span></div>`
     ).join('');
+}
+
+// ── Planning du jour ───────────────────────────────────────────
+function renderPlanningJour() {
+  const el = _getWEl('planning_jour');
+  if (!el) return;
+  const today = new Date().toISOString().slice(0,10);
+  const todays = taches.filter(t => t.date_prevue === today && t.statut !== 'annule')
+    .sort((a,b) => (a.ordre-b.ordre) || (b.priorite-a.priorite));
+  const late = taches.filter(t => t.statut === 'a_faire' && t.date_prevue < today);
+  const badge = late.length ? `<span style="font-size:10px;font-weight:600;background:#e53935;color:#fff;padding:1px 6px;border-radius:10px;margin-left:var(--space-1)">${late.length} en retard</span>` : '';
+  if (!todays.length && !late.length) {
+    el.innerHTML = `<div class="widget-title">📅 Planning du jour <a href="planning.html">Voir →</a></div>
+      <div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="icon">✅</div><div class="title">Rien de prévu aujourd'hui</div></div>`;
+    return;
+  }
+  const rows = todays.slice(0, 8).map(t => {
+    const done = t.statut === 'fait';
+    const icon = VD_TASK_ICON[t.type] || '📌';
+    return `<div class="apport-row" style="${done?'opacity:.5':''}">
+      <div class="apport-strip" style="background:${done?'#43a047':'#9e9ea0'}"></div>
+      <div class="apport-info">
+        <div class="apport-name">${icon} ${escapeHtml(_vdTaskLabel(t))}</div>
+        <div class="apport-desc">${escapeHtml(t.assignee||'—')}${t.creneau?' · '+escapeHtml(t.creneau):''}</div>
+      </div>
+      <div class="apport-vol">${done?'✓':'⏳'}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="widget-title">📅 Planning du jour${badge} <a href="planning.html">Voir →</a></div>${rows}`;
 }
 
 // ── Contenants occupés ────────────────────────────────────────
