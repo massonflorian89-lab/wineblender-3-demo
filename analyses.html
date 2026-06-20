@@ -1726,7 +1726,7 @@ async function openLabImport(){
 function closeLabImport(){ document.getElementById('lab-modal').classList.remove('open'); }
 function _labHandleDrop(ev){ const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) _labHandleFile(f); }
 
-function _wsNormCuve(s){ return String(s||'').toLowerCase().replace(/[\s._]+/g, '-').replace(/^-+|-+$/g, ''); }
+function _wsNormCuve(s){ return WineScan.normCuve(s); }   // forme canonique (zéros retirés : J1-06 ≡ J1-6)
 function _wsResolveContenant(cuve){
   if (!cuve) return null;
   const key = _wsNormCuve(cuve);

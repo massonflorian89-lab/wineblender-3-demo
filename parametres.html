@@ -3744,7 +3744,7 @@ function switchAnalyseSubTab(tab) {
 // ── Cuves WineScan : carte cuve (ID WineScan) → contenant ─────
 let _wsCuveMapState = null;
 let _wsContenantsCache = null;
-function _wsNorm(s){ return String(s||'').toLowerCase().replace(/[\s._]+/g, '-').replace(/^-+|-+$/g, ''); }
+function _wsNorm(s){ return String(s||'').toLowerCase().replace(/[\s._]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').replace(/\d+/g, m => String(parseInt(m, 10))); }   // J1-06 ≡ J1-6
 function _renderCuvesTab(){
   return `
     <div class="drawer-section">

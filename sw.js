@@ -9,7 +9,7 @@
  * icônes/manifest. PAS de cache des données métier (Supabase) — réservé à 9.5
  * (hors-ligne). Les requêtes Supabase passent au réseau, sans cache.
  * ============================================================ */
-const CACHE_NAME = 'wb3-shell-v57-winescan';
+const CACHE_NAME = 'wb3-shell-v58-winescan-smart-id';
 
 const SHELL = [
   'index.html', 'app.html', 'shell.html', 'theme.css',
