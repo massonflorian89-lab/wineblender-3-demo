@@ -137,7 +137,7 @@
     </div>
     <div style="flex:1"></div>
     <button class="btn btn--secondary btn--sm" id="btn-clear-filters" onclick="clearAllColumnFilters()" style="display:none">✕ Filtres actifs</button>
-    <button class="btn btn--secondary btn--sm" onclick="openRendementDashboard()">📊 Rendement vendange</button>
+    <button class="btn btn--secondary btn--sm" id="btn-rendement" onclick="openRendementDashboard()">📊 Rendement vendange</button>
     <button class="btn btn--secondary btn--sm" onclick="document.getElementById('bascule-file').click()" data-help="Importe un <b>fichier CSV</b> exporté de ton pont-bascule (Precia Molen…) : chaque ligne crée un apport. Les en-têtes reconnus : date, apporteur, cépage, poids brut, tare, volume…">⚖️ Import bascule</button>
     <input type="file" id="bascule-file" accept=".csv,text/csv" style="display:none" onchange="importBascule(this.files[0]); this.value=''">
     <a class="btn btn--secondary btn--sm" href="parametres.html#apports_import" onclick="WB3Nav.navigate('parametres.html?section=apports_vue&subtab=import')">📥 Import CSV</a>
@@ -181,7 +181,10 @@
   <div style="background:var(--color-bg-elevated);border-radius:var(--radius-lg);box-shadow:0 16px 48px rgba(0,0,0,.28);width:min(95vw,900px);max-height:90vh;overflow-y:auto;margin-top:4vh;padding:var(--space-5)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3)">
       <h3 style="margin:0">📊 Rendement vendange — par jour & cépage</h3>
-      <button class="close-btn" onclick="closeRendementDashboard()">×</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn--secondary btn--sm" onclick="window.print()" title="Imprimer le tableau de rendement">🖨️ Imprimer</button>
+        <button class="close-btn" onclick="closeRendementDashboard()">×</button>
+      </div>
     </div>
     <div id="rdt-body"><div class="loading-state"><div class="spinner"></div>Chargement…</div></div>
   </div>
@@ -373,6 +376,7 @@
   </div>
   <div class="drawer-foot">
     <button class="btn btn--danger" id="btn-delete" onclick="deleteCurrent()" style="display:none">🗑 Archiver</button>
+    <button class="btn btn--ghost btn--sm" id="btn-print-apport" onclick="_printFicheApport()" style="display:none" title="Imprimer la fiche de pesée">🖨️ Fiche</button>
     <div class="actions-right">
       <button class="btn btn--secondary" onclick="closeDrawer()">Annuler</button>
       <button class="btn" onclick="saveApport()">Enregistrer</button>
@@ -438,6 +442,20 @@ let contenants      = [];
 let cepages         = [];
 let _rdtCoef        = 130;   // coeff rendement de référence (kg/hL) — tolérance cave
 
+// ── Détection d'anomalie de rendement (par cépage/jour) ───────
+// Le rendement kg/hL « normal » tourne autour de _rdtCoef. On signale :
+//  • rdt nettement AU-DESSUS de la réf (×1,30) → extraction faible / presse à
+//    revoir → « rendement élevé » ;
+//  • rdt nettement EN DESSOUS (×0,65) → physiquement improbable (trop de jus
+//    pour le poids) → probable erreur de saisie poids/volume.
+const _RDT_HI = 1.30, _RDT_LO = 0.65;
+function _rdtAnomaly(rdt) {
+  if (rdt == null || !Number.isFinite(rdt) || !_rdtCoef) return null;
+  if (rdt > _rdtCoef * _RDT_HI) return { level: 'haut', label: `rendement élevé (${fmt(rdt)} kg/hL > réf. ${_rdtCoef}) — extraction faible / presse à vérifier` };
+  if (rdt < _rdtCoef * _RDT_LO) return { level: 'bas',  label: `rendement anormalement bas (${fmt(rdt)} kg/hL) — vérifier la saisie poids/volume` };
+  return null;
+}
+
 // ── Dashboard rendement vendange (jour × cépage) ──────────────
 function closeRendementDashboard() {
   document.getElementById('rdt-modal').style.display = 'none';
@@ -467,6 +485,8 @@ async function openRendementDashboard() {
     const rdtGlobal = totVol > 0 ? totPoids / totVol : null;
     const fmtKg = n => Number(n||0).toLocaleString('fr-FR', { maximumFractionDigits:0 });
 
+    // Collecte des anomalies (jour × cépage) pour le bandeau d'alerte.
+    const anomalies = [];
     const days = Object.keys(byDay).sort((a,b) => b.localeCompare(a));
     const dayBlocks = days.map(d => {
       const list = byDay[d];
@@ -479,12 +499,14 @@ async function openRendementDashboard() {
         const reel = Number(r.nb_avec_reel) > 0;
         const coef = r.coef_extraction_pct != null ? Number(r.coef_extraction_pct) : null;
         const coefGood = coef != null && coef >= 100;
-        return `<tr>
-          <td style="padding:4px 10px">${escapeHtml(r.cepage)}</td>
+        const ano = _rdtAnomaly(rdt);
+        if (ano) anomalies.push({ date: d, cepage: r.cepage, label: ano.label });
+        return `<tr style="${ano ? 'background:#fff7ed' : ''}">
+          <td style="padding:4px 10px">${ano ? '<span title="'+escapeHtml(ano.label)+'">⚠️ </span>' : ''}${escapeHtml(r.cepage)}</td>
           <td class="num" style="padding:4px 10px">${r.nb_apports}</td>
           <td class="num" style="padding:4px 10px">${fmtKg(r.poids_total_kg)}</td>
           <td class="num" style="padding:4px 10px">${fmt(r.volume_jus_hl)}${reel?' <span title="inclut du volume réel mesuré" style="color:#15803d">●</span>':''}</td>
-          <td class="num" style="padding:4px 10px;font-weight:600;color:${rdt==null?'':(good?'#15803d':'#b91c1c')}">${rdt!=null?fmt(rdt):'—'}</td>
+          <td class="num" style="padding:4px 10px;font-weight:600;color:${rdt==null?'':(ano?'#c2410c':(good?'#15803d':'#b91c1c'))}">${rdt!=null?fmt(rdt):'—'}</td>
           <td class="num" style="padding:4px 10px;font-weight:600;color:${coef==null?'':(coefGood?'#15803d':'#b91c1c')}" title="${r.objectif_kg_hl!=null?'objectif '+fmt(r.objectif_kg_hl)+' kg/hL':''}">${coef!=null?fmt(coef)+' %':'—'}</td>
         </tr>`;
       }).join('');
@@ -510,12 +532,22 @@ async function openRendementDashboard() {
         </div>`;
     }).join('');
 
+    const anoBanner = anomalies.length ? `
+      <div style="margin-bottom:var(--space-4);padding:10px 14px;border:1px solid #fdba74;background:#fff7ed;border-left:4px solid #ea580c;border-radius:var(--radius-sm)">
+        <div style="font-weight:700;color:#c2410c;margin-bottom:6px">⚠️ ${anomalies.length} anomalie${anomalies.length>1?'s':''} de rendement à vérifier</div>
+        <ul style="margin:0;padding-left:18px;font-size:var(--text-caption);color:#7c2d12;line-height:1.6">
+          ${anomalies.slice(0,12).map(a => `<li><b>${a.date}</b> · ${escapeHtml(a.cepage)} : ${escapeHtml(a.label)}</li>`).join('')}
+          ${anomalies.length>12 ? `<li>… et ${anomalies.length-12} autre(s)</li>` : ''}
+        </ul>
+      </div>` : '';
+
     body.innerHTML = `
       <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)">
         <div class="kpi-mini"><span class="icon">⚖</span><div><div class="val">${fmtKg(totPoids)}</div><div class="lbl">kg reçus</div></div></div>
         <div class="kpi-mini"><span class="icon">🫙</span><div><div class="val">${fmt(totVol)}</div><div class="lbl">hL jus</div></div></div>
         <div class="kpi-mini"><span class="icon">📈</span><div><div class="val" style="color:${rdtGlobal!=null&&rdtGlobal<=_rdtCoef?'#15803d':'#b91c1c'}">${rdtGlobal!=null?fmt(rdtGlobal):'—'}</div><div class="lbl">kg/hL global (réf. ${_rdtCoef})</div></div></div>
       </div>
+      ${anoBanner}
       ${dayBlocks}
       <p style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin-top:var(--space-2)">
         ● = volume réel (épalement) inclus. Rdt en vert si ≤ ${_rdtCoef} kg/hL (réf. cave).
@@ -523,6 +555,32 @@ async function openRendementDashboard() {
   } catch(e) {
     body.innerHTML = `<div class="empty-state"><div class="icon">❌</div><div class="title">${escapeHtml(e.message)}</div></div>`;
   }
+}
+
+// Badge proactif : compte les anomalies de rendement et l'affiche sur le bouton
+// « Rendement vendange » (l'opérateur voit qu'il y a quelque chose à vérifier
+// sans ouvrir le tableau). Non bloquant, silencieux en cas d'erreur.
+async function _checkRendementAnomalies() {
+  const btn = document.getElementById('btn-rendement');
+  if (!btn) return;
+  try {
+    if (WB3DB.checkBackendCapabilities) {
+      const caps = await WB3DB.checkBackendCapabilities();
+      if (caps && caps.capabilities && caps.capabilities.apports_rendement === false) return;
+    }
+    const rows = await WB3DB.queryRendementJourCepage();
+    let n = 0;
+    (rows || []).forEach(r => {
+      const rdt = r.rendement_kg_hl != null ? Number(r.rendement_kg_hl) : null;
+      if (_rdtAnomaly(rdt)) n++;
+    });
+    btn.querySelector('.rdt-ano-badge')?.remove();
+    if (n > 0) {
+      btn.insertAdjacentHTML('beforeend',
+        ` <span class="rdt-ano-badge" title="${n} anomalie(s) de rendement à vérifier"` +
+        ` style="background:#ea580c;color:#fff;border-radius:999px;padding:0 6px;font-size:11px;font-weight:700;margin-left:2px">⚠️ ${n}</span>`);
+    }
+  } catch (_) { /* silencieux */ }
 }
 
 // Hint live de rendement dans le formulaire d'apport.
@@ -729,6 +787,7 @@ async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'
   _density  = await WB3ListPager.loadDensity('apports'); _applyDensity();   // L10
   _pinned   = await WB3Pins.load('apports');                                // L8
   await loadApports();
+  _checkRendementAnomalies();   // badge ⚠️ sur le bouton Rendement si anomalies (non bloquant)
   // Préf user (Supabase) : source de vérité, écrase localStorage si différente.
   try {
     const p = await WB3DB.getUserPref('apports_vue');
@@ -1369,6 +1428,7 @@ async function openDrawer(id = null, opts = {}) {
   editingId = id;
   document.getElementById('drawer-title').textContent = id ? 'Modifier l\'apport' : 'Nouvel apport';
   document.getElementById('btn-delete').style.display = (id && WB3DB.isPrivileged()) ? '' : 'none';
+  document.getElementById('btn-print-apport').style.display = id ? '' : 'none';
 
   // Remplir les listes déroulantes
   const lotSel  = document.getElementById('f-lot');
@@ -1692,6 +1752,7 @@ async function saveApport() {
       await loadApports();
       render();
     }
+    _checkRendementAnomalies();   // réévalue le badge ⚠️ après saisie
 
     // Phase 1 multi-lots — redirection vers cuverie pour lancer la
     // conversion assemblage sur la cuve qui est désormais multi-lots
@@ -1803,6 +1864,100 @@ function _initRowPopover() {
 function escapeHtml(s) {
   return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// ============================================================
+// P1.2 — Fiche de réception / pesée (impression A5 portrait)
+// Appelée depuis btn-print-apport (visible uniquement sur apport existant).
+// ============================================================
+function _printFicheApport() {
+  if (!editingId) return;
+  const a = apports.find(x => x.id === editingId);
+  if (!a) return;
+  const fmtKg  = v => v != null ? fmtNum(Number(v)) + ' kg' : '—';
+  const fmtHl  = v => v != null ? fmt(Number(v)) + ' hL' : '—';
+  const rdt    = a.rendement_kg_hl != null ? fmt(Number(a.rendement_kg_hl)) + ' kg/hL' : '—';
+  const now    = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const root   = document.getElementById('apport-print-root');
+  if (!root) return;
+  root.innerHTML = `
+    <div class="apf">
+      <div class="apf-head">
+        <div>
+          <div class="apf-title">FICHE DE RÉCEPTION</div>
+          <div class="apf-date">${escapeHtml(a.date_apport||'—')}${a.heure_apport ? ' · '+a.heure_apport.slice(0,5) : ''}</div>
+        </div>
+        <div class="apf-num">${escapeHtml(a.numero||'—')}</div>
+      </div>
+      <table class="apf-table">
+        <tr><th>Apporteur</th><td>${escapeHtml(a.apporteur||'—')}</td></tr>
+        <tr><th>Provenance</th><td>${escapeHtml(a.provenance||'—')}</td></tr>
+        <tr><th>Cépage</th><td>${escapeHtml(a.cepage_libre||'—')}</td></tr>
+        <tr><th>Millésime</th><td>${escapeHtml(a.millesime||'—')}</td></tr>
+      </table>
+      <table class="apf-table apf-poids">
+        <tr class="apf-sub"><th colspan="2">Pesée</th></tr>
+        <tr><th>Poids brut</th><td>${fmtKg(a.poids_brut_kg)}</td></tr>
+        <tr><th>Tare</th><td>${fmtKg(a.tare_kg)}</td></tr>
+        <tr class="apf-total"><th>POIDS NET</th><td>${fmtKg(a.poids_kg)}</td></tr>
+      </table>
+      <table class="apf-table apf-vol">
+        <tr class="apf-sub"><th colspan="2">Volume</th></tr>
+        <tr><th>Volume estimé</th><td>${fmtHl(a.volume_hl)}</td></tr>
+        ${a.volume_jus_reel_hl != null ? `<tr><th>Volume réel</th><td>${fmtHl(a.volume_jus_reel_hl)}</td></tr>` : ''}
+        <tr><th>Rendement</th><td>${escapeHtml(rdt)}</td></tr>
+        <tr><th>Lot</th><td>${escapeHtml(a.lots ? a.lots.nom+(a.lots.millesime?' '+a.lots.millesime:'') : '—')}</td></tr>
+        <tr><th>Cuve</th><td>${escapeHtml(a.contenants?.nom||'—')}</td></tr>
+      </table>
+      <div class="apf-signatures">
+        <div><div class="apf-sig-line"></div><p>Apporteur</p></div>
+        <div><div class="apf-sig-line"></div><p>Réceptionniste</p></div>
+      </div>
+      <div class="apf-footer">VitiFlux — Imprimé le ${now}</div>
+    </div>`;
+  document.body.classList.add('wb3-print-apport');
+  window.print();
+  document.body.classList.remove('wb3-print-apport');
+  root.innerHTML = '';
+}
 </script>
+
+<!-- P1.2 — conteneur d'impression fiche apport -->
+<div id="apport-print-root" aria-hidden="true" style="display:none"></div>
+
+<style>
+/* P1.2 — Fiche de réception impression A5 */
+.apf { font-family: sans-serif; font-size: 10pt; color: #000; max-width: 148mm; }
+.apf-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; }
+.apf-title { font-size: 16pt; font-weight: 900; text-transform: uppercase; }
+.apf-date  { font-size: 9pt; color: #555; margin-top: 2px; }
+.apf-num   { font-size: 18pt; font-weight: 900; font-family: monospace; }
+.apf-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+.apf-table th, .apf-table td { border: 1px solid #bbb; padding: 3px 6px; text-align: left; }
+.apf-table th { width: 38%; background: #f2f2f2; font-weight: 600; }
+.apf-sub th { background: #1a4870; color: #fff; font-weight: 700; }
+.apf-total th, .apf-total td { background: #eef3fa; font-weight: 700; font-size: 11pt; }
+.apf-signatures { display: flex; gap: 20px; margin-top: 16px; }
+.apf-signatures > div { flex: 1; text-align: center; font-size: 9pt; color: #555; }
+.apf-sig-line { border-top: 1px solid #000; margin-bottom: 4px; height: 30px; }
+.apf-footer { font-size: 7pt; color: #aaa; text-align: center; margin-top: 10px; border-top: 1px solid #e0e0e0; padding-top: 4px; }
+@media print {
+  body.wb3-print-apport > *:not(#apport-print-root) { display: none !important; }
+  #apport-print-root { display: block !important; }
+  @page { size: A5 portrait; margin: 12mm; }
+}
+/* P1.2 — Impression rendement : masquer nav + drawer, garder le modal */
+@media print {
+  body:not(.wb3-print-apport) nav,
+  body:not(.wb3-print-apport) .drawer,
+  body:not(.wb3-print-apport) .drawer-backdrop,
+  body:not(.wb3-print-apport) .action-bar,
+  body:not(.wb3-print-apport) #content { display: none !important; }
+  #rdt-modal { position: static !important; background: none !important; display: block !important; }
+  #rdt-modal > div { box-shadow: none !important; width: 100% !important; max-height: none !important; }
+  .close-btn, .btn--secondary { display: none !important; }
+  @page { size: A4 landscape; margin: 10mm; }
+}
+</style>
+
 </body>
 </html>

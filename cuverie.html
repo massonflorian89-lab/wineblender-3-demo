@@ -199,6 +199,34 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
   td .wb-fa-form { margin: 0; padding: 2px 3px; }
   td .wb-fa-form input.input { font-size:var(--text-caption); padding: 2px 5px; }
   td .wb-fa-form .wb-fa-go   { padding: 2px 6px; font-size:var(--text-caption); }
+  /* Saisie densités — tournée FA au clavier (modale dédiée) */
+  .dens-modal { position:fixed; inset:0; z-index:2000; display:flex; align-items:flex-start; justify-content:center; background:rgba(0,0,0,.45); padding:24px; overflow:auto; }
+  .dens-card { background:var(--color-bg-elevated); border-radius:var(--radius-lg); width:min(620px,100%); box-shadow:0 20px 60px rgba(0,0,0,.35); display:flex; flex-direction:column; max-height:90vh; }
+  .dens-head { display:flex; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid var(--color-border); }
+  .dens-head h3 { margin:0; flex:1; font-size:var(--text-headline); }
+  .dens-date { font-size:var(--text-caption); color:var(--color-ink-secondary); display:flex; align-items:center; gap:6px; }
+  .dens-date input { padding:5px 7px; border:1px solid var(--color-border); border-radius:6px; font:inherit; }
+  .dens-hint { margin:10px 18px 0; font-size:var(--text-caption); color:var(--color-ink-tertiary); line-height:1.5; }
+  .dens-hint kbd { background:var(--color-bg-subtle); border:1px solid var(--color-border); border-radius:4px; padding:0 4px; font-size:11px; }
+  .dens-tablewrap { overflow:auto; padding:10px 18px; flex:1; }
+  .dens-table { width:100%; border-collapse:collapse; }
+  .dens-table th { text-align:left; font-size:var(--text-caption); color:var(--color-ink-tertiary); font-weight:600; padding:4px 6px; position:sticky; top:0; background:var(--color-bg-elevated); }
+  .dens-table td { padding:3px 6px; vertical-align:middle; }
+  .dens-table input.input { width:100%; padding:7px 9px; border:1px solid var(--color-border); border-radius:6px; font:inherit; font-variant-numeric:tabular-nums; }
+  .dens-table .dens-cuve { min-width:90px; }
+  .dens-table .dens-d, .dens-table .dens-t { width:88px; }
+  .dens-ok-input  { border-color:#2e7d32 !important; background:#f3faf4; }
+  .dens-bad-input { border-color:#e65100 !important; background:#fff7f0; }
+  .dens-locked    { background:#f5f5f5 !important; color:#888; }
+  .dens-status { font-size:var(--text-caption); white-space:nowrap; }
+  .dens-resolved { color:#2e7d32; }
+  .dens-warn { color:#c62828; font-weight:600; }
+  .dens-done { color:#2e7d32; font-weight:700; font-size:15px; }
+  .dens-del { width:30px; text-align:center; }
+  .dens-del-btn { border:none; background:none; color:var(--color-ink-tertiary); cursor:pointer; font-size:14px; line-height:1; padding:4px 6px; border-radius:6px; }
+  .dens-del-btn:hover { background:#fdecea; color:#c62828; }
+  .dens-foot { display:flex; align-items:center; gap:10px; justify-content:space-between; padding:14px 18px; border-top:1px solid var(--color-border); }
+  #dens-count { font-size:var(--text-caption); color:var(--color-ink-secondary); }
   /* D7 — icônes d'actions rapides contextuelles, en bas à droite de la
      carte. Hover sur desktop, toujours visibles sur tactile (pas de
      long-press : conflit D6 drag). */
@@ -211,6 +239,11 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
   .contenant-card-pro:hover .wb-quick,
   .contenant-card-pro:focus-within .wb-quick { opacity: 1; pointer-events: auto; }
   @media (hover: none) { .wb-quick { opacity: .92; pointer-events: auto; } }
+  /* P0.5 — Cibles tactiles ≥ 40 px sur les boutons quick-action (vendange terrain) */
+  @media (pointer: coarse) {
+    .wb-quick-btn { width: 40px; height: 40px; font-size: 17px; }
+    .wb-quick { gap: 5px; bottom: 6px; right: 6px; }
+  }
   .wb-quick-btn {
     background: rgba(255,255,255,.96);
     border: 1px solid var(--color-border);
@@ -706,6 +739,21 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
   }
   .lot-jours { font-size: 10px; flex-shrink: 0; white-space: nowrap; }
   .lot-num   { font-family: monospace; font-size: 10px; opacity: .65; margin-top: 2px; }
+  /* P0.3 — Alertes cuve : pilules colorées empilées haut-gauche (max 2 visibles + "+N").
+     Remplace l'ancienne pastille unique (.wb-alerte-badge gardé pour compat). */
+  .wb-alertes {
+    position: absolute; top: 6px; left: 6px; z-index: 4;
+    display: flex; flex-direction: column; gap: 3px;
+    pointer-events: none; max-width: calc(100% - 48px);
+  }
+  .wb-alerte-pill {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 6px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; line-height: 1.3;
+    box-shadow: 0 1px 3px rgba(0,0,0,.22);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%;
+  }
   .wb-alerte-badge {
     position: absolute; top: 10px; left: 8px; z-index: 3;
     width: 12px; height: 12px; border-radius: 50%;
@@ -844,7 +892,9 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
     </select>
     <button class="btn btn--secondary btn--sm" id="btn-collapse-all" onclick="toggleAllGroups()" style="display:none">⊟ Tout plier</button>
     <button class="btn btn--secondary btn--sm" id="btn-fa-filter" onclick="toggleFaFilter()" title="N'afficher que les cuves dont le lot est en FA">🌡 Suivi FA</button>
+    <button class="btn btn--secondary btn--sm" id="btn-saisie-dens" onclick="openDensiteTour()" title="Saisie rapide des densités/températures d'une tournée (au clavier)">⌨️ Saisie densités</button>
     <button class="btn btn--secondary btn--sm" id="btn-tournee" onclick="toggleTournee()" title="Liste ordonnée des cuves à traiter aujourd'hui (analyses en retard, FA, ouillages, alertes)">🗒 Tournée</button>
+    <button class="btn btn--secondary btn--sm" id="btn-import-cave" onclick="openCaveImport()" title="Importer l'état de cave (qualités/lots dans les cuves) depuis un fichier Excel">📥 Import cave</button>
     <button class="btn btn--secondary btn--sm" id="btn-views" onclick="openViewsMenu()" title="Vues sauvegardées (filtres + recherche)">⭐ Vues</button>
     <div style="flex:1"></div>
     <button class="btn btn--secondary btn--sm" id="btn-clear-filters" onclick="clearAllColumnFilters()" style="display:none" title="Effacer les filtres actifs">✕ Filtres</button>
@@ -979,6 +1029,8 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
       <h3 style="margin:0">🌡 Suivi FA détaillé</h3>
       <div id="sf-sub" style="font-size:var(--text-caption);color:var(--color-ink-tertiary);margin-top:2px"></div>
     </div>
+    <!-- P1.1 — navigation séquentielle entre cuves FA (remplie par _openSuiviFa) -->
+    <div id="sf-nav" style="display:flex;align-items:center;gap:4px;margin-right:6px"></div>
     <button class="close-btn" onclick="_closeSuiviFa()" aria-label="Fermer">×</button>
   </div>
   <div class="drawer-body">
@@ -1355,6 +1407,8 @@ if(wall)document.documentElement.classList.add('wb3-wall');})();</script>
 <!-- Socle 9 : extractions progressives -->
 <script src="cuverie-utils.js"></script>
 <script src="cuverie-tournee.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="lib/wb3-import.js"></script>
 
 <script>
 'use strict';
@@ -1480,12 +1534,12 @@ const COLUMNS_CATALOG = [
             onclick="event.stopPropagation();_openConvertAssemblageModal('${c.id}')"
             style="background:none;border:1px dashed var(--color-accent);color:var(--color-accent);border-radius:var(--radius-sm);padding:0 6px;margin-right:6px;cursor:pointer;font-size:var(--text-caption);font-weight:600;vertical-align:middle">🔀</button>`
         : '';
-      return convertBtn + ls.map(l => {
+      // Agrément à la cuve (mig 094) : cadenas unique en tête de cellule.
+      const cuveLock = c.agrement_statut === 'en_attente'
+        ? `<span title="Agrément en attente — mouvements de la cuve bloqués" style="margin-right:var(--space-1)">🔒</span>` : '';
+      return convertBtn + cuveLock + ls.map(l => {
         const [bg,fg] = (LOT_STATUT_COLORS[l.statut]||'#eee|#555').split('|');
-        const lock = l.agrement_statut === 'en_attente'
-          ? `<span title="Agrément en attente — mouvements bloqués" style="margin-right:var(--space-1)">🔒</span>` : '';
         return `<div style="white-space:nowrap">`+
-          lock+
           `<span style="background:${bg};color:${fg};padding:1px 6px;border-radius:999px;font-size:10px;font-weight:600;margin-right:var(--space-1)">${LOT_STATUT_SHORT[l.statut]||l.statut}</span>`+
           `${LOT_COULEUR_DOT[l.couleur]||''} <span style="font-weight:500;cursor:pointer">${escapeHtml(l.nom)}${l.millesime?' <span style="color:var(--color-ink-tertiary)">'+l.millesime+'</span>':''}</span>`+
           (l.volume_hl!=null?` <span style="color:var(--color-ink-tertiary)">${fmt(l.volume_hl)} hL</span>`:'')+
@@ -1566,41 +1620,9 @@ const COLUMNS_CATALOG = [
       return unique.length ? unique.map(v=>`<span class="tag">${escapeHtml(v)}</span>`).join(' ') : '<span class="text-muted">—</span>';
     }
   },
-  // D9a — Saisie inline FA (densité + T°) en vue tableau. Visible
-  // uniquement si lot principal en statut 'fa'. Réutilise _faSubmit
-  // (D8) et la classe .wb-fa-form (mêmes validations, mêmes erreurs).
-  // _faFocusNext parcourt toutes les .wb-fa-form (cartes + lignes).
-  { key: 'fa_saisie', label: 'FA (dens. / T°)', sortable: false, defaultVisible: false,
-    render: (c) => {
-      const lots = lotsMap.get(c.id) || [];
-      // Détection FA basée sur faLots (tous les lots FA), pas le lot principal :
-      // une cuve multi-lots peut avoir un lot FA non principal.
-      const faLots = lots.filter(l => l.statut === 'fa');
-      if (!faLots.length || c.actif === false) {
-        return '<span class="text-muted">—</span>';
-      }
-      // Multi-lots : pas de saisie inline (pas de sélecteur), on renvoie vers
-      // le suivi FA détaillé qui a son propre sélecteur de lot FA.
-      if (lots.length > 1) {
-        return `<a href="#" class="wb-fa-multi-link"
-          title="Cuve multi-lots — clic pour ouvrir le suivi FA (sélecteur de lot FA)"
-          onclick="event.preventDefault();event.stopPropagation();var _ll=(lotsMap.get('${c.id}')||[]).filter(x=>x.statut==='fa');if(_ll.length){_openSuiviFa('${c.id}',_ll[0].id);}return false"
-          style="color:var(--color-accent);text-decoration:underline;cursor:pointer;font-weight:500">🚥 Multi-lots FA (${faLots.length}) → suivi</a>`;
-      }
-      // Mono-lot FA : saisie inline sur ce lot (faLots[0] = le seul lot, en FA)
-      const lp = faLots[0];
-      return `<form class="wb-fa-form" autocomplete="off"
-        onsubmit="_faSubmit(event,'${c.id}','${lp.id}');return false"
-        onclick="event.stopPropagation()"
-        onpointerdown="event.stopPropagation()">
-        <input class="input" type="number" step="0.0001" min="0.9" max="1.2"
-          name="densite" inputmode="decimal" placeholder="Dens." title="Densité (ex. 1.080)" required>
-        <input class="input" type="number" step="0.1" min="-5" max="50"
-          name="temperature" inputmode="decimal" placeholder="T°" title="Température °C (optionnel)">
-        <button type="submit" class="wb-fa-go" title="Enregistrer + cuve FA suivante (Entrée)">↵</button>
-      </form>`;
-    }
-  },
+  // (Colonne « FA (dens./T°) » retirée — la saisie des densités se fait
+  //  désormais via le bouton ⌨️ « Saisie densités » de la barre, plus rapide
+  //  pour une tournée, et la cuverie reste allégée le reste de l'année.)
 ];
 
 // Configuration courante des colonnes : [{ key, visible }, ...] dans l'ordre voulu
@@ -4250,14 +4272,20 @@ async function openCuveActions(cId) {
   const has = k => !caps || caps.capabilities[k] !== false;
   const go  = url => { (window.top || window).location.href = url; };
   const items = [
+    { icon: '📏', label: 'Mesurer le volume', desc: 'Épalement (creux → hL)',
+      onClick: () => openOpPanel('epalement', [cId]) },
     { icon: '🔬', label: 'Nouvelle analyse', desc: 'Densité / température (suivi FA)',
       onClick: () => openOpPanel('analyse', [cId]) },
+    { icon: '🧂', label: 'Sulfitage SO2', desc: 'Dose auto sur volume épalé',
+      onClick: () => openOpPanel('sulfitage', [cId]) },
     has('apports_rendement') ? {
       icon: '🍇', label: 'Réceptionner un apport', desc: 'Vers cette cuve',
       onClick: () => go('apports.html?new=1&contenant=' + encodeURIComponent(cId)) } : null,
     (has('tache') && has('fiche_travail')) ? {
       icon: '🗓️', label: 'Planifier une tâche', desc: 'Nouvelle tâche du jour',
       onClick: () => go('planning.html?new=1&contenant=' + encodeURIComponent(cId)) } : null,
+    { icon: '🏷', label: 'Étiquette cuve', desc: 'Imprimer nom / lot / millésime',
+      onClick: () => _printEtiquetteCuve(c) },
     { icon: '📋', label: 'Ouvrir la fiche cuve', desc: 'Détail, lots, opérations',
       onClick: () => openDetailDrawer(c) },
   ].filter(Boolean);
@@ -4552,6 +4580,38 @@ async function _openSuiviFa(cid, lotId) {
   document.getElementById('suivi-fa-backdrop').classList.add('open');
   aside.classList.add('open');
 
+  // P1.1 — Navigation séquentielle : liste des cuves FA triées par nom.
+  const _faNavList = () => {
+    const list = [];
+    for (const [ncid, nlots] of lotsMap) {
+      const faLot = nlots.find(l => l.statut === 'fa');
+      if (!faLot) continue;
+      const nc = contenants.find(x => x.id === ncid);
+      if (!nc || nc.actif === false) continue;
+      list.push({ cid: ncid, lotId: faLot.id, nom: nc.nom || ncid });
+    }
+    return list.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  };
+  const _navList = _faNavList();
+  const _navIdx  = _navList.findIndex(e => e.cid === cid);
+  const sfNav    = document.getElementById('sf-nav');
+  if (sfNav) {
+    if (_navList.length > 1 && _navIdx >= 0) {
+      const prev = _navList[(_navIdx - 1 + _navList.length) % _navList.length];
+      const next = _navList[(_navIdx + 1) % _navList.length];
+      sfNav.innerHTML =
+        `<span style="font-size:var(--text-caption);color:var(--color-ink-tertiary);white-space:nowrap">${_navIdx + 1}/${_navList.length}</span>
+         <button class="btn btn--ghost btn--sm" type="button"
+           title="Cuve FA précédente : ${escapeHtml(prev.nom)}"
+           onclick="_openSuiviFa('${prev.cid}','${prev.lotId}')">←</button>
+         <button class="btn btn--ghost btn--sm" type="button"
+           title="Cuve FA suivante : ${escapeHtml(next.nom)}"
+           onclick="_openSuiviFa('${next.cid}','${next.lotId}')">→</button>`;
+    } else {
+      sfNav.innerHTML = '';
+    }
+  }
+
   const token = cid + '::' + lotId + '::' + Date.now();
   aside._token = token;
 
@@ -4786,11 +4846,10 @@ function renderCard(c) {
     const joursTxt = fmtDays(jours);
     const joursClr = jours != null && jours > 365 ? '#d97706' : 'var(--color-ink-tertiary)';
     const numLot = formatLotNumero(lotPrincipal);
-    // Agrément en attente (sur n'importe quel lot de la cuve) : cadenas visuel,
-    // mouvements physiques bloqués au niveau base (trg_op_lots_agrement_lock, mig 094).
-    const lockedLot = lots.find(l => l.agrement_statut === 'en_attente');
-    const lockBadge = lockedLot
-      ? `<span class="lot-statut-badge" title="Agrément en attente pour ${escapeHtml(lockedLot.nom)} — mouvements bloqués" style="background:#fff0e0;color:#e65100">🔒</span>`
+    // Agrément à la cuve en attente : cadenas visuel, mouvements physiques de
+    // la cuve bloqués au niveau base (trg_op_cont_agrement_lock, mig 094).
+    const lockBadge = c.agrement_statut === 'en_attente'
+      ? `<span class="lot-statut-badge" title="Agrément en attente pour la cuve ${escapeHtml(c.nom)} — mouvements bloqués" style="background:#fff0e0;color:#e65100">🔒</span>`
       : '';
     lotBlock = `
       <div class="lot-numero" style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
@@ -4813,29 +4872,10 @@ function renderCard(c) {
   const _faActive   = c.actif !== false && faLots.length > 0;
   const _faMonoLot  = _faActive && lots.length === 1;     // 1 seul lot, en FA
   const _faMulti    = _faActive && lots.length > 1;       // multi-lots, ≥1 FA
-  const _faHTML =
-      _faMonoLot
-        ? `<form class="wb-fa-form" autocomplete="off"
-            onsubmit="_faSubmit(event,'${c.id}','${faLots[0].id}');return false"
-            onclick="event.stopPropagation()"
-            onpointerdown="event.stopPropagation()">
-            <input class="input" type="number" step="0.0001" min="0.9" max="1.2"
-              name="densite" inputmode="decimal" placeholder="Densité" required
-              title="Densité (ex. 1.080)">
-            <input class="input" type="number" step="0.1" min="-5" max="50"
-              name="temperature" inputmode="decimal" placeholder="T °C"
-              title="Température en °C (optionnel)">
-            <button type="submit" class="wb-fa-go" title="Enregistrer + cuve FA suivante (Entrée)">↵</button>
-          </form>`
-    : _faMulti
-        ? `<button type="button" class="wb-fa-form wb-fa-multi-btn"
-            title="Cuve multi-lots — clic pour ouvrir le suivi FA (sélecteur de lot)"
-            onpointerdown="event.stopPropagation()"
-            onclick="event.stopPropagation();var _ll=(lotsMap.get('${c.id}')||[]).filter(x=>x.statut==='fa');if(_ll.length){_openSuiviFa('${c.id}',_ll[0].id);}"
-            style="justify-content:center;font-size:var(--text-caption);color:var(--color-accent);text-align:center;cursor:pointer;background:rgba(var(--color-accent-rgb,59,130,246),0.06);border:1px dashed var(--color-accent);font-weight:500">
-            🚥 Multi-lots FA (${faLots.length}) — ouvrir le suivi
-          </button>`
-        : '';
+  // Saisie densité inline sur carte RETIRÉE (allègement) — la saisie se fait
+  // via la modale ⌨️ « Saisie densités ». Le suivi FA détaillé reste accessible
+  // par la fiche cuve (clic sur la carte) et le filtre 🌡 Suivi FA.
+  const _faHTML = '';
 
   const _qa = _quickActions(c, lots);
   // Bouton « ⋯ » → menu d'actions rapides depuis la cuve (C4). Toujours présent
@@ -4851,27 +4891,29 @@ function renderCard(c) {
         onpointerdown="event.stopPropagation()"
         onclick="event.stopPropagation();${a.js}">${a.ico}</button>`).join('')}${_moreBtn}</div>` : '';
 
-  // Sprint 2 — Badge niveau_alerte (depuis v_cuverie_etat). Pastille discrète
-  // en haut-gauche : rouge=critique (sur_capacite | volume_incoherent | fa_stuck),
-  // orange=warn (analyse_en_retard | sans_operation_recente | dluo_produit_proche).
-  // title=« liste des flags déclenchés », pour ne pas alourdir la carte.
+  // P0.3 — Alertes cuve : pilules colorées (max 2 visibles + "+N reste").
+  // Ordre : critique en premier (fa_stuck, sur_capacite), warn ensuite.
   const _etatRow = cuverieEtatMap.get(c.id) || null;
-  const _alerte  = _etatRow && _etatRow.niveau_alerte;
   let _alerteHTML = '';
-  if (_alerte === 'critique' || _alerte === 'warn') {
-    const flags = [];
-    if (_etatRow.sur_capacite)            flags.push('sur-capacité');
-    if (_etatRow.volume_incoherent)       flags.push('volume incohérent');
-    if (_etatRow.fa_stuck)                flags.push('FA bloquée');
-    if (_etatRow.analyse_en_retard)       flags.push('analyse > 30 j');
-    if (_etatRow.sans_operation_recente)  flags.push('sans opération récente');
-    if (_etatRow.dluo_produit_proche)     flags.push('DLUO produit < 30 j');
-    const bg = _alerte === 'critique' ? '#ef4444' : '#f59e0b';
-    const ico = _alerte === 'critique' ? '🔴' : '🟠';
-    _alerteHTML = `<span class="wb-alerte-badge"
-        title="Alerte ${escapeHtml(_alerte)} : ${escapeHtml(flags.join(', ') || '?')}"
-        style="background:${bg}"
-        aria-label="Alerte ${escapeHtml(_alerte)}">${ico}</span>`;
+  if (_etatRow) {
+    const _ALERT_DEFS = [
+      { flag: 'fa_stuck',               ico: '🚨', label: 'FA bloquée',       clr: '#ef4444', txt: '#fff' },
+      { flag: 'sur_capacite',           ico: '⛔', label: 'Sur-capacité',     clr: '#ef4444', txt: '#fff' },
+      { flag: 'volume_incoherent',      ico: '⚠️', label: 'Vol. incohérent',  clr: '#f97316', txt: '#fff' },
+      { flag: 'analyse_en_retard',      ico: '🔬', label: 'Analyse > 30 j',   clr: '#f59e0b', txt: '#1a1a1a' },
+      { flag: 'sans_operation_recente', ico: '⏱',  label: 'Sans opération',   clr: '#8b5cf6', txt: '#fff' },
+      { flag: 'dluo_produit_proche',    ico: '📦', label: 'DLUO proche',      clr: '#6b7280', txt: '#fff' },
+    ];
+    const _active = _ALERT_DEFS.filter(a => _etatRow[a.flag]);
+    if (_active.length > 0) {
+      const _shown = _active.slice(0, 2);
+      const _rest  = _active.length - _shown.length;
+      const _tip   = escapeHtml(_active.map(a => a.ico + ' ' + a.label).join(' · '));
+      _alerteHTML = `<div class="wb-alertes" title="${_tip}" aria-label="Alertes cuve">
+        ${_shown.map(a => `<span class="wb-alerte-pill" style="background:${a.clr};color:${a.txt}">${a.ico} ${escapeHtml(a.label)}</span>`).join('')}
+        ${_rest > 0 ? `<span class="wb-alerte-pill" style="background:#6b7280;color:#fff">+${_rest}</span>` : ''}
+      </div>`;
+    }
   }
 
   el.innerHTML = `
@@ -5498,29 +5540,57 @@ function onCuveClick(c) {
 // ============================================================
 let _detailContenantId = null;
 
-const _NEXT_ACTION = {
+// Contenant d'élevage en bois (fût/barrique, foudre, ou matériau bois) : sujet
+// à l'évaporation → l'ouillage devient l'action récurrente clé.
+function _isBoisContenant(c) {
+  if (!c) return false;
+  if (c.type === 'fut' || c.type === 'foudre') return true;
+  return /ch[êe]ne|\bbois\b|barrique|tonneau|demi[-\s]?muid|amphore|jarre/i.test(c.materiau || '');
+}
+
+// Recommandation « Prochaine action » : combine l'état du vin (statut du lot)
+// ET le contenant. En bois pendant l'élevage/vin, on met l'ouillage en avant
+// (avec analyse SO₂, produit, soutirage) ; sinon parcours œno standard.
+const _NEXT_ACTION_BASE = {
+  vendange:'🍇 Levurage / départ en fermentation',
+  mout:'🦠 Levurage → fermentation',
   fa:'🌡 Suivre densité, sulfiter en fin de FA',
   fml:'🧫 Suivre la malo (chromato)',
+  vin:'🧪 Contrôle SO₂ · soutirage',
   elevage:'🧪 Contrôle SO₂ / ouillage',
   clarification:'🍂 Collage / soutirage',
   collage:'🔬 Soutirage puis filtration',
   filtration:'🍾 Préparer la mise',
+  vin_filtre:'🍾 Préparer la mise',
   pret:'🍾 Mise en bouteille',
+  pre_mise:'🍾 Mise en bouteille',
   conditionnement:'🍾 Mise en bouteille',
 };
+function _ddNextAction(statut, c) {
+  // Bois + phase d'élevage/conservation → ouillage prioritaire.
+  if (_isBoisContenant(c) && ['vin','elevage','clarification','collage','vin_filtre'].includes(statut)) {
+    return '🪣 Ouiller (évaporation) · 🔬 analyse SO₂ · 📦 produit · 🔄 soutirage';
+  }
+  return _NEXT_ACTION_BASE[statut] || null;
+}
 
-// D2 — emphase contextuelle légère de la barre d'action (1 mapping
-// trivial statut→bouton ; si ça devenait lourd → barre fixe + doc).
-const _DDBAR_CTX = {
-  fa:'ddbar-analyse', fml:'ddbar-analyse',
-  elevage:'ddbar-ouillage',
-  clarification:'ddbar-soutirage', collage:'ddbar-soutirage', filtration:'ddbar-soutirage',
-};
-function _ddActbarContext(statut) {
+// D2 — emphase contextuelle de la barre d'action (statut + contenant).
+function _ddBarHot(statut, c) {
+  if (_isBoisContenant(c) && ['vin','elevage','clarification','collage','vin_filtre'].includes(statut)) {
+    return 'ddbar-ouillage';
+  }
+  const map = {
+    fa:'ddbar-analyse', fml:'ddbar-analyse', vin:'ddbar-soutirage',
+    elevage:'ddbar-ouillage',
+    clarification:'ddbar-soutirage', collage:'ddbar-soutirage', filtration:'ddbar-soutirage',
+  };
+  return map[statut] || null;
+}
+function _ddActbarContext(statut, c) {
   ['ddbar-soutirage','ddbar-ouillage','ddbar-analyse','ddbar-traitement','ddbar-relogement']
     .forEach(id => { const b = document.getElementById(id);
       if (b) { b.classList.remove('btn--primary'); b.classList.add('btn--secondary'); } });
-  const hot = _DDBAR_CTX[statut];
+  const hot = _ddBarHot(statut, c);
   if (hot) { const b = document.getElementById(hot);
     if (b) { b.classList.remove('btn--secondary'); b.classList.add('btn--primary'); } }
 }
@@ -5535,9 +5605,25 @@ async function openDetailDrawer(c) {
   _drawerResetMore();                       // chaque ouverture = N2/N3 replié, frais
   const _moreS = document.getElementById('dd-more-section');
   if (_moreS) _moreS.style.display = '';     // robustesse si un flux op-mode l'avait masquée
+  // Même robustesse pour dd-actions-section : openOpPanel appelé depuis le bottom-sheet
+  // (sans passer par openDetailDrawer) laisse la section masquée et _detailContenantId=null.
+  // backToFiche() ne restaure pas les sections dans ce cas → régression P0/P1.
+  const _actS = document.getElementById('dd-actions-section');
+  if (_actS) _actS.style.display = '';
+  // Sortir du mode op si le drawer était resté en op-mode orphelin.
+  const _detDrawer = document.getElementById('detail-drawer');
+  if (_detDrawer && _detDrawer.classList.contains('op-mode')) {
+    _detDrawer.classList.remove('op-mode');
+    const _op = document.getElementById('dd-op-panel');
+    if (_op) _op.style.display = 'none';
+    const _ff = document.getElementById('dd-foot-fiche-content');
+    const _fo = document.getElementById('dd-foot-op-content');
+    if (_ff) _ff.style.display = '';
+    if (_fo) _fo.style.display = 'none';
+  }
   const lots      = lotsMap.get(c.id) || [];
   const _ddPrincipal = getPrincipalLot(c);  // lot principal résolu (anti lots[0] ambigu)
-  _ddActbarContext(_ddPrincipal?.statut);   // met en avant l'action la plus pertinente
+  _ddActbarContext(_ddPrincipal?.statut, c);   // met en avant l'action la plus pertinente (état + contenant)
   const traveeNom = getTraveeNom(c.travee_id);
   const typeLine  = [TYPE_LABELS[c.type] || c.type, c.materiau].filter(Boolean).join(' ');
 
@@ -5603,10 +5689,13 @@ async function openDetailDrawer(c) {
     <div style="font-size:var(--text-caption);color:${pctReal > 100 ? 'var(--color-danger)' : 'var(--color-ink-tertiary)'};margin-top:4px${pctReal > 100 ? ';font-weight:600' : ''}">
       ${lots.length ? fmt(volTotal)+' hL en cours' : 'Vide'} / ${fmt(c.capacite_hl)} hL capacité${pctReal > 100 ? ' · ⚠ dépassement de ' + fmt(volTotal - c.capacite_hl) + ' hL' : ''}
     </div>
-    ${_ddPrincipal && _NEXT_ACTION[_ddPrincipal.statut]
-      ? `<div style="margin-top:6px;font-size:var(--text-caption);background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:5px 8px">
-           <b>Prochaine action</b> · ${_NEXT_ACTION[_ddPrincipal.statut]}</div>`
-      : ''}`;
+    ${(() => {
+      const _na = _ddPrincipal ? _ddNextAction(_ddPrincipal.statut, c) : null;
+      return _na
+        ? `<div style="margin-top:6px;font-size:var(--text-caption);background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:5px 8px">
+             <b>Prochaine action</b> · ${_na}${_isBoisContenant(c) ? ' <span title="Contenant bois — ouillage récurrent conseillé" style="color:#a16207">🛢</span>' : ''}</div>`
+        : '';
+    })()}`;
 
   // Lots en cours
   const lotsSec  = document.getElementById('dd-lots-section');
@@ -6793,6 +6882,10 @@ const OP_TYPES_DEF = [
   { key:'malo',              icon:'🧫', label:'Malo',           mode:'traitement' },
   { key:'traitement',        icon:'🧪', label:'Traitement',     mode:'traitement' },
   { key:'analyse',           icon:'🔬', label:'Analyse',        mode:'analyse'    },
+  // Agrément À LA CUVE (mig 094) : opération à part entière. Pose/lève le
+  // verrou agrément sur la cuve via RPC wb3_set_agrement (chemin dédié au
+  // save, ne passe pas par wb3_save_operation_graph).
+  { key:'agrement',          icon:'🔒', label:'Agrément',       mode:'agrement'   },
   { key:'autre',             icon:'⚙️', label:'Autre',          mode:'autre'      },
   // ── Ajustements de cave ──
   { key:'complement_de_plein',        icon:'💧', label:'Compl. plein',  mode:'ajustement' },
@@ -6840,6 +6933,7 @@ async function openOpPanel(type, preContenantIds = null, preDstIds = null) {
     type, preContenantIds: ids,
     statut: 'realise', date: today, operateur: '', reference: '', notes: '',
     srcRows: [], dstRows: [], implRows: [], prodRows: [], analyse: {}, lotVentilation: {},
+    agrementDecision: '',   // mode 'agrement' : en_attente | valide | refuse
     // Annotations d'écarts de volume (frontend uniquement, préfixées dans
     // les notes au save — exploitables plus tard par recherche texte).
     ecartHeadspace: { motif: '', comment: '' },   // place restante en dest
@@ -7042,6 +7136,9 @@ function renderOpPanel() {
     <!-- Contenants -->
     ${mode === 'mouvement' ? _opBuildMouvement(contOpts) : _opBuildSimpleCont(contOpts)}
 
+    <!-- Décision d'agrément (mode 'agrement') -->
+    ${mode === 'agrement' ? _opBuildAgrement() : ''}
+
     <!-- Produits (modes traitement) -->
     ${['traitement','sulfitage','levurage','chaptalisation','collage','malo'].includes(opState.type)
         ? _opBuildProduits(prodOpts) : ''}
@@ -7164,6 +7261,49 @@ function _opBuildSimpleCont(contOpts) {
     <button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)"
             onclick="_opSyncAndAdd('impl')">+ Ajouter un contenant</button>
   </div>`;
+}
+
+// ── Décision d'agrément (mode 'agrement', mig 094) ──────────────
+// L'agrément se pose À LA CUVE. 3 décisions : soumettre (en_attente, pose le
+// verrou des mouvements), valider ou refuser (lèvent le verrou). Bouton choisi
+// stocké dans opState.agrementDecision ; saveOpForm route vers la RPC dédiée.
+const _AGREMENT_DECISIONS = [
+  { key:'en_attente', ico:'🔒', label:'Soumettre à agrément', desc:'Bloque les mouvements de la cuve', clr:'#e65100' },
+  { key:'valide',     ico:'✅', label:'Valider',              desc:'Lève le verrou',                 clr:'#2e7d32' },
+  { key:'refuse',     ico:'❌', label:'Refuser',              desc:'Lève le verrou (décision rendue)', clr:'#c62828' },
+];
+function _opBuildAgrement() {
+  return `
+  <div class="op-section">
+    <div class="op-section-title">🔒 Décision d'agrément *</div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+      ${_AGREMENT_DECISIONS.map(d => {
+        const sel = opState.agrementDecision === d.key;
+        return `<button type="button"
+          onclick="selectAgrementDecision('${d.key}')"
+          style="display:flex;align-items:center;gap:var(--space-2);text-align:left;
+                 padding:10px 12px;border-radius:var(--radius-md);cursor:pointer;
+                 border:2px solid ${sel ? d.clr : 'var(--color-border)'};
+                 background:${sel ? d.clr + '14' : 'var(--color-bg-elevated)'}">
+          <span style="font-size:20px;flex-shrink:0">${d.ico}</span>
+          <span style="flex:1;min-width:0">
+            <span style="font-weight:600;display:block">${d.label}</span>
+            <span style="font-size:var(--text-caption);color:var(--color-ink-tertiary)">${d.desc}</span>
+          </span>
+          ${sel ? `<span style="color:${d.clr};font-weight:700">✓</span>` : ''}
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="field-help" style="margin-top:var(--space-2)">
+      L'agrément est enregistré comme une opération et journalisé. Le motif/référence
+      se saisit dans « Notes » ci-dessous.
+    </div>
+  </div>`;
+}
+function selectAgrementDecision(key) {
+  if (!opState) return;
+  opState.agrementDecision = key;
+  renderOpPanel();
 }
 
 function _opBuildVentilation() {
@@ -8024,6 +8164,27 @@ async function saveOpForm() {
 
   if (!opState.type) { toast('Choisissez un type d\'opération', 'error'); return; }
   if (!opState.date) { toast('La date est obligatoire', 'error'); return; }
+
+  // ── Agrément (mig 094) : opération À LA CUVE via RPC dédiée. Ne passe pas
+  // par wb3_save_operation_graph — la RPC pose contenants.agrement_statut ET
+  // journalise l'opération 'agrement' + operation_contenants.
+  if (opState.type === 'agrement') {
+    const cids = (opState.implRows || []).map(r => r.contenant_id).filter(Boolean);
+    if (!cids.length)               { toast('Choisissez au moins une cuve', 'error'); return; }
+    if (!opState.agrementDecision)  { toast('Choisissez une décision d\'agrément', 'error'); return; }
+    const btnA = document.getElementById('dd-save-op-btn');
+    if (btnA) { btnA.disabled = true; btnA.textContent = '⏳…'; }
+    let okA = 0; const errsA = [];
+    for (const cid of cids) {
+      try { await WB3DB.setAgrementContenant(cid, opState.agrementDecision, opState.notes || null); okA++; }
+      catch (e) { console.warn('[WB3 agrement]', cid, e); errsA.push(WB3DB.errMsg ? WB3DB.errMsg(e) : (e?.message || e)); }
+    }
+    try { await loadCuverieData(); render(); } catch (_) {}
+    if (btnA) { btnA.disabled = false; btnA.textContent = '💾 Enregistrer'; }
+    if (errsA.length) { toast('Agrément : ' + errsA[0], 'error'); }
+    else { toast(`Agrément enregistré sur ${okA} cuve${okA > 1 ? 's' : ''}`, 'success'); closeDetailDrawer(); }
+    return;
+  }
 
   const mode = _opMode(opState.type);
 
@@ -8961,7 +9122,375 @@ function escapeHtml(s) {
     }
   } catch(_){}
 })();
+
+// ============================================================
+// P1.2 — Étiquette cuve : impression (labels 100 × 70 mm)
+// Appelée depuis openCuveActions → '🏷 Étiquette cuve'.
+// ============================================================
+function _printEtiquetteCuve(c) {
+  if (!c) return;
+  const lots = lotsMap.get(c.id) || [];
+  const lp   = getPrincipalLot(c);
+  const vol  = lots.reduce((s, l) => s + (Number(l.volume_hl) || 0), 0);
+  const now  = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const root = document.getElementById('wb3-print-root');
+  if (!root) return;
+  root.innerHTML = `
+    <div class="wb3-etiquette">
+      <div class="wb3-etq-nom">${escapeHtml(c.nom)}</div>
+      ${lp ? `<div class="wb3-etq-lot">${escapeHtml(lp.nom)}${lp.millesime ? ' · ' + lp.millesime : ''}</div>` : '<div class="wb3-etq-lot" style="opacity:.4">Cuve vide</div>'}
+      <div class="wb3-etq-meta">
+        ${c.type ? escapeHtml(TYPE_LABELS[c.type] || c.type) : ''}
+        ${c.capacite_hl ? ' · ' + fmt(c.capacite_hl) + ' hL' : ''}
+        ${vol > 0 ? ' · ' + fmt(vol) + ' hL actuels' : ''}
+      </div>
+      ${lp ? `<div class="wb3-etq-statut">${escapeHtml(LOT_STATUT_SHORT[lp.statut] || lp.statut)}</div>` : ''}
+      <div class="wb3-etq-date">Imprimé le ${now}</div>
+    </div>`;
+  document.body.classList.add('wb3-print-etiquette');
+  window.print();
+  document.body.classList.remove('wb3-print-etiquette');
+  root.innerHTML = '';
+}
+
+// ============================================================
+// Saisie densités « au km » — tournée FA au clavier
+// ------------------------------------------------------------
+// Remplace la saisie inline (colonne FA + formulaire sur carte, retirés).
+// Mode BLOC : l'opérateur recopie sa feuille (n° cuve → Tab densité → Tab
+// température, Entrée/Tab = ligne suivante), corrige librement n'importe quelle
+// ligne, ajoute des lignes (＋ ou Tab), puis « Enregistrer » écrit tout d'un
+// coup. Fermeture uniquement via « Fermer »/« Enregistrer » (pas de clic
+// extérieur ni Échap) pour éviter les fausses manipulations.
+// ============================================================
+let _densSaved = 0;
+
+function openDensiteTour() {
+  document.getElementById('densite-tour-modal')?.remove();
+  _densSaved = 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const ov = document.createElement('div');
+  ov.id = 'densite-tour-modal';
+  ov.className = 'dens-modal';
+  ov.innerHTML = `
+    <div class="dens-card">
+      <div class="dens-head">
+        <h3>⌨️ Saisie des densités</h3>
+        <label class="dens-date">Date <input type="date" id="dens-date" value="${today}"></label>
+        <button class="close-btn" onclick="closeDensiteTour()" aria-label="Fermer">×</button>
+      </div>
+      <p class="dens-hint">Recopie tes relevés : <b>n° de cuve</b> → <kbd>Tab</kbd> densité → <kbd>Tab</kbd> température → <kbd>Entrée</kbd>/<kbd>Tab</kbd> passe à la ligne suivante. Tu peux <b>corriger n'importe quelle ligne</b> à tout moment, puis clique <b>💾 Enregistrer</b> pour tout sauver.</p>
+      <div class="dens-tablewrap">
+        <table class="dens-table">
+          <thead><tr><th>Cuve</th><th>Densité</th><th>T° (°C)</th><th></th><th></th></tr></thead>
+          <tbody id="dens-rows"></tbody>
+        </table>
+      </div>
+      <div class="dens-foot">
+        <button class="btn btn--secondary btn--sm" onclick="_densAddRowFocus()">＋ Ajouter une cuve</button>
+        <span id="dens-count"></span>
+        <div style="display:flex;gap:8px;margin-left:auto">
+          <button class="btn btn--secondary" onclick="closeDensiteTour()">Fermer</button>
+          <button class="btn btn--primary" id="dens-save-btn" onclick="_densSaveAll()">💾 Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  // Pas de fermeture au clic extérieur ni à Échap (anti-fausse-manipulation) :
+  // seuls « Fermer » et « Enregistrer » ferment la fenêtre.
+  _densAddRow(); _densAddRow(); _densAddRow();
+  _densUpdateSaveBtn();
+  setTimeout(() => document.querySelector('#dens-rows .dens-cuve')?.focus(), 30);
+}
+
+async function closeDensiteTour(force) {
+  if (!force) {
+    const dirty = Array.from(document.querySelectorAll('#dens-rows tr'))
+      .some(tr => !tr._saved && _densRowFilled(tr));
+    if (dirty) {
+      const ok = await WB3UI.confirm(
+        'Des saisies ne sont pas encore enregistrées et seront perdues. Fermer sans enregistrer ?',
+        { title: 'Saisies non enregistrées', okText: 'Fermer sans enregistrer', danger: true });
+      if (!ok) return;
+    }
+  }
+  document.getElementById('densite-tour-modal')?.remove();
+  // Rafraîchir la cuverie pour refléter les relevés (sparkline FA, alertes analyse).
+  if (_densSaved > 0) { try { loadCuverieData().then(render).catch(() => {}); } catch (_) {} }
+}
+
+function _densAddRow() {
+  const tb = document.getElementById('dens-rows');
+  if (!tb) return null;
+  const tr = document.createElement('tr');
+  tr.className = 'dens-row';
+  tr.innerHTML = `
+    <td><input class="input dens-cuve" type="text" autocomplete="off" spellcheck="false" placeholder="n° cuve"
+        onkeydown="_densKey(event,'cuve')" oninput="_densResolveInline(this)"></td>
+    <td><input class="input dens-d" type="number" step="0.0001" min="0.9" max="1.2" inputmode="decimal"
+        placeholder="1.080" onkeydown="_densKey(event,'d')" oninput="_densUpdateSaveBtn()"></td>
+    <td><input class="input dens-t" type="number" step="0.1" min="-5" max="50" inputmode="decimal"
+        placeholder="T°" onkeydown="_densKey(event,'t')" oninput="_densUpdateSaveBtn()"></td>
+    <td class="dens-status"></td>
+    <td class="dens-del"><button type="button" class="dens-del-btn" title="Retirer cette ligne" onclick="_densRemoveRow(this)">✕</button></td>`;
+  tb.appendChild(tr);
+  return tr;
+}
+// Retire une ligne (✕). S'il ne reste qu'une ligne, on la vide au lieu de la
+// supprimer (on garde toujours au moins une ligne de saisie).
+function _densRemoveRow(btn) {
+  const tr = btn.closest('tr');
+  const tb = document.getElementById('dens-rows');
+  if (tb && tb.children.length <= 1) {
+    tr.querySelectorAll('input').forEach(i => {
+      i.value = ''; i.readOnly = false;
+      i.classList.remove('dens-locked', 'dens-ok-input', 'dens-bad-input');
+    });
+    tr._saved = false;
+    _densMark(tr, '', '');
+  } else {
+    const focusTarget = tr.previousElementSibling || tr.nextElementSibling;
+    tr.remove();
+    focusTarget?.querySelector('.dens-cuve')?.focus();
+  }
+  _densUpdateSaveBtn();
+}
+function _densAddRowFocus() {
+  const nr = _densAddRow();
+  if (nr) { nr.querySelector('.dens-cuve').focus(); nr.scrollIntoView({ block: 'nearest' }); }
+  _densUpdateSaveBtn();
+}
+
+// Résolution « n° de cuve » → contenant. Exact (insensible casse) puis préfixe
+// unique. Renvoie le contenant, '__ambig__' si plusieurs, ou null si introuvable.
+function _densResolve(text) {
+  const q = (text || '').trim().toLowerCase();
+  if (!q) return null;
+  const actifs = contenants.filter(c => c.actif !== false);
+  let m = actifs.filter(c => (c.nom || '').toLowerCase() === q);
+  if (m.length === 1) return m[0];
+  if (m.length > 1) return '__ambig__';
+  m = actifs.filter(c => (c.nom || '').toLowerCase().startsWith(q));
+  if (m.length === 1) return m[0];
+  if (m.length > 1) return '__ambig__';
+  return null;
+}
+function _densResolveInline(inp) {
+  const tr = inp.closest('tr');
+  const st = tr.querySelector('.dens-status');
+  inp.classList.remove('dens-ok-input', 'dens-bad-input');
+  if (tr._saved) { _densUpdateSaveBtn(); return; }
+  if (!inp.value.trim()) { st.textContent = ''; _densUpdateSaveBtn(); return; }
+  const r = _densResolve(inp.value);
+  if (r === '__ambig__') { st.innerHTML = '<span class="dens-warn">plusieurs cuves</span>'; inp.classList.add('dens-bad-input'); }
+  else if (!r)           { st.innerHTML = '<span class="dens-warn">introuvable</span>';   inp.classList.add('dens-bad-input'); }
+  else {
+    const lp = getPrincipalLot(r);
+    st.innerHTML = `<span class="dens-resolved">→ ${escapeHtml(r.nom)}${lp ? ' · ' + escapeHtml(lp.nom) : ''}</span>`;
+    inp.classList.add('dens-ok-input');
+  }
+  _densUpdateSaveBtn();
+}
+
+// Navigation clavier UNIQUEMENT (aucun enregistrement ici — il se fait en bloc
+// via « Enregistrer »). Entrée/Tab depuis T° → ligne suivante (créée au besoin).
+function _densKey(ev, field) {
+  const tr = ev.target.closest('tr');
+  if (ev.key === 'Enter') {
+    ev.preventDefault();
+    if (field === 'cuve') return tr.querySelector('.dens-d').focus();
+    if (field === 'd')    return tr.querySelector('.dens-t').focus();
+    if (field === 't')    return _densNextRow(tr);
+  }
+  if (ev.key === 'Tab' && field === 't' && !ev.shiftKey) { ev.preventDefault(); _densNextRow(tr); }
+}
+function _densNextRow(tr) {
+  let nr = tr.nextElementSibling;
+  if (!nr) nr = _densAddRow();
+  if (nr) { nr.querySelector('.dens-cuve').focus(); nr.scrollIntoView({ block: 'nearest' }); }
+  _densUpdateSaveBtn();
+}
+
+// Une ligne « pleine » = au moins une cuve OU une densité saisie.
+function _densRowFilled(tr) {
+  return (tr.querySelector('.dens-cuve').value.trim() !== '')
+      || (tr.querySelector('.dens-d').value.trim() !== '');
+}
+function _densMark(tr, text, cls) {
+  const st = tr.querySelector('.dens-status');
+  if (!st) return;
+  if (!text) { st.innerHTML = ''; return; }
+  const k = cls === 'done' ? 'dens-done' : cls === 'warn' ? 'dens-warn' : cls === 'saving' ? 'dens-saving' : '';
+  st.innerHTML = `<span class="${k}">${escapeHtml(text)}</span>`;
+}
+function _densLockRow(tr) {
+  tr.querySelectorAll('input').forEach(i => { i.readOnly = true; i.classList.add('dens-locked'); });
+}
+// Valide une ligne ; renvoie { ok, msg } ou { ok:true, payload }.
+function _densValidate(tr) {
+  const c = _densResolve(tr.querySelector('.dens-cuve').value);
+  if (!c || c === '__ambig__') return { ok: false, msg: 'cuve ?' };
+  const dRaw = tr.querySelector('.dens-d').value;
+  const dens = dRaw === '' ? null : parseFloat(dRaw.replace(',', '.'));
+  if (dens == null || !Number.isFinite(dens)) return { ok: false, msg: 'densité ?' };
+  if (dens < 0.9 || dens > 1.2)               return { ok: false, msg: 'hors plage' };
+  const tRaw = tr.querySelector('.dens-t').value;
+  const temp = tRaw === '' ? null : parseFloat(tRaw.replace(',', '.'));
+  if (temp != null && (!Number.isFinite(temp) || temp < -5 || temp > 50)) return { ok: false, msg: 'T° ?' };
+  const lp = getPrincipalLot(c);
+  const payload = {
+    date_analyse: document.getElementById('dens-date')?.value || new Date().toISOString().slice(0, 10),
+    contenant_id: c.id, lot_id: lp ? lp.id : null, densite: dens,
+  };
+  if (temp != null) payload.temperature = temp;
+  return { ok: true, payload };
+}
+function _densUpdateSaveBtn() {
+  const trs = Array.from(document.querySelectorAll('#dens-rows tr'));
+  const pending = trs.filter(tr => !tr._saved && _densRowFilled(tr)).length;
+  const btn = document.getElementById('dens-save-btn');
+  if (btn) btn.textContent = pending ? `💾 Enregistrer (${pending})` : '💾 Enregistrer';
+  const cnt = document.getElementById('dens-count');
+  if (cnt) cnt.textContent = _densSaved > 0
+    ? `${_densSaved} enregistré${_densSaved > 1 ? 's' : ''}${pending ? ` · ${pending} en attente` : ''}`
+    : (pending ? `${pending} ligne${pending > 1 ? 's' : ''} à enregistrer` : '');
+}
+
+// Enregistre EN BLOC toutes les lignes pleines non encore sauvées. Si tout
+// passe → ferme. Sinon → reste ouvert, lignes fautives en rouge à corriger.
+async function _densSaveAll() {
+  const todo = Array.from(document.querySelectorAll('#dens-rows tr'))
+    .filter(tr => !tr._saved && _densRowFilled(tr));
+  if (!todo.length) { toast('Aucune saisie à enregistrer', 'info'); return; }
+  // 1) Validation préalable de toutes les lignes (on n'écrit rien tant qu'il reste une erreur).
+  let firstBad = null;
+  todo.forEach(tr => {
+    const v = _densValidate(tr);
+    if (!v.ok) { _densMark(tr, v.msg, 'warn'); if (!firstBad) firstBad = tr; }
+    else _densMark(tr, '', '');
+  });
+  if (firstBad) {
+    toast('Corrige les lignes signalées en rouge avant d\'enregistrer', 'error');
+    firstBad.querySelector('.dens-cuve').focus();
+    return;
+  }
+  // 2) Insertion.
+  const btn = document.getElementById('dens-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+  let ok = 0, fail = 0;
+  for (const tr of todo) {
+    const v = _densValidate(tr);
+    _densMark(tr, '…', 'saving');
+    try {
+      await WB3DB.insertRow('analyses', v.payload);
+      tr._saved = true; ok++;
+      _densLockRow(tr); _densMark(tr, '✓', 'done');
+    } catch (e) {
+      fail++;
+      const msg = (e && e.message) || String(e);
+      _densMark(tr, /temperature/i.test(msg) && /column/i.test(msg) ? 'mig 049 ?' : 'erreur', 'warn');
+      console.warn('[WB3 saisie densités]', e);
+    }
+  }
+  _densSaved += ok;
+  if (btn) btn.disabled = false;
+  _densUpdateSaveBtn();
+  if (fail === 0) { toast(`${ok} relevé${ok > 1 ? 's' : ''} enregistré${ok > 1 ? 's' : ''}`, 'success'); closeDensiteTour(true); }
+  else { toast(`${ok} enregistré(s), ${fail} en erreur — corrige et réessaie`, 'error'); }
+}
+
+// ============================================================
+// Import état de cave (xlsx) — migration rapide des « qualités »
+// ------------------------------------------------------------
+// 1 ligne = un volume d'une qualité dans une cuve. Les lignes de même
+// Qualité sont regroupées en UN lot réparti sur plusieurs cuves, créé via
+// wb3_save_lot_graph (graphe lot + contenants journalisé).
+// ============================================================
+function _impNumCave(v){ if(v==null||v==='')return null; const n=Number(String(v).replace(',','.').replace(/[^\d.\-]/g,'')); return Number.isFinite(n)?n:null; }
+function openCaveImport(){
+  const COULEURS = ['rouge','blanc','rose','gris'];
+  const COLS = [
+    { key:'cuve',        header:'Cuve',        example:'H1-06', aliases:['contenant','n cuve','numero cuve'] },
+    { key:'qualite',     header:'Qualité',     example:'Viognier 2025', aliases:['lot','vin','nom lot','nom du lot'] },
+    { key:'couleur',     header:'Couleur',     example:'blanc' },
+    { key:'millesime',   header:'Millésime',   example:'2025' },
+    { key:'societe',     header:'Société',     example:'Négoce' },
+    { key:'appellation', header:'Appellation', example:'IGP Pays d\'Oc' },
+    { key:'statut',      header:'État',        example:'elevage', aliases:['statut'] },
+    { key:'volume_hl',   header:'Volume hL',   example:'24', aliases:['volume','hl','volume (hl)'] },
+  ];
+  WB3Import.run({
+    title: '📥 Import état de cave (qualités)',
+    templateName: 'modele_inventaire_cave.xlsx',
+    sheetName: 'Cave',
+    instructions: 'Une ligne = un volume d\'une qualité dans une cuve. Colonnes <b>Cuve</b>, <b>Qualité</b> et <b>Volume hL</b> obligatoires. Plusieurs lignes de même <b>Qualité</b> = un seul lot réparti dans plusieurs cuves. Couleur : rouge / blanc / rose / gris. État par défaut : élevage.',
+    columns: COLS,
+    examples: [ Object.fromEntries(COLS.map(c => [c.key, c.example])) ],
+    prepare: (row) => {
+      const cuveTxt = String(row.cuve || '').trim();
+      if (!cuveTxt) return { status:'error', label:'(ligne sans cuve)', msg:'colonne « Cuve » vide' };
+      const c = _densResolve(cuveTxt);
+      if (c === '__ambig__') return { status:'error', label:cuveTxt, msg:'plusieurs cuves correspondent' };
+      if (!c)                return { status:'error', label:cuveTxt, msg:'cuve introuvable' };
+      const qualite = String(row.qualite || '').trim();
+      if (!qualite) return { status:'error', label:c.nom, msg:'colonne « Qualité » vide' };
+      const vol = _impNumCave(row.volume_hl);
+      if (vol == null || vol <= 0) return { status:'error', label:`${c.nom} · ${qualite}`, msg:'volume hL manquant ou invalide' };
+      let couleur = String(row.couleur || '').trim().toLowerCase();
+      if (couleur === 'rosé' || couleur === 'rose') couleur = 'rose';
+      if (!COULEURS.includes(couleur)) couleur = 'rouge';
+      const mill = (() => { const n = parseInt(String(row.millesime || '').replace(/[^\d]/g, ''), 10); return (Number.isFinite(n) && n > 1900 && n < 2100) ? n : null; })();
+      const statut = String(row.statut || '').trim().toLowerCase() || 'elevage';
+      return {
+        status: 'create',
+        label: `${c.nom} · ${qualite} · ${vol} hL`,
+        msg: `${couleur}${mill ? ' ' + mill : ''}`,
+        data: { contenant_id:c.id, qualite, couleur, millesime:mill, societe:String(row.societe||'').trim()||null, appellation:String(row.appellation||'').trim()||null, statut, volume_hl:vol },
+      };
+    },
+    commit: async (rows, onProgress) => {
+      // Regroupe par Qualité : 1 lot = N cuves.
+      const groups = new Map();
+      rows.forEach(r => { const k = r.qualite.toLowerCase(); if (!groups.has(k)) groups.set(k, { first:r, list:[] }); groups.get(k).list.push(r); });
+      let ok = 0, fail = 0, done = 0; const total = rows.length; const messages = [];
+      for (const { first, list } of groups.values()) {
+        const lotPayload = { nom:first.qualite, couleur:first.couleur, statut:first.statut, millesime:first.millesime, societe:first.societe, appellation:first.appellation };
+        const contenants = list.map(r => ({ contenant_id:r.contenant_id, volume_hl:r.volume_hl }));
+        try { await WB3DB.saveLotGraphAtomic(lotPayload, { cepages:[], contenants, motif:'Import inventaire cave' }); ok += list.length; }
+        catch (e) { fail += list.length; messages.push(`${first.qualite} : ${WB3DB.errMsg ? WB3DB.errMsg(e) : (e.message || e)}`); }
+        done += list.length; onProgress(done, total);
+      }
+      return { ok, fail, messages };
+    },
+    onDone: async () => { try { await loadCuverieData(); render(); } catch (_) {} },
+  });
+}
 </script>
+
+<!-- P1.2 — conteneur d'impression étiquette (masqué hors @media print) -->
+<div id="wb3-print-root" aria-hidden="true" style="display:none"></div>
+
+<style>
+/* P1.2 — Étiquette cuve impression */
+.wb3-etiquette {
+  font-family: sans-serif;
+  padding: 10px 14px;
+  border: 2px solid #000;
+  display: inline-block;
+  min-width: 90mm;
+  box-sizing: border-box;
+}
+.wb3-etq-nom    { font-size: 26pt; font-weight: 900; letter-spacing: -0.5px; line-height: 1; margin-bottom: 6px; }
+.wb3-etq-lot    { font-size: 14pt; font-weight: 600; margin-bottom: 4px; }
+.wb3-etq-meta   { font-size: 10pt; color: #444; }
+.wb3-etq-statut { font-size: 10pt; color: #333; margin-top: 6px; font-style: italic; }
+.wb3-etq-date   { font-size: 7pt; color: #888; margin-top: 8px; border-top: 1px solid #ccc; padding-top: 4px; }
+@media print {
+  body.wb3-print-etiquette > *:not(#wb3-print-root) { display: none !important; }
+  #wb3-print-root { display: block !important; }
+  @page { size: 100mm 70mm; margin: 5mm; }
+}
+</style>
 
 </body>
 </html>

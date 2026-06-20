@@ -11,6 +11,7 @@
 <title>Analyses — VitiFlux</title>
 <script src="lib/supabase.min.js"></script>
 <script src="lib/xlsx.full.min.js"></script>
+<script src="lib/winescan.js"></script>
 <script src="toast.js"></script>
 <script src="config.js"></script>
 <script src="db.js"></script>
@@ -384,26 +385,28 @@
   </div>
 </div>
 
-<!-- ── Import labo (scaffold — aperçu seulement) ───────────── -->
+<!-- ── Import WineScan → analyses (résolution cuve→contenant→lot) ─── -->
 <div class="modal-backdrop" id="lab-modal" onclick="if(event.target===this)closeLabImport()">
-  <div class="modal" style="max-width:780px">
-    <div class="modal-head"><h2>🧪 Import analyses labo</h2><button class="modal-close" onclick="closeLabImport()">×</button></div>
+  <div class="modal" style="max-width:920px">
+    <div class="modal-head"><h2>🧪 Import analyses WineScan</h2><button class="modal-close" onclick="closeLabImport()">×</button></div>
     <div class="modal-body">
-      <div style="background:#fff8ef;border:1px solid #ffcc80;border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12.5px;color:#7a4a00">
-        ⚙️ <b>Aperçu uniquement</b> — rien n'est importé pour l'instant. Dépose un fichier (moût, FA, vin fini, VS+SO₂) : je l'affiche pour caler le <b>mapping</b> vers les champs WB3. L'import réel sera branché dès réception d'un exemple de chaque type.
-      </div>
-      <div id="lab-drop" style="border:2px dashed var(--border);border-radius:10px;padding:var(--space-8);text-align:center;cursor:pointer"
+      <div id="lab-drop" style="border:2px dashed var(--border);border-radius:10px;padding:var(--space-6);text-align:center;cursor:pointer"
            onclick="document.getElementById('lab-file-in').click()"
            ondragover="event.preventDefault();this.style.borderColor='var(--p)'"
            ondragleave="this.style.borderColor='var(--border)'"
            ondrop="event.preventDefault();this.style.borderColor='var(--border)';_labHandleDrop(event)">
-        <div style="font-size:32px;margin-bottom:var(--space-2)">🧫</div>
-        <div style="font-weight:600;color:var(--ink)">Déposer un fichier d'analyses</div>
-        <div style="font-size:12px;color:var(--muted);margin:6px 0 12px">CSV ou Excel (.xlsx/.xls) · ou cliquer pour parcourir</div>
+        <div style="font-size:30px;margin-bottom:var(--space-2)">🧫</div>
+        <div style="font-weight:600;color:var(--ink)">Déposer un export WineScan (.csv)</div>
+        <div style="font-size:12px;color:var(--muted);margin:6px 0 10px">La cuve est lue dans l'ID → reliée au contenant ; le lot est trouvé à la date. Séparateur <code>;</code> · Windows‑1252.</div>
         <button class="btn btn-primary" onclick="event.stopPropagation();document.getElementById('lab-file-in').click()">Choisir un fichier</button>
       </div>
-      <input type="file" id="lab-file-in" accept=".csv,.txt,.xlsx,.xls" style="display:none" onchange="_labHandleFile(this.files[0])">
+      <input type="file" id="lab-file-in" accept=".csv,.txt" style="display:none" onchange="_labHandleFile(this.files[0])">
       <div id="lab-preview" style="margin-top:var(--space-4)"></div>
+    </div>
+    <div class="modal-foot" id="lab-foot" style="display:none">
+      <span id="lab-summary" style="flex:1;font-size:12.5px;color:var(--muted)"></span>
+      <button class="btn btn-secondary" onclick="closeLabImport()">Annuler</button>
+      <button class="btn btn-primary" id="lab-commit-btn" onclick="_labCommit()">💾 Importer</button>
     </div>
   </div>
 </div>
@@ -639,6 +642,7 @@ let analyses = [];
 // Tri colonne (clic en-tête) : key + sens (1 asc, -1 desc) ; null = ordre par défaut.
 let _analSortKey = null, _analSortDir = 1;
 function _analSortVal(a, key){
+  if (key && key.indexOf('x:') === 0) return a.extra ? a.extra[key.slice(2)] : null;   // paramètre extra WineScan
   switch (key){
     case '__date':      return a.date_analyse || '';
     case '__lot':       return (a.lots && a.lots.nom) || '';
@@ -986,6 +990,9 @@ function render() {
     { k:'__contenant', h:'Contenant', t:'Contenant',         custom:true,
       render: a => a.contenants ? esc(a.contenants.nom) : `<span class="val-empty">—</span>`,
       hasValue: () => true },
+    { k:'stade', h:'Moment', t:'Moment / stade (import WineScan)', custom:true,
+      render: a => a.stade ? esc(a.stade) : `<span class="val-empty">—</span>`,
+      hasValue: a => !!a.stade },
     { k:'so2_libre',        h:'SO₂L',    t:'SO₂ libre mg/L',          d:1 },
     { k:'so2_total',        h:'SO₂T',    t:'SO₂ total mg/L',          d:1 },
     { k:'so2_actif',        h:'SO₂Act.', t:'SO₂ actif mg/L',          d:2 },
@@ -1015,6 +1022,19 @@ function render() {
       },
       hasValue: a => a.lots?.couleur != null },
   ];
+  // Colonnes dérivées des paramètres « extra » (import WineScan) présents dans
+  // la donnée courante : ATar, ALac, IPT, IC, A420/520/620, SO2 Actif, GF±5…
+  // (n'apparaissent que si au moins une analyse les porte — cf. activeCols.)
+  const _extraKeys = new Set();
+  data.forEach(a => { if (a.extra) Object.keys(a.extra).forEach(k => _extraKeys.add(k)); });
+  const EXTRA_LABELS = { ATar:'Tartrique', ALac:'Lactique', 'SO2 Actif':'SO₂act', IPT:'IPT', IC:'IC',
+    TSat:'T.Sat', A420:'A420', A520:'A520', A620:'A620', 'GF-5':'GF−5', 'GF+5':'GF+5',
+    'SR-5':'SR−5', 'SR+5':'SR+5', Sorbic:'Sorbic', Degaz:'Dégaz', Air:'Air' };
+  [..._extraKeys].sort((a,b) => a.localeCompare(b,'fr')).forEach(pk => {
+    ALL_COLS.push({ k:'x:'+pk, h:(EXTRA_LABELS[pk] || pk), t:`${pk} (extra WineScan)`, custom:true,
+      render: a => (a.extra && a.extra[pk] != null) ? `<span class="val-num">${esc(String(a.extra[pk]))}</span>` : `<span class="val-empty">—</span>`,
+      hasValue: a => !!(a.extra && a.extra[pk] != null) });
+  });
   // Ordre courant (drag-drop) — initialisé une fois, persisté en session.
   // Init défensive : on ajoute toute clé manquante et on supprime les orphelines.
   if (!Array.isArray(window._analColOrder)) window._analColOrder = [];
@@ -1688,51 +1708,187 @@ function printReport(){
 }
 
 // ════════════════════════════════════════════════════════════
-// Import labo (scaffold) — lit & prévisualise un fichier (CSV/Excel).
-// L'import réel (mapping par type) sera branché avec les fichiers types.
+// Import WineScan → table analyses (lib/winescan.js)
+// Résout cuve (lue dans l'ID) → contenant (nom) → lot (à la date).
 // ════════════════════════════════════════════════════════════
-function openLabImport(){ document.getElementById('lab-preview').innerHTML = ''; document.getElementById('lab-modal').classList.add('open'); }
+let _wsRows = [];          // lignes résolues pour l'aperçu / l'import
+let _wsExcluded = [];      // lignes ignorées (Zéro / récap)
+let _wsCuveMap = {};       // cuveKey -> contenant_id (appris + corrections manuelles)
+let _wsFileName = '';
+
+async function openLabImport(){
+  _wsRows = []; _wsExcluded = [];
+  document.getElementById('lab-preview').innerHTML = '';
+  document.getElementById('lab-foot').style.display = 'none';
+  document.getElementById('lab-modal').classList.add('open');
+  try { const p = await WB3DB.getUserPref('winescan'); if (p && p.cuve_map) _wsCuveMap = p.cuve_map; } catch (_) {}
+}
 function closeLabImport(){ document.getElementById('lab-modal').classList.remove('open'); }
 function _labHandleDrop(ev){ const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) _labHandleFile(f); }
-function _labDetectSep(text){
-  const l = (text.split(/\r?\n/)[0]) || '', c = { ';':0, ',':0, '\t':0 };
-  for (const ch of l) if (ch in c) c[ch]++;
-  return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || ';';
+
+function _wsNormCuve(s){ return String(s||'').toLowerCase().replace(/[\s._]+/g, '-').replace(/^-+|-+$/g, ''); }
+function _wsResolveContenant(cuve){
+  if (!cuve) return null;
+  const key = _wsNormCuve(cuve);
+  if (_wsCuveMap[key]){ const c = contenants.find(c => c.id === _wsCuveMap[key]); if (c) return c; }
+  return contenants.find(c => _wsNormCuve(c.nom) === key) || null;
 }
-function _labHandleFile(file){
+
+async function _labHandleFile(file){
   if (!file) return;
-  const isXlsx = /\.xlsx?$/i.test(file.name);
-  const rd = new FileReader();
-  rd.onload = () => {
-    try {
-      let sheets;
-      if (isXlsx && window.XLSX) {
-        const wb = XLSX.read(rd.result, { type:'array' });
-        sheets = wb.SheetNames.map(n => ({ name:n, rows: XLSX.utils.sheet_to_json(wb.Sheets[n], { header:1, raw:false, defval:'' }) }));
-      } else {
-        const text = (typeof rd.result === 'string') ? rd.result : new TextDecoder('utf-8').decode(rd.result);
-        const sep = _labDetectSep(text);
-        const rows = text.split(/\r?\n/).filter(l => l.length).map(l => l.split(sep));
-        sheets = [{ name:'(texte)', rows }];
-      }
-      _labRenderPreview(file, sheets, isXlsx ? 'Excel' : 'CSV/texte');
-    } catch (e) {
-      document.getElementById('lab-preview').innerHTML = `<p style="color:#b91c1c">Lecture impossible : ${esc(e.message || String(e))}</p>`;
+  _wsFileName = file.name;
+  const box = document.getElementById('lab-preview');
+  box.innerHTML = '<p style="color:var(--muted)">Lecture & résolution…</p>';
+  try {
+    const buf  = await file.arrayBuffer();
+    const text = WineScan.decodeCsv(buf);
+    const { rows, excluded } = WineScan.parse(text);
+    _wsExcluded = excluded || [];
+    const out = [];
+    for (const row of rows){
+      const d = WineScan.derive(row, null);
+      if (d.sample === 'temoin' || !d.cuve){ out.push({ row, d, status:'temoin' }); continue; }
+      const cont = _wsResolveContenant(d.cuve);
+      let lot = null;
+      if (cont){ try { lot = await WB3DB.lotInContenantAtDate(cont.id, WineScan.toAnalyse(row, d).date_analyse); } catch (_) {} }
+      out.push({ row, d, contenant: cont, lot, status: cont ? (lot ? 'ok' : 'nolot') : 'nocuve' });
     }
-  };
-  if (isXlsx) rd.readAsArrayBuffer(file); else rd.readAsText(file, 'utf-8');
+    _wsRows = out;
+    _labRenderPreview();
+  } catch (e) {
+    box.innerHTML = `<p style="color:var(--err)">Lecture impossible : ${esc(e.message || String(e))}</p>`;
+  }
 }
-function _labRenderPreview(file, sheets, kind){
-  const box = document.getElementById('lab-preview'), s = sheets[0];
-  const rows = s.rows.slice(0, 9), ncol = Math.min(16, rows.reduce((m, r) => Math.max(m, r.length), 0));
-  const table = `<table style="border-collapse:collapse;font-size:11px;white-space:nowrap"><tbody>${rows.map((r, ri) =>
-    `<tr>${Array.from({ length: ncol }).map((_, ci) =>
-      `<td style="border:1px solid var(--border);padding:2px 6px;${ri === 0 ? 'font-weight:700;background:var(--bg-subtle,#f3f3f3)' : ''}">${esc(String(r[ci] == null ? '' : r[ci]))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+
+function _wsContenantOptions(selId){
+  return '<option value="">— choisir —</option>' + contenants.map(c =>
+    `<option value="${c.id}" ${selId===c.id?'selected':''}>${esc(c.nom)}</option>`).join('');
+}
+function _labRenderPreview(){
+  const box = document.getElementById('lab-preview');
+  const badge = { ok:'<span style="color:#15803d">✅</span>', nolot:'<span style="color:#c2410c">⚠️</span>',
+                  nocuve:'<span style="color:#b91c1c">❌</span>', temoin:'<span style="color:#6b7280">🚫</span>' };
+  const nOk = _wsRows.filter(r=>r.status==='ok').length;
+  const nNolot = _wsRows.filter(r=>r.status==='nolot').length;
+  const nNocuve = _wsRows.filter(r=>r.status==='nocuve').length;
+  const nTemoin = _wsRows.filter(r=>r.status==='temoin').length;
+  const body = _wsRows.map((r,i) => {
+    const a = WineScan.toAnalyse(r.row, r.d);
+    const contCell = r.status==='nocuve'
+      ? `<select onchange="_wsAssignContenant(${i}, this.value)" style="font-size:11px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;max-width:160px">${_wsContenantOptions(null)}</select>`
+      : (r.contenant ? esc(r.contenant.nom) : '—');
+    const lotCell = r.status==='temoin' ? '' : (r.lot && r.lot.lot ? esc(r.lot.lot.nom) : (r.status==='nolot' ? '<span style="color:#c2410c">aucun lot</span>' : '—'));
+    return `<tr style="${r.status==='temoin'?'opacity:.5':''}">
+      <td style="text-align:center">${badge[r.status]}</td>
+      <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.d.cuve||'—')}</td>
+      <td>${esc(r.d.moment||'')}</td>
+      <td>${esc(a.date_analyse||'')}</td>
+      <td>${esc(r.d.product||'')}</td>
+      <td>${contCell}</td>
+      <td>${lotCell}</td>
+    </tr>`;
+  }).join('');
   box.innerHTML = `
-    <div style="font-size:12.5px;margin-bottom:6px"><b>${esc(file.name)}</b> · ${kind} · ${sheets.length > 1 ? sheets.length + ' feuilles · ' : ''}${s.rows.length} ligne(s) × ~${ncol} colonne(s)</div>
-    ${sheets.length > 1 ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Feuilles : ${sheets.map(x => esc(x.name)).join(', ')} — aperçu : ${esc(s.name)}</div>` : ''}
-    <div style="overflow:auto;max-height:320px;border:1px solid var(--border);border-radius:8px">${table}</div>
-    <p style="font-size:11.5px;color:var(--muted);margin-top:8px">👉 Envoie-moi ce type de fichier : je branche le mapping (colonnes → SO₂ libre/total, pH, TAV, densité… + reconnaissance moût / FA / vin fini).</p>`;
+    <div style="font-size:12.5px;margin-bottom:8px"><b>${esc(_wsFileName)}</b> · ${_wsRows.length} analyse(s)
+      ${_wsExcluded.length?`· <span style="color:var(--muted)">${_wsExcluded.length} ignorée(s) (Zéro/récap)</span>`:''}</div>
+    <div style="display:flex;gap:12px;font-size:12px;margin-bottom:8px;flex-wrap:wrap">
+      <span>✅ ${nOk} prête(s)</span><span>⚠️ ${nNolot} sans lot</span>
+      <span>❌ ${nNocuve} cuve inconnue</span><span>🚫 ${nTemoin} témoin/exclue</span></div>
+    <div style="overflow:auto;max-height:46vh;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead style="position:sticky;top:0;background:#f8f5f0"><tr>
+          <th style="padding:6px 8px"></th><th style="padding:6px 8px;text-align:left">Cuve</th>
+          <th style="padding:6px 8px;text-align:left">Moment</th><th style="padding:6px 8px;text-align:left">Date</th>
+          <th style="padding:6px 8px;text-align:left">Produit</th><th style="padding:6px 8px;text-align:left">Contenant</th>
+          <th style="padding:6px 8px;text-align:left">Lot (à la date)</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table></div>
+    <p style="font-size:11.5px;color:var(--muted);margin-top:8px">Les ❌ cuves inconnues : choisis le contenant (mémorisé pour les prochains imports). Les 🚫 témoins/exclues ne sont jamais importés.</p>`;
+  const n = nOk + nNolot;
+  document.getElementById('lab-summary').textContent = `${n} analyse(s) seront importées${nNocuve?` · ${nNocuve} à relier`:''}`;
+  document.getElementById('lab-foot').style.display = '';
+  const cb = document.getElementById('lab-commit-btn'); cb.style.display = ''; cb.disabled = n === 0; cb.textContent = '💾 Importer';
+}
+
+async function _wsAssignContenant(i, contId){
+  const r = _wsRows[i]; if (!r) return;
+  const cont = contenants.find(c => c.id === contId) || null;
+  r.contenant = cont;
+  if (cont){ _wsCuveMap[_wsNormCuve(r.d.cuve)] = cont.id;   // apprend la correspondance
+    try { r.lot = await WB3DB.lotInContenantAtDate(cont.id, WineScan.toAnalyse(r.row, r.d).date_analyse); } catch (_) { r.lot = null; }
+    r.status = r.lot ? 'ok' : 'nolot';
+  } else { r.lot = null; r.status = 'nocuve'; }
+  _labRenderPreview();
+}
+
+async function _labCommit(){
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx){ toast('Session expirée', true); return; }
+  const toImport = _wsRows.filter(r => r.status==='ok' || r.status==='nolot');
+  if (!toImport.length){ toast('Aucune analyse à importer (relie au moins une cuve).', true); return; }
+  const btn = document.getElementById('lab-commit-btn');
+  const summary = document.getElementById('lab-summary');
+  const box = document.getElementById('lab-preview');
+  btn.disabled = true; document.getElementById('lab-file-in').disabled = true;
+  // Barre de progression
+  box.innerHTML = `<div style="font-weight:600;margin-bottom:8px">Import en cours…</div>
+    <div style="height:10px;background:var(--bg-subtle,#eee);border-radius:5px;overflow:hidden">
+      <div id="lab-prog-bar" style="height:100%;width:0;background:var(--p,#6a1b2a);transition:width .12s"></div></div>`;
+  const total = toImport.length;
+  // Dédoublonnage : analyses existantes sur la période importée (contenant+date+heure)
+  const isoDates = toImport.map(r => WineScan.toAnalyse(r.row, r.d).date_analyse).filter(Boolean).sort();
+  let existSet = new Set();
+  try {
+    const existing = await WB3DB.queryAnalyses({ date_from: isoDates[0], date_to: isoDates[isoDates.length-1] });
+    existSet = new Set(existing.map(a => `${a.contenant_id}|${a.date_analyse}|${a.heure||''}`));
+  } catch (_) {}
+  let ok = 0, dup = 0; const failed = [];
+  for (let i = 0; i < total; i++){
+    const r = toImport[i];
+    const payload = WineScan.toAnalyse(r.row, r.d);
+    payload.tenant_id    = ctx.tenant.id;
+    payload.contenant_id = r.contenant.id;
+    payload.lot_id       = r.lot ? r.lot.lot_id : null;
+    const key = `${payload.contenant_id}|${payload.date_analyse}|${payload.heure||''}`;
+    if (existSet.has(key)){ dup++; }
+    else {
+      try { await WB3DB.insertRow('analyses', payload); existSet.add(key); ok++; }
+      catch (e) { failed.push({ cuve:r.d.cuve, date:payload.date_analyse, msg:(WB3DB.errMsg ? WB3DB.errMsg(e) : (e.message || String(e))) }); }
+    }
+    const bar = document.getElementById('lab-prog-bar'); if (bar) bar.style.width = Math.round((i+1)/total*100) + '%';
+    summary.textContent = `Import… ${i+1} / ${total}`;
+  }
+  try { await WB3DB.setUserPref('winescan', { cuve_map: _wsCuveMap }); } catch (_) {}
+  document.getElementById('lab-file-in').disabled = false;
+  await loadAnalysesOnly(); render();
+  if (!failed.length){
+    closeLabImport();
+    toast(`${ok} analyse(s) importée(s)${dup?` · ${dup} doublon(s) ignoré(s)`:''}`, false);
+    return;
+  }
+  _labRenderResult(ok, dup, failed);   // garde le modal ouvert pour montrer les échecs
+}
+function _labRenderResult(ok, dup, failed){
+  const box = document.getElementById('lab-preview');
+  box.innerHTML = `
+    <div style="font-weight:600;margin-bottom:8px">Import terminé</div>
+    <div style="display:flex;gap:14px;font-size:13px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="color:#15803d">✅ ${ok} importée(s)</span>
+      ${dup?`<span style="color:#6b7280">⏭ ${dup} doublon(s)</span>`:''}
+      <span style="color:#b91c1c">❌ ${failed.length} échec(s)</span></div>
+    <div style="overflow:auto;max-height:42vh;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead style="position:sticky;top:0;background:#f8f5f0"><tr>
+          <th style="padding:6px 8px;text-align:left">Cuve</th><th style="padding:6px 8px;text-align:left">Date</th>
+          <th style="padding:6px 8px;text-align:left">Erreur</th></tr></thead>
+        <tbody>${failed.map(f => `<tr>
+          <td style="padding:5px 8px;font-family:ui-monospace,monospace">${esc(f.cuve||'—')}</td>
+          <td style="padding:5px 8px">${esc(f.date||'')}</td>
+          <td style="padding:5px 8px;color:#b91c1c">${esc(f.msg)}</td></tr>`).join('')}</tbody>
+      </table></div>
+    <p style="font-size:11.5px;color:var(--muted);margin-top:8px">Les analyses réussies sont déjà enregistrées. Corrige la cause puis réimporte (les doublons seront ignorés).</p>`;
+  document.getElementById('lab-summary').textContent = `${ok} importée(s) · ${failed.length} en échec`;
+  const btn = document.getElementById('lab-commit-btn'); btn.style.display = 'none';   // import déjà effectué
 }
 function todayStr() {
   return new Date().toISOString().slice(0, 10);

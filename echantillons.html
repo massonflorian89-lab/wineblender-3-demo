@@ -56,18 +56,28 @@
     @page { size: A4 portrait; margin: 0; }
     html, body { background:#fff; }
     .lbl-page { box-sizing:border-box; display:grid; align-content:start; justify-content:center; page-break-after:always; }
-    .lbl { box-sizing:border-box; padding:1.6mm 2.3mm; overflow:hidden; display:flex; flex-direction:column; color:#000; line-height:1.1; }
-    .lbl-head { display:flex; justify-content:space-between; align-items:flex-start; gap:2mm; }
-    .lbl-logo { object-fit:contain; }
-    .lbl-vin { font-weight:700; font-size:1.14em; margin:.5mm 0 .3mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .lbl-row { display:flex; justify-content:space-between; gap:2mm; }
-    .lbl-row span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .lbl-foot { margin-top:auto; display:flex; gap:2mm; align-items:baseline; }
-    .lbl-num { font-family:monospace; font-weight:700; }
-    .lbl-date { color:#444; }
-    .lbl-tel { margin-left:auto; text-align:right; color:#333; font-size:.9em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .lbl-qr { flex-shrink:0; }
+    /* Mise en page : logo à gauche (colonne ≥ 2 cm), bloc texte à droite. */
+    .lbl { box-sizing:border-box; padding:1.5mm 2mm; overflow:hidden; display:flex; flex-direction:row; gap:1.6mm; color:#000; line-height:1.12; align-items:stretch; }
+    .lbl-logocol { flex:0 0 auto; width:20mm; display:flex; align-items:center; justify-content:center; }
+    .lbl-logo { object-fit:contain; max-width:100%; max-height:100%; }
+    .lbl-body { flex:1; min-width:0; display:flex; flex-direction:column; }
+    .lbl-vinrow { display:flex; justify-content:space-between; align-items:flex-start; gap:1.4mm; }
+    .lbl-vin { font-weight:700; font-size:1.18em; margin:0 0 .4mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
+    /* Une ligne par champ, pleine largeur → le texte tient (plus de colonnes serrées). */
+    .lbl-line { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:.1mm 0; }
+    /* Pied : numéro + date sur une 1ʳᵉ ligne ; coordonnées en dessous, enroulables. */
+    .lbl-foot { margin-top:auto; padding-top:.4mm; }
+    .lbl-footline { display:flex; column-gap:1.8mm; align-items:baseline; }
+    .lbl-num { font-family:monospace; font-weight:700; white-space:nowrap; }
+    .lbl-date { color:#444; white-space:nowrap; }
+    .lbl-tel { color:#333; font-size:.9em; white-space:normal; word-break:break-word; line-height:1.05; margin-top:.2mm; }
+    .lbl-qr { flex:0 0 auto; }
     .lbl-qr svg { display:block; height:100%; width:100%; }
+    /* Layout libre (éditeur visuel) : blocs positionnés en absolu (% de l'étiquette). */
+    .lbl-free { position:relative; display:block; padding:0; }
+    .lbl-free .fb { position:absolute; box-sizing:border-box; overflow:hidden; line-height:1.08; }
+    .lbl-free .fb img { max-width:100%; max-height:100%; object-fit:contain; }
+    .lbl-free .fb svg { width:100%; height:100%; display:block; }
   }
 </style>
 </head>
@@ -422,6 +432,7 @@ function openForm(id){
           <div class="f"><label>Cépage</label><input type="text" id="d-cepage" value="${e?esc(e.cepage||''):''}"></div>
           <div class="f" style="max-width:120px"><label>Millésime</label><input type="number" id="d-millesime" value="${e&&e.millesime?esc(e.millesime):''}" placeholder="2025"></div>
           <div class="f" style="max-width:110px"><label>Lot</label><input type="text" id="d-lot" value="${e?esc(e.lot_texte||''):''}" placeholder="ex. 1"></div>
+          <div class="f" style="max-width:120px"><label>Degré (% vol)</label><input type="number" step="0.1" min="0" id="d-degre" value="${e&&e.degre_alcoolique!=null?esc(e.degre_alcoolique):''}" placeholder="ex. 13,5"></div>
         </div>
 
         <div class="row">
@@ -525,6 +536,7 @@ async function saveForm(){
     couleur: val('d-couleur') || null,
     cepage: val('d-cepage') || null,
     millesime: num('d-millesime'),
+    degre_alcoolique: num('d-degre'),
     qualite: val('d-qualite') || null,
     lot_texte: val('d-lot') || null,
     client: client || null,
@@ -547,7 +559,22 @@ async function saveForm(){
 }
 
 // ── Étiquettes (Lot 3 — QR hors-ligne, logo, modèles Avery) ───
-function _lblModel(){ return AVERY[_lblPrefs.avery] || AVERY[AVERY_DEFAULT]; }
+function _lblModel(){
+  // Trame personnalisée (réglée en Paramètres) : prioritaire sur les modèles Avery.
+  if (_lblPrefs.avery === 'custom' && _lblPrefs.customTrame) {
+    const t = _lblPrefs.customTrame;
+    const n = (v, d) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? x : d; };
+    return {
+      label: 'Trame personnalisée',
+      cols: Math.max(1, Math.round(n(t.cols, 3))),
+      rows: Math.max(1, Math.round(n(t.rows, 8))),
+      w: n(t.w, 63.5), h: n(t.h, 37),
+      padX: Number(t.padX) || 0, padY: Number(t.padY) || 0,
+      gapX: Number(t.gapX) || 0, gapY: Number(t.gapY) || 0,
+    };
+  }
+  return AVERY[_lblPrefs.avery] || AVERY[AVERY_DEFAULT];
+}
 function _lblQrOn(){ return _lblPrefs.qr !== false; }
 
 function openLabels(){
@@ -562,7 +589,7 @@ function openLabels(){
       <h3 style="margin:0 0 4px">🏷 Étiquettes — ${n} échantillon${n>1?'s':''} sélectionné${n>1?'s':''}</h3>
       <p class="hint" style="margin:0 0 16px;font-size:var(--text-footnote);color:var(--color-ink-tertiary)">
         Modèle : <b>${esc(mdl.label)}</b> · QR ${_lblQrOn()?'activé':'désactivé'} · logo ${_lblPrefs.logo?'défini':'aucun'}.<br>
-        Réglages (modèle, QR, logo, coordonnées) → <a href="parametres.html?section=echantillons" style="color:var(--color-primary)">Paramètres ▸ Échantillons</a>.</p>
+        Réglages (modèle, QR, logo, coordonnées, calibrage) → <a href="parametres.html?section=echantillons" style="color:var(--color-primary)">Paramètres ▸ Échantillons</a>.</p>
       <div class="ech-form">
         <label class="toggle" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <input type="checkbox" id="lbl-perbottle" checked> Une étiquette par bouteille (sinon 1 par échantillon)</label>
@@ -585,29 +612,118 @@ function _echUrl(numero){
   catch(_){ return numero || ''; }
 }
 
+// Champs activables sur l'étiquette (éditeur en Paramètres ▸ Échantillons).
+// Défaut = tout affiché. _lblPrefs.fields[k] === false masque le champ k.
+function _lblField(k){ const f = _lblPrefs.fields; return !f || f[k] !== false; }
+
+// ── Layout libre (éditeur visuel) ──────────────────────────────
+// Valeur brute d'un bloc (sans préfixe). Partagée print + (référence éditeur).
+function _lblBlockValue(k, e){
+  switch (k) {
+    case 'vin':       return e.vin || '';
+    case 'millesime': return (e.millesime != null && e.millesime !== '') ? String(e.millesime) : '';
+    case 'lot':       return e.lot_texte || '';
+    case 'degre':     return (e.degre_alcoolique != null && e.degre_alcoolique !== '') ? fmt(e.degre_alcoolique) + ' % vol' : '';
+    case 'cuve':      return (e.source_type === 'cuve' || e.source_type === 'essai') ? _srcLabel(e) : '';
+    case 'vol':       return (e.volume_presente != null && e.volume_presente !== '')
+                               ? fmt(e.volume_presente) + ' hL'
+                               : (Number(e.nb_bouteilles) || 0) + '×' + fmt(e.volume_bouteille_l) + ' L';
+    case 'client':    return e.client || '';
+    case 'numero':    return e.numero || '';
+    case 'date':      return frDate(e.date_echantillon);
+    case 'tel':       return _lblPrefs.tel || '';
+    default:          return '';
+  }
+}
+
+// Rend une étiquette à partir d'un layout libre (blocs positionnés en %).
+// Retourne null si pas de layout exploitable → bascule sur le rendu en flux.
+function _lblLayoutHTML(e, mdl){
+  const L = _lblPrefs.layout;
+  if (!L || !L.blocks) return null;
+  const entries = Object.entries(L.blocks);
+  if (!entries.length) return null;
+  const parts = [];
+  for (const [k, b] of entries) {
+    // Visibilité unifiée : les cases « Contenu de l'étiquette » pilotent
+    // l'affichage (éditeur ET impression). La position/taille vient du layout.
+    if (!b || !_lblField(k)) continue;
+    const pos = `left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%;`;
+    if (k === 'logo') {
+      if (!_lblPrefs.logo) continue;
+      const j = b.align === 'right' ? 'flex-end' : b.align === 'center' ? 'center' : 'flex-start';
+      parts.push(`<div class="fb" style="${pos}display:flex;align-items:center;justify-content:${j}"><img alt="" src="${esc(_lblPrefs.logo)}"></div>`);
+    } else if (k === 'qr') {
+      parts.push(`<div class="fb" style="${pos}">${_qrSvg(_echUrl(e.numero))}</div>`);
+    } else {
+      const v = _lblBlockValue(k, e);
+      if (v == null || v === '') continue;
+      const prefix = (b.prefix != null) ? b.prefix : '';
+      const fontMm = (mdl.h * (Number(b.fs) || 10) / 100).toFixed(2);
+      const weight = b.bold ? '700' : '400';
+      const align  = b.align || 'left';
+      const mono   = (k === 'numero') ? 'font-family:monospace;' : '';
+      const wrap   = (b.nowrap ? 'white-space:nowrap;text-overflow:ellipsis;' : 'white-space:normal;word-break:break-word;');
+      parts.push(`<div class="fb" style="${pos}font-size:${fontMm}mm;font-weight:${weight};text-align:${align};${mono}${wrap}">${esc(prefix)}${esc(v)}</div>`);
+    }
+  }
+  return `<div class="lbl lbl-free" style="width:${mdl.w}mm;height:${mdl.h}mm">${parts.join('')}</div>`;
+}
+
 function _labelHTML(e, mdl){
+  // Layout libre prioritaire s'il est défini (éditeur visuel).
+  if (_lblPrefs.layout && _lblPrefs.layout.blocks) {
+    const free = _lblLayoutHTML(e, mdl);
+    if (free) return free;
+  }
   const tel  = _lblPrefs.tel || '';
-  const logoH = mdl.h * 0.30, logoW = mdl.w * 0.50;
-  const logo = _lblPrefs.logo
-    ? `<img class="lbl-logo" alt="" src="${esc(_lblPrefs.logo)}" style="max-height:${logoH.toFixed(1)}mm;max-width:${logoW.toFixed(1)}mm">`
-    : '<span></span>';
+  // Logo à GAUCHE sur toute la hauteur ; colonne plus étroite par défaut pour
+  // laisser le texte tenir en pleine largeur (sinon il était coupé).
+  const logoW = Math.max(6, Number(_lblPrefs.logoW) || 17);
+  const logoCol = (_lblPrefs.logo && _lblField('logo'))
+    ? `<div class="lbl-logocol" style="width:${logoW}mm"><img class="lbl-logo" alt="" src="${esc(_lblPrefs.logo)}"></div>`
+    : '';
   const cuve = (e.source_type === 'cuve' || e.source_type === 'essai') ? _srcLabel(e) : '-';
   const vol  = (e.volume_presente != null && e.volume_presente !== '')
     ? fmt(e.volume_presente) + ' hL'
     : (Number(e.nb_bouteilles) || 0) + '×' + fmt(e.volume_bouteille_l) + ' L';
-  const qrmm = Math.min(mdl.h * 0.32, mdl.w * 0.26, 16);
-  const qr = _lblQrOn()
+  // QR en haut à droite du bloc texte (petit), si activé.
+  const qrmm = Math.min(mdl.h * 0.30, mdl.w * 0.20, 13);
+  const qr = (_lblQrOn() && _lblField('qr'))
     ? `<div class="lbl-qr" style="width:${qrmm.toFixed(1)}mm;height:${qrmm.toFixed(1)}mm">${_qrSvg(_echUrl(e.numero))}</div>`
-    : '<span></span>';
+    : '';
+  const degre = (e.degre_alcoolique != null && e.degre_alcoolique !== '')
+    ? `${fmt(e.degre_alcoolique)} % vol` : '';
+
+  // UNE ligne pleine largeur par champ (seuls les actifs ET renseignés) → le
+  // texte tient et reste lisible, et il n'y a pas de trou pour les champs vides.
+  const lines = [
+    ['millesime', 'Millésime', e.millesime],
+    ['lot',       'Lot',       e.lot_texte],
+    ['degre',     'Degré',     degre],
+    ['cuve',      'Cuve',      cuve],
+    ['vol',       'Vol',       vol],
+    ['client',    'Client',    e.client],
+  ].filter(([k, , v]) => _lblField(k) && v != null && v !== '' && v !== '-')
+   .map(([, lbl, v]) => `<div class="lbl-line">${lbl} : ${esc(v)}</div>`).join('');
+
+  // Pied : numéro + date sur une ligne ; coordonnées en dessous, enroulables.
+  const footTop = [
+    _lblField('numero') && e.numero ? `<span class="lbl-num">${esc(e.numero)}</span>` : '',
+    _lblField('date')   ? `<span class="lbl-date">${esc(frDate(e.date_echantillon))}</span>` : '',
+  ].join('');
+  const footTel = (_lblField('tel') && tel) ? `<div class="lbl-tel">${esc(tel)}</div>` : '';
+
   // Police proportionnelle à la hauteur (base 33,9 mm), bornée pour ne pas rogner.
   const fs = Math.max(6.2, Math.min(13, 6.5 * mdl.h / 33.9));
   return `<div class="lbl" style="width:${mdl.w}mm;height:${mdl.h}mm;font-size:${fs.toFixed(2)}pt">
-    <div class="lbl-head">${logo}${qr}</div>
-    <div class="lbl-vin">${esc(e.vin || '—')}</div>
-    <div class="lbl-row"><span>Millésime : ${esc(e.millesime || '-')}</span><span>Lot : ${esc(e.lot_texte || '-')}</span></div>
-    <div class="lbl-row"><span>Cuve : ${esc(cuve)}</span><span>Vol : ${esc(vol)}</span></div>
-    <div class="lbl-row"><span>Client : ${esc(e.client || '-')}</span></div>
-    <div class="lbl-foot"><span class="lbl-num">${esc(e.numero || '')}</span><span class="lbl-date">${esc(frDate(e.date_echantillon))}</span><span class="lbl-tel">${esc(tel)}</span></div>
+    ${logoCol}
+    <div class="lbl-body">
+      ${_lblField('vin') ? `<div class="lbl-vinrow"><span class="lbl-vin">${esc(e.vin || '—')}</span>${qr}</div>`
+                         : (qr ? `<div class="lbl-vinrow"><span class="lbl-vin"></span>${qr}</div>` : '')}
+      ${lines}
+      ${(footTop || footTel) ? `<div class="lbl-foot">${footTop ? `<div class="lbl-footline">${footTop}</div>` : ''}${footTel}</div>` : ''}
+    </div>
   </div>`;
 }
 
@@ -628,7 +744,15 @@ async function printLabels(){
   });
   if (!labels.length) { toast('Aucun échantillon sélectionné.', 'info'); return; }
 
-  const pageStyle = `width:210mm;min-height:296mm;padding:${mdl.padY}mm ${mdl.padX}mm;`
+  // Calibrage fin (mm) : décale toute la grille pour compenser une planche
+  // d'étiquettes non standard ou la dérive de l'imprimante. offsetY négatif
+  // = remonte ; offsetX négatif = vers la gauche. Marges padding (clampées
+  // à 0 par le navigateur si la somme passe sous zéro).
+  const offX = Number(_lblPrefs.offsetX) || 0;
+  const offY = Number(_lblPrefs.offsetY) || 0;
+  const padTop  = Math.max(0, mdl.padY + offY);
+  const padLeft = Math.max(0, mdl.padX + offX);
+  const pageStyle = `width:210mm;min-height:296mm;padding:${padTop}mm ${mdl.padX}mm ${mdl.padY}mm ${padLeft}mm;`
     + `grid-template-columns:repeat(${mdl.cols}, ${mdl.w}mm);grid-auto-rows:${mdl.h}mm;`
     + `column-gap:${mdl.gapX}mm;row-gap:${mdl.gapY}mm`;
   let html = '';

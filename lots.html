@@ -324,21 +324,6 @@
       </div>
     </div>
 
-    <div class="drawer-section" id="agrement-section" style="display:none">
-      <div class="drawer-section-title">🔒 Agrément</div>
-      <div id="agrement-status" style="margin-bottom:var(--space-2)"></div>
-      <div class="field">
-        <label class="field-label">Notes (motif, référence dossier…)</label>
-        <textarea class="input" id="f-agrement-notes" rows="2" placeholder="Optionnel" style="resize:vertical"></textarea>
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:var(--space-2)">
-        <button class="btn btn--secondary btn--sm" onclick="submitAgrement('en_attente')">🔒 Soumettre à agrément</button>
-        <button class="btn btn--secondary btn--sm" onclick="submitAgrement('valide')">✅ Valider</button>
-        <button class="btn btn--secondary btn--sm" onclick="submitAgrement('refuse')">❌ Refuser</button>
-      </div>
-      <div class="field-help" style="margin-top:var(--space-2)">Tant que l'agrément est « en attente », aucun mouvement physique (transfert, assemblage, soutirage…) n'est possible sur ce lot.</div>
-    </div>
-
     <div class="drawer-section">
       <div class="drawer-section-title">Notes</div>
       <div class="field">
@@ -1290,7 +1275,6 @@ async function openDrawer(id = null) {
     if (document.getElementById('f-appellation')) document.getElementById('f-appellation').value = l.appellation || '';
     if (document.getElementById('f-destination')) document.getElementById('f-destination').value = l.destination || '';
     document.getElementById('f-societe').innerHTML = _societeSelectOpts(l.societe || '');
-    renderAgrementSection(l);
     document.querySelector(`input[name="couleur"][value="${l.couleur||'rouge'}"]`).checked = true;
     const selected = new Map((l.lot_cepages||[]).map(lc => [lc.cepages?.id, lc.pourcentage]));
     renderCepagesGrid(selected);
@@ -1320,7 +1304,6 @@ async function openDrawer(id = null) {
     if (document.getElementById('f-appellation')) document.getElementById('f-appellation').value = '';
     if (document.getElementById('f-destination')) document.getElementById('f-destination').value = '';
     document.getElementById('f-societe').innerHTML = _societeSelectOpts('');
-    document.getElementById('agrement-section').style.display = 'none';
     document.querySelector('input[name="couleur"][value="rouge"]').checked = true;
     renderCepagesGrid(new Map());
     currentContenantRows = [];
@@ -1366,38 +1349,8 @@ async function onSocieteSelect() {
   } catch(e) { toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error'); sel.value = prev; }
 }
 
-// ── Agrément (mig 094) ───────────────────────────────────────────
-const AGREMENT_BADGE = {
-  en_attente: { label: '🔒 En attente d\'agrément', bg: '#fff0e0', fg: '#e65100' },
-  valide:     { label: '✅ Agrément validé',         bg: '#e6f4ea', fg: '#2e7d32' },
-  refuse:     { label: '❌ Agrément refusé',          bg: '#fdecea', fg: '#c62828' },
-};
-
-function renderAgrementSection(l) {
-  const sec = document.getElementById('agrement-section');
-  if (!editingId) { sec.style.display = 'none'; return; }
-  sec.style.display = '';
-  const st = AGREMENT_BADGE[l.agrement_statut];
-  document.getElementById('agrement-status').innerHTML = st
-    ? `<span style="background:${st.bg};color:${st.fg};padding:3px 10px;border-radius:999px;font-size:var(--text-caption);font-weight:600">${st.label}</span>${l.agrement_date ? ` <span class="t-footnote" style="color:var(--color-ink-tertiary)">depuis le ${escapeHtml(l.agrement_date)}</span>` : ''}`
-    : '<span class="t-footnote" style="color:var(--color-ink-tertiary)">Pas concerné par l\'agrément.</span>';
-  document.getElementById('f-agrement-notes').value = l.agrement_notes || '';
-}
-
-async function submitAgrement(statut) {
-  if (!editingId) return;
-  const notes = document.getElementById('f-agrement-notes').value.trim() || null;
-  try {
-    await WB3DB.setAgrementLot(editingId, statut, notes);
-    toast('Agrément mis à jour', 'success');
-    await refreshLotLocal(editingId);
-    const l = lots.find(x => x.id === editingId);
-    if (l) renderAgrementSection(l);
-    render();
-  } catch(e) {
-    toast('Échec : ' + (WB3DB.errMsg ? WB3DB.errMsg(e) : e.message), 'error');
-  }
-}
+// Agrément (mig 094) : déplacé en opération À LA CUVE (cuverie.html).
+// L'agrément n'est plus géré au niveau du lot — voir Cuverie ▸ ⚙️ Opération ▸ 🔒 Agrément.
 
 function renderCepagesGrid(selectedMap = new Map()) {
   const grid = document.getElementById('f-cepages-grid');

@@ -146,6 +146,7 @@
     </div>
     <div style="flex:1"></div>
     <button class="btn btn--secondary btn--sm" id="btn-clear-filters" onclick="clearAllColumnFilters()" style="display:none">✕ Filtres actifs</button>
+    <button class="btn btn--secondary btn--sm" id="btn-import-xlsx" onclick="openProduitsImport()" title="Importer un inventaire produits depuis un fichier Excel">📥 Importer (xlsx)</button>
     <button class="btn btn--secondary btn--sm" onclick="exportCSV()">📤 CSV</button>
   </div>
 
@@ -298,6 +299,8 @@
 <script src="auth.js"></script>
 <script src="nav.js"></script>
 <script src="wb3-help.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="lib/wb3-import.js"></script>
 
 <script>
 'use strict';
@@ -436,6 +439,112 @@ async function loadLots() {
   try {
     lots = await WB3DB.getProduitLots();
   } catch(e) { console.error('[WB3 lots produits]', e); lots = []; }
+}
+
+// ── Import inventaire produits (xlsx) ─────────────────────────────
+function _impNum(v){ if(v==null||v==='')return null; const n=Number(String(v).replace(',','.').replace(/[^\d.\-]/g,'')); return Number.isFinite(n)?n:null; }
+function _impDate(v){
+  if(v==null||v==='')return null;
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  if(typeof v==='number'){ const d=new Date(Math.round((v-25569)*86400000)); return isNaN(d)?null:d.toISOString().slice(0,10); }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){ let y=m[3]; if(y.length===2)y='20'+y; return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d=new Date(s); return isNaN(d)?null:d.toISOString().slice(0,10);
+}
+function openProduitsImport(){
+  const COLS = [
+    { key:'nom',                  header:'Nom',                 example:'Solution SO2 P18' },
+    { key:'categorie',            header:'Catégorie',           example:'sulfitant', aliases:['type'] },
+    { key:'sous_categorie',       header:'Sous-catégorie',      example:'' },
+    { key:'fournisseur',          header:'Fournisseur',         example:'Œno France' },
+    { key:'reference_fournisseur',header:'Référence',           example:'SO2-P18' },
+    { key:'unite_stock',          header:'Unité de stock',      example:'L', aliases:['unite stock','unité stock'] },
+    { key:'dose_min',             header:'Dose min',            example:'' },
+    { key:'dose_max',             header:'Dose max',            example:'10' },
+    { key:'dose_unite',           header:'Unité de dose',       example:'g/hL', aliases:['unite dose'] },
+    { key:'concentration',        header:'Concentration',       example:'180' },
+    { key:'concentration_libelle',header:'Libellé concentration', example:'180 g SO2/L', aliases:['libelle concentration'] },
+    { key:'notes',                header:'Notes',               example:'' },
+    { key:'quantite',             header:'Quantité en stock',   example:'25', aliases:['quantite','quantité','stock'] },
+    { key:'unite_qte',            header:'Unité quantité',      example:'L', aliases:['unite quantite','unité quantité'] },
+    { key:'dluo',                 header:'DLUO',                example:'2027-06-30' },
+    { key:'numero_lot',           header:'N° lot',              example:'A2026-12', aliases:['numero lot','n lot','lot'] },
+  ];
+  WB3Import.run({
+    title: '📥 Import inventaire produits',
+    templateName: 'modele_inventaire_produits.xlsx',
+    sheetName: 'Produits',
+    instructions: 'Colonne <b>Nom</b> obligatoire. Si un produit du même nom existe déjà, ses infos sont mises à jour (régularisation) ; sinon il est créé. Renseigne <b>Quantité en stock</b> (+ unité / DLUO / n° lot) pour fixer le stock — s\'il y a déjà un lot unique, sa quantité est régularisée.',
+    columns: COLS,
+    examples: [ Object.fromEntries(COLS.map(c => [c.key, c.example])) ],
+    prepare: (row) => {
+      const nom = String(row.nom || '').trim();
+      if (!nom) return { status:'error', label:'(ligne sans nom)', msg:'colonne « Nom » vide' };
+      const existing = catalogue.find(p => (p.nom||'').toLowerCase() === nom.toLowerCase());
+      const cat = {
+        nom,
+        categorie: String(row.categorie || '').trim() || 'autre',
+        sous_categorie: String(row.sous_categorie || '').trim() || null,
+        fournisseur: String(row.fournisseur || '').trim() || null,
+        reference_fournisseur: String(row.reference_fournisseur || '').trim() || null,
+        unite_stock: String(row.unite_stock || '').trim() || null,
+        dose_min: _impNum(row.dose_min),
+        dose_max: _impNum(row.dose_max),
+        dose_unite: String(row.dose_unite || '').trim() || null,
+        concentration: _impNum(row.concentration),
+        concentration_libelle: String(row.concentration_libelle || '').trim() || null,
+        notes: String(row.notes || '').trim() || null,
+      };
+      const qte = _impNum(row.quantite);
+      const stock = qte != null ? {
+        quantite: qte,
+        unite: String(row.unite_qte || row.unite_stock || '').trim() || null,
+        dluo: _impDate(row.dluo),
+        numero_lot: String(row.numero_lot || '').trim() || null,
+      } : null;
+      return {
+        status: existing ? 'update' : 'create',
+        label: `${nom}${cat.categorie ? ' · ' + cat.categorie : ''}${qte != null ? ' · ' + qte + ' ' + (stock.unite || '') : ''}`,
+        msg: existing ? 'produit déjà au catalogue' : 'nouveau produit',
+        data: { cat, stock, existingId: existing ? existing.id : null },
+      };
+    },
+    commit: async (rows, onProgress) => {
+      // Lots existants groupés par produit (pour la régularisation de quantité).
+      let lotsByProduit = {};
+      try {
+        const allLots = await WB3DB.listTable('produits_lots', { select: 'id, produit_id, quantite_actuelle' });
+        (allLots || []).forEach(l => { (lotsByProduit[l.produit_id] = lotsByProduit[l.produit_id] || []).push(l); });
+      } catch (_) {}
+      let ok = 0, fail = 0; const messages = [];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        try {
+          let produitId = r.existingId;
+          if (produitId) await WB3DB.updateRow('produits_catalogue', produitId, r.cat);
+          else { const created = await WB3DB.insertRow('produits_catalogue', r.cat); produitId = created.id; }
+          if (r.stock) {
+            const existingLots = lotsByProduit[produitId] || [];
+            if (existingLots.length === 1) {
+              await WB3DB.updateRow('produits_lots', existingLots[0].id, { quantite_actuelle: r.stock.quantite, unite: r.stock.unite, dluo: r.stock.dluo, numero_lot: r.stock.numero_lot });
+            } else {
+              await WB3DB.insertRow('produits_lots', {
+                produit_id: produitId, numero_lot: r.stock.numero_lot, dluo: r.stock.dluo,
+                quantite_initiale: r.stock.quantite, quantite_actuelle: r.stock.quantite,
+                unite: r.stock.unite, date_reception: new Date().toISOString().slice(0,10),
+              });
+            }
+          }
+          ok++;
+        } catch (e) { fail++; messages.push(`${r.cat.nom} : ${WB3DB.errMsg ? WB3DB.errMsg(e) : (e.message || e)}`); }
+        onProgress(i + 1, rows.length);
+      }
+      return { ok, fail, messages };
+    },
+    onDone: async () => { await Promise.all([loadCatalogue(), loadLots()]); buildCatChips(); render(); },
+  });
 }
 
 let _rtTimer = null;

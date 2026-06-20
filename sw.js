@@ -9,11 +9,11 @@
  * icônes/manifest. PAS de cache des données métier (Supabase) — réservé à 9.5
  * (hors-ligne). Les requêtes Supabase passent au réseau, sans cache.
  * ============================================================ */
-const CACHE_NAME = 'wb3-shell-v45-vitiflux';
+const CACHE_NAME = 'wb3-shell-v57-winescan';
 
 const SHELL = [
   'index.html', 'app.html', 'shell.html', 'theme.css',
-  'lib/supabase.min.js',
+  'lib/supabase.min.js', 'lib/winescan.js',
   'config.js', 'db.js', 'auth.js', 'nav.js', 'wb3-init.js', 'toast.js', 'wb3-help.js',
   'manifest.json',
   'img/icon-wineblender-192.png', 'img/icon-wineblender-512.png',

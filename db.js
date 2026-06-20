@@ -781,7 +781,7 @@
                volume_initial_hl, volume_actuel_hl,
                notes, actif, date_entree,
                appellation, destination, type_lot,
-               societe, agrement_statut,
+               societe,
                numero_lot)
         )
       `)
@@ -2412,12 +2412,12 @@
     if (error) throw error;
   }
 
-  // ── Verrou Agrément — mig 094 ────────────────────────────────────
-  async function setAgrementLot(lotId, statut, notes = null) {
+  // ── Verrou Agrément (À LA CUVE) — mig 094 ────────────────────────
+  async function setAgrementContenant(contenantId, statut, notes = null) {
     ensureLoggedIn();
     const tenantId = requireTenant();
     const { data, error } = await client.rpc('wb3_set_agrement', {
-      p_tenant_id: tenantId, p_lot_id: lotId, p_statut: statut, p_notes: notes,
+      p_tenant_id: tenantId, p_contenant_id: contenantId, p_statut: statut, p_notes: notes,
     });
     if (error) throw error;
     return data;
@@ -3005,7 +3005,7 @@
     addLotSociete,
     renameLotSociete,
     deleteLotSociete,
-    setAgrementLot,
+    setAgrementContenant,
     createCorrectiveOperation,
     convertMultilotToAssemblage,
     softDelete,
