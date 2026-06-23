@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Registre de cave — VitiFlux</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+<style>
+/* ── Badges type_mouvement ─────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: .2px;
+}
+.badge-entree            { background:#e8f5e9; color:#2e7d32; }
+.badge-sortie            { background:#ffebee; color:#b71c1c; }
+.badge-sortie-def        { background:#fce4ec; color:#880e4f; font-style:italic; }
+.badge-transfert         { background:#e3f2fd; color:#1565c0; }
+.badge-traitement        { background:#fff3e0; color:#e65100; }
+.badge-enrichissement    { background:#f3e5f5; color:#6a1b9a; }
+.badge-agrement          { background:#e0f2f1; color:#00695c; }
+
+/* ── Filter bar ───────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+.filter-bar label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-callout);
+  color: var(--color-ink-secondary);
+  white-space: nowrap;
+}
+.filter-bar input[type="date"] {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--text-callout);
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+.filter-bar input[type="date"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(106,27,42,.12);
+}
+.filter-spacer { flex: 1; }
+.filter-count {
+  font-size: var(--text-caption);
+  color: var(--color-ink-tertiary);
+}
+
+/* ── KPIs ─────────────────────────────────────────────────── */
+.kpi-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+.kpi-card {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  min-width: 130px;
+}
+.kpi-card .kpi-val {
+  font-size: var(--text-title-3);
+  font-weight: 700;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+.kpi-card .kpi-lbl {
+  font-size: var(--text-caption);
+  color: var(--color-ink-tertiary);
+  margin-top: 1px;
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+.table-wrap {
+  padding: 0 var(--space-5) var(--space-6);
+  overflow-x: auto;
+}
+.reg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-callout);
+}
+.reg-table th {
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--color-ink-tertiary);
+  font-weight: 600;
+  background: var(--color-bg-subtle);
+  padding: 7px 10px;
+  border-bottom: 2px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  white-space: nowrap;
+}
+.reg-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  vertical-align: middle;
+}
+.reg-table tbody tr:last-child td { border-bottom: none; }
+.reg-table tbody tr:hover td { background: var(--color-bg-subtle); }
+.reg-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.reg-table .muted { color: var(--color-ink-tertiary); font-size:.9em; }
+
+/* ── Empty / loading ──────────────────────────────────────── */
+.reg-empty {
+  padding: var(--space-7) var(--space-5);
+  text-align: center;
+  color: var(--color-ink-tertiary);
+}
+.reg-empty .icon { font-size: 40px; margin-bottom: var(--space-3); }
+.reg-empty .title { font-weight: 600; font-size: var(--text-body); color: var(--color-ink-secondary); }
+.reg-empty .desc { font-size: var(--text-callout); margin-top: var(--space-2); }
+
+/* ── Print ─────────────────────────────────────────────────── */
+.print-header { display: none; }
+
+@media print {
+  #wb3-nav,
+  .filter-bar,
+  .header-actions,
+  .kpi-row { display: none !important; }
+
+  .wb-header { border-bottom: 1px solid #ccc; padding: 6px 12px; }
+  .breadcrumb-current { font-size: 11pt; font-weight: 700; }
+  .tenant-pill { font-size: 9pt; }
+
+  .print-header {
+    display: block !important;
+    padding: 8px 0 12px;
+    border-bottom: 2px solid #333;
+    margin-bottom: 10px;
+    font-size: 10pt;
+  }
+  .print-header h1 { margin: 0 0 2px; font-size: 14pt; }
+  .print-header .ph-meta { color: #555; font-size: 9pt; }
+
+  .table-wrap { padding: 0; overflow: visible; }
+  .reg-table { font-size: 8pt; }
+  .reg-table th, .reg-table td { padding: 3px 5px; border: 1px solid #ccc; }
+  .reg-table th { background: #f0f0f0 !important; color: #333 !important; position: static; }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+  body { background: white !important; color: black !important; }
+
+  .badge { border: 1px solid currentColor; background: transparent !important; font-size: 7pt; }
+
+  @page { size: A4 landscape; margin: 15mm; }
+}
+</style>
+</head>
+<body>
+<nav id="wb3-nav"></nav>
+<div class="wb-page">
+  <header class="wb-header">
+    <div class="breadcrumb-flex">
+      <span class="breadcrumb-sep"></span>
+      <span class="breadcrumb-current">Registre de cave</span>
+      <span class="tenant-pill" id="tenant-pill"></span>
+    </div>
+    <div class="header-actions">
+      <button id="btn-csv" class="btn btn-secondary" disabled>&#x2B07; CSV</button>
+      <button id="btn-print" class="btn btn-secondary" disabled>&#x1F5A8; Imprimer</button>
+    </div>
+  </header>
+
+  <!-- Filtres période -->
+  <div class="filter-bar" id="filter-bar">
+    <label>Du&nbsp;<input type="date" id="f-du"></label>
+    <label>au&nbsp;<input type="date" id="f-au"></label>
+    <button id="btn-refresh" class="btn btn-primary" style="padding:6px 14px">Actualiser</button>
+    <div class="filter-spacer"></div>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+
+  <!-- En-tête impression (caché à l'écran) -->
+  <div class="print-header" id="print-header">
+    <h1>Registre de cave dématérialisé</h1>
+    <div class="ph-meta" id="ph-meta"></div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <!-- Contenu principal (table ou état vide) -->
+  <div id="content">
+    <div class="reg-empty">
+      <div class="icon">📒</div>
+      <div class="title">Sélectionnez une période</div>
+      <div class="desc">Choisissez les dates ci-dessus et cliquez sur Actualiser.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+const BADGE_MAP = {
+  entree:              { label: 'Entrée',        cls: 'badge-entree' },
+  sortie:              { label: 'Sortie',              cls: 'badge-sortie' },
+  sortie_definitive:   { label: 'Sortie déf.',   cls: 'badge-sortie-def' },
+  transfert:           { label: 'Transfert',           cls: 'badge-transfert' },
+  traitement:          { label: 'Traitement',          cls: 'badge-traitement' },
+  traitement_so2:      { label: 'SO₂',            cls: 'badge-traitement' },
+  traitement_levurage: { label: 'Levurage',            cls: 'badge-traitement' },
+  traitement_collage:  { label: 'Collage',             cls: 'badge-traitement' },
+  enrichissement:      { label: 'Enrichissement',      cls: 'badge-enrichissement' },
+  agrement:            { label: 'Agrément',       cls: 'badge-agrement' },
+};
+
+let _lastLignes = [];
+
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function fmtVol(v) {
+  if (v === null || v === undefined || v === '') return '—';
+  return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' hL';
+}
+
+function renderKPIs(totaux) {
+  const row = document.getElementById('kpi-row');
+  if (!totaux || !Object.keys(totaux).length) { row.innerHTML = ''; return; }
+
+  let totalLignes = 0;
+  let totalVol = 0;
+  const cards = Object.entries(totaux).map(([type, stat]) => {
+    const b = BADGE_MAP[type] || { label: type, cls: '' };
+    totalLignes += stat.nb_lignes || 0;
+    if (stat.volume_hl) totalVol += Number(stat.volume_hl);
+    const vol = stat.volume_hl != null
+      ? Number(stat.volume_hl).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' hL'
+      : '—';
+    return `<div class="kpi-card">
+      <div class="kpi-val">${(stat.nb_lignes || 0)}<span style="font-size:.6em;font-weight:400;color:var(--color-ink-tertiary);margin-left:4px">op.</span></div>
+      <div class="kpi-lbl"><span class="badge ${b.cls}">${b.label}</span></div>
+      <div class="kpi-lbl" style="margin-top:2px">${vol}</div>
+    </div>`;
+  });
+
+  const totCard = `<div class="kpi-card" style="border:1px solid var(--color-border)">
+    <div class="kpi-val">${totalLignes}<span style="font-size:.6em;font-weight:400;color:var(--color-ink-tertiary);margin-left:4px">total</span></div>
+    <div class="kpi-lbl">Toutes opérations</div>
+    ${totalVol ? `<div class="kpi-lbl" style="margin-top:2px">${totalVol.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} hL flux</div>` : ''}
+  </div>`;
+
+  row.innerHTML = totCard + cards.join('');
+}
+
+function renderTable(lignes) {
+  const content = document.getElementById('content');
+  if (!lignes.length) {
+    content.innerHTML = `<div class="reg-empty">
+      <div class="icon">\u{1F4D2}</div>
+      <div class="title">Aucune opération sur cette période</div>
+      <div class="desc">Essayez une période plus large.</div>
+    </div>`;
+    return;
+  }
+
+  const rows = lignes.map(l => {
+    const b = BADGE_MAP[l.type_mouvement] || { label: esc(l.type_mouvement || '—'), cls: '' };
+    const src = l.contenant_src_nom || '';
+    const dst = l.contenant_dst_nom || '';
+    let mouv = '—';
+    if (src && dst) mouv = `${esc(src)}&nbsp;→&nbsp;${esc(dst)}`;
+    else if (src)   mouv = esc(src);
+    else if (dst)   mouv = esc(dst);
+
+    const lot = l.lot_nom
+      ? `${esc(l.lot_nom)}${l.lot_millesime ? ' <span class="muted">' + esc(String(l.lot_millesime)) + '</span>' : ''}`
+      : '—';
+
+    return `<tr>
+      <td style="white-space:nowrap">${fmtDate(l.date_evenement)}</td>
+      <td><span class="badge ${b.cls}">${b.label}</span></td>
+      <td>${esc(l.categorie || '')}</td>
+      <td>${lot}</td>
+      <td style="white-space:nowrap">${mouv}</td>
+      <td class="num">${fmtVol(l.volume_hl)}</td>
+      <td class="num">${l.degre != null ? Number(l.degre).toFixed(1) + ' %' : '—'}</td>
+      <td>${esc(l.intrant_dose || '')}</td>
+      <td>${esc(l.operateur || '')}</td>
+      <td>${esc(l.reference_piece || '')}</td>
+    </tr>`;
+  }).join('');
+
+  content.innerHTML = `<div class="table-wrap">
+    <table class="reg-table" id="reg-table">
+      <thead><tr>
+        <th>Date</th>
+        <th>Type</th>
+        <th>Catégorie</th>
+        <th>Lot</th>
+        <th>Contenant(s)</th>
+        <th class="num">Volume</th>
+        <th class="num">Degré</th>
+        <th>Intrant</th>
+        <th>Opérateur</th>
+        <th>Pièce</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function updatePrintHeader(du, au) {
+  const tenant = (document.getElementById('tenant-pill') || {}).textContent || '';
+  const duStr  = du ? fmtDate(du) : '—';
+  const auStr  = au ? fmtDate(au) : '—';
+  const today  = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const el = document.getElementById('ph-meta');
+  if (el) el.innerHTML = `${esc(tenant)} &mdash; Période : ${duStr} au ${auStr} &mdash; Édité le ${today}`;
+}
+
+function exportCsv() {
+  if (!_lastLignes.length) return;
+  const headers = ['Date', 'Type', 'Catégorie', 'Lot', 'Millésime',
+    'Contenant src', 'Contenant dst', 'Volume hL', 'Degré',
+    'Intrant/dose', 'Opérateur', 'Pièce'];
+  const csv = '﻿' + [
+    headers.join(';'),
+    ..._lastLignes.map(l => [
+      l.date_evenement, l.type_mouvement, l.categorie, l.lot_nom, l.lot_millesime,
+      l.contenant_src_nom, l.contenant_dst_nom, l.volume_hl, l.degre,
+      l.intrant_dose, l.operateur, l.reference_piece,
+    ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')),
+  ].join('\r\n');
+  WB3Nav.downloadFile(csv, `registre-cave-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8');
+}
+
+async function loadData() {
+  const du = document.getElementById('f-du').value || null;
+  const au = document.getElementById('f-au').value || null;
+
+  document.getElementById('content').innerHTML = `<div class="reg-empty">
+    <div class="icon" style="animation:spin 1s linear infinite;display:inline-block">⏳</div>
+    <div class="title">Chargement…</div>
+  </div>`;
+  document.getElementById('kpi-row').innerHTML = '';
+  document.getElementById('filter-count').textContent = '';
+
+  try {
+    const result = await WB3DB.queryRegistreCave(du, au);
+    _lastLignes = result.lignes || [];
+    renderKPIs(result.totaux || {});
+    renderTable(_lastLignes);
+    updatePrintHeader(du, au);
+    document.getElementById('filter-count').textContent =
+      _lastLignes.length + ' ligne' + (_lastLignes.length > 1 ? 's' : '');
+    document.getElementById('btn-csv').disabled   = (_lastLignes.length === 0);
+    document.getElementById('btn-print').disabled = (_lastLignes.length === 0);
+  } catch (e) {
+    console.error('[registre] loadData:', e);
+    document.getElementById('content').innerHTML = `<div class="reg-empty">
+      <div class="icon">⚠️</div>
+      <div class="title">Erreur de chargement</div>
+      <div class="desc">${esc(e.message || String(e))}</div>
+    </div>`;
+  }
+}
+
+// ── Init ────────────────────────────────────────────────────
+(async function init() {
+  if (typeof window.WB3DB === 'undefined' || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML = `<div class="reg-empty">
+      <div class="icon">❌</div>
+      <div class="title">Modules WB3 non chargés</div>
+      <div class="desc">Rechargez la page (Ctrl+Maj+R).</div>
+    </div>`;
+    return;
+  }
+
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML = `<div class="reg-empty">
+      <div class="icon">⚠️</div>
+      <div class="title">Aucun tenant accessible</div>
+      <div class="desc">Connectez-vous et réessayez.</div>
+    </div>`;
+    return;
+  }
+
+  const pill = document.getElementById('tenant-pill');
+  if (pill) pill.textContent = `🏢 ${ctx.tenant.nom} · ${ctx.tenant.role}`;
+
+  const ok = await WB3DB.ensureModule('registre', 'content');
+  if (!ok) return;
+
+  // Période par défaut : 1er janvier → aujourd'hui
+  const today   = new Date();
+  const todayS  = today.toISOString().split('T')[0];
+  const janFirst = `${today.getFullYear()}-01-01`;
+  document.getElementById('f-du').value = janFirst;
+  document.getElementById('f-au').value = todayS;
+
+  document.getElementById('btn-refresh').addEventListener('click', loadData);
+  document.getElementById('btn-csv').addEventListener('click', exportCsv);
+  document.getElementById('btn-print').addEventListener('click', () => window.print());
+
+  // Entrée sur le champ date = actualisation immédiate
+  ['f-du', 'f-au'].forEach(id => {
+    document.getElementById(id).addEventListener('change', loadData);
+  });
+
+  await loadData();
+}());
+</script>
+</body>
+</html>

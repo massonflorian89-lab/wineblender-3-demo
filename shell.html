@@ -137,6 +137,18 @@
   .shell-nav.collapsed .nav-logo .n-icon { display: none; }
   .shell-nav.collapsed .nav-hamburger { margin-left: 0; }
 
+  /* ── Bannière état réseau ─────────────────────────────────────── */
+  #wb3-network-banner {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    flex-shrink: 0;
+    font-size: 13px; font-weight: 600; letter-spacing: .2px;
+    max-height: 0; overflow: hidden; opacity: 0;
+    transition: max-height .25s ease, opacity .25s ease;
+  }
+  #wb3-network-banner.show { max-height: 36px; opacity: 1; }
+  #wb3-network-banner.offline  { background: #b91c1c; color: #fff; }
+  #wb3-network-banner.back     { background: #15803d; color: #fff; }
+
   /* ── Shell body ───────────────────────────────────────────────── */
   .shell-body {
     margin-left: var(--nav-w); height: 100vh;
@@ -276,11 +288,17 @@
 <!-- ── Main body ──────────────────────────────────────────────── -->
 <div class="shell-body" id="shell-body">
 
+<!-- ── Bannière réseau (hors-ligne / reconnexion) ────────────── -->
+<div id="wb3-network-banner" role="status" aria-live="polite" aria-atomic="true"></div>
+
   <!-- Toolbar -->
   <div class="shell-toolbar">
     <span class="shell-breadcrumb" id="shell-breadcrumb">Chargement…</span>
     <div class="tb-sep"></div>
     <div class="tb-spacer"></div>
+    <button class="tb-btn" id="btn-search" onclick="shellSearchOpen()" title="Rechercher une cuve, un lot… (Ctrl+K)">
+      🔎 <span style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted)">⌘K</span>
+    </button>
     <button class="tb-btn" id="btn-split" onclick="toggleSplit()" title="Afficher deux modules côte à côte">
       ⊞ Vue partagée
     </button>
@@ -348,6 +366,10 @@ const NICON = {
   bottle:         _NIC('<path d="M9.5 2h5"/><path d="M10 2v4"/><path d="M14 2v4"/><path d="M10 6c-1.2 .6-2 1.8-2 3.2V20a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V9.2c0-1.4-.8-2.6-2-3.2"/><path d="M8 13h8"/>'),
   hopper:         _NIC('<path d="M3 4h18l-7 9v7h-4v-7z"/><path d="M8 8h8"/>'),
   report:         _NIC('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M8 18v-3M12 18v-6M16 18v-2"/>'),
+  shieldCheck:    _NIC('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/>'),
+  intrant:        _NIC('<path d="M4.5 3h15"/><path d="M6 3v7l-4 9a1 1 0 0 0 .9 1.4h14.2a1 1 0 0 0 .9-1.4L14 10V3"/><path d="M6.5 14.5h11"/>'),
+  ai:             _NIC('<path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2Z"/><circle cx="7.5" cy="14.5" r="1.5"/><circle cx="16.5" cy="14.5" r="1.5"/>'),
+  list:           _NIC('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
   settings:       _NIC('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>'),
 };
 const NAV_ITEMS = [
@@ -362,7 +384,11 @@ const NAV_ITEMS = [
   { href: 'analyses.html',   icon: '🔬', iconHTML: NICON.microscope,     label: 'Analyses' },
   { href: 'assemblage.html', icon: '🧪', iconHTML: NICON.blend,          label: 'Assemblage' },
   { href: 'echantillons.html', icon: '🍾', iconHTML: NICON.bottle,       label: 'Échantillons' },
-  { href: 'rapports.html',   icon: '📋', iconHTML: NICON.report,         label: 'Rapports' },
+  { href: 'rapports.html',      icon: '📋', iconHTML: NICON.report,       label: 'Rapports' },
+  { href: 'registre.html',      icon: '📒', iconHTML: NICON.list,          label: 'Registre de cave' },
+  { href: 'qualite-traca.html', icon: '🩺', iconHTML: NICON.shieldCheck,  label: 'Santé traça' },
+  { href: 'traitements.html',  icon: '🧫', iconHTML: NICON.intrant,       label: 'Intrants' },
+  { href: 'assistant.html',   icon: '🤖', iconHTML: NICON.ai,            label: 'Assistant IA', iaOnly: true },
   null, // separator
   { href: 'parametres.html', icon: '🔧', iconHTML: NICON.settings,       label: 'Paramètres' },
 ];
@@ -542,6 +568,8 @@ function toggleCollapse() {   // Cmd/Ctrl+B : bascule rail ↔ normal
   applyNavState(navCollapsed ? 'normal' : 'rail', true);
 }
 
+let _iaEnabled = false;
+
 // ── Build nav items ───────────────────────────────────────────────
 function buildNavItems() {
   const container = document.getElementById('nav-items');
@@ -553,6 +581,7 @@ function buildNavItems() {
       container.appendChild(sep);
       return;
     }
+    if (item.iaOnly && !_iaEnabled) return;
     const el = document.createElement('div');
     el.className   = 'shell-nav-item';
     el.dataset.href  = item.href;
@@ -568,7 +597,7 @@ function buildPanePickers() {
   ['left', 'right'].forEach(paneId => {
     const sel = document.getElementById('picker-' + paneId);
     sel.innerHTML = '';
-    NAV_ITEMS.filter(Boolean).forEach(item => {
+    NAV_ITEMS.filter(Boolean).filter(item => !item.iaOnly || _iaEnabled).forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.href;
       opt.textContent = item.icon + ' ' + item.label;
@@ -709,6 +738,195 @@ function initFrameLoadListeners() {
   });
 }
 
+// ── Recherche universelle (command-palette) ───────────────────────
+const shellSearch = (function () {
+  let _box = null, _cache = null, _items = [], _hi = 0, _loading = false;
+  const GROUP_ORDER = ['cuve','lot','analyse','echantillon','produit','operation'];
+  const GROUP_LABELS = { cuve:'Cuves', lot:'Lots', analyse:'Analyses', echantillon:'Échantillons', produit:'Produits', operation:'Opérations' };
+
+  function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
+  function _inject() {
+    if (document.getElementById('_srch-style')) return;
+    const st = document.createElement('style'); st.id = '_srch-style';
+    st.textContent =
+      '.wb3-srch-bd{position:fixed;inset:0;background:rgba(12,22,36,.45);z-index:3200;display:flex;align-items:flex-start;justify-content:center;padding:10vh 16px 16px;}' +
+      '.wb3-srch{background:var(--color-bg-elevated,#fff);color:var(--ink,#1a1a1a);width:min(660px,100%);max-height:75vh;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.4);overflow:hidden;display:flex;flex-direction:column;}' +
+      '.wb3-srch-head{display:flex;align-items:center;border-bottom:1px solid var(--border,#e2e5e9);}' +
+      '.wb3-srch-ic-in{padding:0 14px;font-size:17px;flex-shrink:0;}' +
+      '.wb3-srch-in{flex:1;border:none;outline:none;font:inherit;font-size:15px;padding:15px 14px 15px 0;background:none;color:inherit;}' +
+      '.wb3-srch-hint{font-size:11px;color:var(--muted,#999);padding:0 14px;white-space:nowrap;}' +
+      '.wb3-srch-res{overflow:auto;padding:6px 0;}' +
+      '.wb3-srch-grp{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted,#999);padding:10px 18px 3px;}' +
+      '.wb3-srch-it{display:flex;align-items:center;gap:11px;padding:8px 18px;cursor:pointer;border-radius:0;}' +
+      '.wb3-srch-it.hi,.wb3-srch-it:hover{background:rgba(0,0,0,.05);}' +
+      '.wb3-srch-icon{font-size:17px;width:24px;text-align:center;flex-shrink:0;}' +
+      '.wb3-srch-body{flex:1;min-width:0;}' +
+      '.wb3-srch-nm{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+      '.wb3-srch-sub{font-size:11.5px;color:var(--muted,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+      '.wb3-srch-badge{font-size:10px;padding:1px 7px;border-radius:999px;border:1px solid var(--border,#ddd);color:var(--muted,#888);white-space:nowrap;flex-shrink:0;}' +
+      '.wb3-srch-empty{padding:24px 18px;color:var(--muted,#888);font-size:13px;text-align:center;}' +
+      '.wb3-srch-footer{border-top:1px solid var(--border,#eee);padding:7px 18px;font-size:11px;color:var(--muted,#aaa);display:flex;gap:12px;}';
+    document.head.appendChild(st);
+  }
+
+  async function _load() {
+    if (_cache) return _cache;
+    if (_loading) return [];
+    _loading = true;
+    const out = [];
+    try {
+      const tenantId = WB3DB.getCurrentTenantId?.();
+      const [cuves, lots, analyses, echantillons, produits] = await Promise.all([
+        WB3DB.queryCuverieEtat  ? WB3DB.queryCuverieEtat().catch(()=>[]) : Promise.resolve([]),
+        WB3DB.listTable ? WB3DB.listTable('lots', { select:'id,nom,millesime,statut,couleur,actif', order:'nom' }).catch(()=>[]) : Promise.resolve([]),
+        WB3DB.queryAnalyses ? WB3DB.queryAnalyses({ limit: 400 }).catch(()=>[]) : Promise.resolve([]),
+        tenantId && WB3DB.client
+          ? WB3DB.client.from('echantillons').select('id,reference,client_nom,date_envoi,lot_id,lots(nom,millesime)').eq('tenant_id', tenantId).is('archived_at', null).order('created_at', { ascending: false }).limit(300).then(r=>r.data||[]).catch(()=>[])
+          : Promise.resolve([]),
+        WB3DB.listTable ? WB3DB.listTable('produits', { select:'id,nom,type,categorie', order:'nom' }).catch(()=>[]) : Promise.resolve([]),
+      ]);
+
+      // Cuves
+      (cuves || []).forEach(c => out.push({
+        type: 'cuve', icon: '🛢', badge: c.type || '',
+        name: c.contenant_nom || '—',
+        sub: c.lot_nom ? `${c.lot_nom}${c.millesime ? ' ' + c.millesime : ''} · ${c.volume_total_hl ?? 0} hL` : 'vide',
+        hay: [c.contenant_nom, c.lot_nom, c.millesime, String(c.volume_total_hl||'')].filter(Boolean).join(' ').toLowerCase(),
+        href: `contenant-detail.html?id=${encodeURIComponent(c.contenant_id)}`,
+      }));
+
+      // Lots
+      (lots || []).filter(l => l.actif !== false).forEach(l => out.push({
+        type: 'lot', icon: '🍷', badge: l.millesime || '',
+        name: l.nom || '—',
+        sub: [l.couleur, l.statut].filter(Boolean).join(' · '),
+        hay: [l.nom, l.millesime, l.couleur, l.statut].filter(Boolean).join(' ').toLowerCase(),
+        href: `lot-detail.html?id=${encodeURIComponent(l.id)}`,
+      }));
+
+      // Analyses → regroupées par lot (dédupliquées)
+      const analyseByLot = new Map();
+      (analyses || []).forEach(a => {
+        if (!a.lots) return;
+        const lotId = a.lots.id;
+        if (!analyseByLot.has(lotId)) {
+          analyseByLot.set(lotId, { count: 0, lastDate: a.date_analyse, lot: a.lots });
+        }
+        const entry = analyseByLot.get(lotId);
+        entry.count++;
+        if (!entry.lastDate || a.date_analyse > entry.lastDate) entry.lastDate = a.date_analyse;
+      });
+      analyseByLot.forEach((v, lotId) => {
+        const l = v.lot;
+        const nm = l.nom + (l.millesime ? ' ' + l.millesime : '');
+        out.push({
+          type: 'analyse', icon: '🔬', badge: `${v.count} analyse${v.count > 1 ? 's' : ''}`,
+          name: nm,
+          sub: v.lastDate ? `Dernière le ${v.lastDate.slice(0, 10)}` : '',
+          hay: [l.nom, l.millesime, 'analyse'].join(' ').toLowerCase(),
+          href: `lot-detail.html?id=${encodeURIComponent(lotId)}`,
+        });
+      });
+
+      // Échantillons
+      (echantillons || []).forEach(e => {
+        const lotNm = e.lots ? (e.lots.nom + (e.lots.millesime ? ' ' + e.lots.millesime : '')) : '';
+        out.push({
+          type: 'echantillon', icon: '🍾', badge: e.date_envoi ? e.date_envoi.slice(0,10) : '',
+          name: e.reference || e.client_nom || '—',
+          sub: [e.client_nom, lotNm].filter(Boolean).join(' · '),
+          hay: [e.reference, e.client_nom, lotNm].filter(Boolean).join(' ').toLowerCase(),
+          href: 'echantillons.html',
+        });
+      });
+
+      // Produits
+      (produits || []).forEach(p => out.push({
+        type: 'produit', icon: '🧪', badge: p.type || '',
+        name: p.nom || '—',
+        sub: p.categorie || '',
+        hay: [p.nom, p.type, p.categorie].filter(Boolean).join(' ').toLowerCase(),
+        href: 'produits.html',
+      }));
+
+    } catch (_) {}
+    _loading = false; _cache = out; return out;
+  }
+
+  function _render(q) {
+    const res = _box.querySelector('.wb3-srch-res');
+    const t = (q || '').trim().toLowerCase();
+    let list = _cache || [];
+    if (t) list = list.filter(x => x.hay.includes(t));
+    list = list.slice(0, 60); _items = list; _hi = 0;
+    if (!list.length) {
+      res.innerHTML = `<div class="wb3-srch-empty">${_cache === null ? 'Chargement…' : 'Aucun résultat pour « ' + _esc(q) + ' »'}</div>`;
+      return;
+    }
+    const groups = {};
+    list.forEach((x, i) => { if (!groups[x.type]) groups[x.type] = []; groups[x.type].push({ ...x, i }); });
+    let html = '';
+    GROUP_ORDER.forEach(type => {
+      if (!groups[type]?.length) return;
+      html += `<div class="wb3-srch-grp">${GROUP_LABELS[type]}</div>` + groups[type].slice(0, 10).map(_row).join('');
+    });
+    res.innerHTML = html;
+    res.querySelectorAll('.wb3-srch-it').forEach(el => {
+      el.addEventListener('mousedown', e => { e.preventDefault(); _go(+el.dataset.i); });
+    });
+    // Surligner le premier résultat
+    const first = res.querySelector('.wb3-srch-it');
+    if (first) { _hi = +first.dataset.i; first.classList.add('hi'); }
+  }
+
+  function _row(x) {
+    return `<div class="wb3-srch-it" data-i="${x.i}">` +
+      `<span class="wb3-srch-icon">${x.icon}</span>` +
+      `<span class="wb3-srch-body"><div class="wb3-srch-nm">${_esc(x.name)}</div>${x.sub ? `<div class="wb3-srch-sub">${_esc(x.sub)}</div>` : ''}</span>` +
+      (x.badge ? `<span class="wb3-srch-badge">${_esc(x.badge)}</span>` : '') +
+      `</div>`;
+  }
+
+  function _hilite() {
+    _box.querySelectorAll('.wb3-srch-it').forEach(el => el.classList.toggle('hi', +el.dataset.i === _hi));
+    const hi = _box.querySelector('.wb3-srch-it.hi');
+    if (hi) hi.scrollIntoView({ block: 'nearest' });
+  }
+
+  function _go(i) { const x = _items[i]; if (!x) return; close(); navigate(x.href); }
+  function close() { if (_box) { _box.remove(); _box = null; document.removeEventListener('keydown', _onKey, true); } }
+
+  function _onKey(e) {
+    if (!_box) return;
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); _hi = Math.min(_hi + 1, _items.length - 1); _hilite(); }
+    else if (e.key === 'ArrowUp')   { e.preventDefault(); _hi = Math.max(_hi - 1, 0); _hilite(); }
+    else if (e.key === 'Enter')     { e.preventDefault(); _go(_hi); }
+  }
+
+  return async function open() {
+    if (_box) return; _inject();
+    _box = document.createElement('div'); _box.className = 'wb3-srch-bd';
+    _box.innerHTML =
+      `<div class="wb3-srch" role="dialog" aria-modal="true">` +
+        `<div class="wb3-srch-head"><span class="wb3-srch-ic-in">🔎</span><input class="wb3-srch-in" placeholder="Cuve, lot, analyse, échantillon, produit…" autocomplete="off"><span class="wb3-srch-hint">Échap pour fermer</span></div>` +
+        `<div class="wb3-srch-res"></div>` +
+        `<div class="wb3-srch-footer"><span>↑↓ Naviguer</span><span>↵ Ouvrir</span><span>Esc Fermer</span></div>` +
+      `</div>`;
+    document.body.appendChild(_box);
+    _box.addEventListener('mousedown', e => { if (e.target === _box) close(); });
+    const inp = _box.querySelector('.wb3-srch-in');
+    inp.addEventListener('input', () => _render(inp.value));
+    document.addEventListener('keydown', _onKey, true);
+    inp.focus();
+    _render('');       // "Chargement…"
+    await _load();
+    _render(inp.value);
+  };
+})();
+function shellSearchOpen() { shellSearch(); }
+
 // ── Auth ──────────────────────────────────────────────────────────
 async function shellLogout() {
   await WB3Auth.signOut();
@@ -824,6 +1042,12 @@ async function checkBackendCapabilitiesUI() {
 
   applyNavState(navState, false);   // applique rail / normal / large (W3)
 
+  // Charger l'état du module IA pour afficher/masquer l'entrée nav
+  try {
+    const tol = await WB3DB.getTolerances({ force: true }).catch(() => ({}));
+    _iaEnabled = tol.ia_module_enabled === true;
+  } catch (_) { _iaEnabled = false; }
+
   buildNavItems();
   buildPanePickers();
   initDivider();
@@ -837,8 +1061,19 @@ async function checkBackendCapabilitiesUI() {
     if (window.innerWidth < 768) return;
     const t = e.target;
     if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
-    if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); toggleCollapse(); }
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); shellSearchOpen(); }
+    else if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); toggleCollapse(); }
     else if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === '[') { e.preventDefault(); cycleNavState(); }
+  });
+
+  // postMessage depuis les iframes (ex. parametres.html après save IA)
+  window.addEventListener('message', e => {
+    if (!e.data || typeof e.data !== 'object') return;
+    if (e.data.type === 'wb3:ia-changed') {
+      _iaEnabled = e.data.enabled === true;
+      buildNavItems();
+      buildPanePickers();
+    }
   });
 
   // Load initial page (default: dashboard)
@@ -846,6 +1081,40 @@ async function checkBackendCapabilitiesUI() {
 
   // Restore split mode if was active
   if (localStorage.getItem('wb3_split') === '1') toggleSplit();
+})();
+</script>
+
+<!-- ── Détection réseau ──────────────────────────────────────── -->
+<script>
+(function() {
+  'use strict';
+  var banner = document.getElementById('wb3-network-banner');
+  if (!banner) return;
+
+  var _timer = null;
+
+  function showOffline() {
+    clearTimeout(_timer);
+    banner.className = 'show offline';
+    banner.textContent = '⚠ Hors-ligne — les modifications ne peuvent pas être enregistrées pour l\'instant';
+  }
+
+  function showBack() {
+    clearTimeout(_timer);
+    banner.className = 'show back';
+    banner.textContent = '✓ Connexion rétablie';
+    _timer = setTimeout(function() { banner.className = ''; banner.textContent = ''; }, 3500);
+    // Rejouer la file d'écriture hors-ligne (db.js)
+    if (window.WB3DB && typeof WB3DB.replayOfflineQueue === 'function') {
+      WB3DB.replayOfflineQueue().catch(function(e) { console.warn('[WB3] replay offline:', e); });
+    }
+  }
+
+  window.addEventListener('offline', showOffline);
+  window.addEventListener('online', showBack);
+
+  // Si déjà hors-ligne au chargement de la page
+  if (!navigator.onLine) showOffline();
 })();
 </script>
 </body>

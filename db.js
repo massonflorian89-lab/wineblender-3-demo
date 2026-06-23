@@ -91,6 +91,7 @@
     wb3_etat_cave_at:     'migration 087 (état de cave à une date)',
     v_cuverie_etat:       'migration 048 (états cuverie enrichis)',
     analyses_temperature: 'migration 049 (température des analyses)',
+    wb3_registre_cave:    'migration 103 (registre de cave dématérialisé)',
 
     // ── Modules VENDANGE (060→068) — recommandés au niveau global
     //    (non bloquants pour l'app entière) ; le blocage est PAR MODULE
@@ -125,6 +126,8 @@
     echantillon:       { label: 'Échantillons clients',        migration: '093',     caps: ['echantillon'] },
     reception:         { label: 'Réception coopérative',       migration: '090/091', caps: ['reception_jour'] },
     plan_cave:         { label: 'Plan de cave & mur',          migration: '092',     caps: ['cuverie_plan'] },
+    ia:                { label: 'Assistant IA',                migration: '102',     caps: ['ia'] },
+    registre:          { label: 'Registre de cave',            migration: '103',     caps: ['wb3_registre_cave'] },
   };
 
   let _capCache = null;
@@ -545,17 +548,131 @@
     return data;
   }
 
+  // ----------------------------------------------------------
+  // File d'attente hors-ligne (IndexedDB)
+  // ----------------------------------------------------------
+  // Stocke les écritures qui ont échoué faute de réseau, les rejoue
+  // à la reconnexion dans l'ordre FIFO strict.
+  // API : push(item) · all() · remove(id) · update(id, patch) · count()
+  const WB3OfflineQueue = (function() {
+    const DB_NAME = 'wb3_offline';
+    const STORE   = 'queue';
+    const DB_VER  = 1;
+    let _db = null;
+
+    function _open() {
+      if (_db) return Promise.resolve(_db);
+      return new Promise(function(resolve, reject) {
+        if (!global.indexedDB) { reject(new Error('IndexedDB non disponible')); return; }
+        const req = global.indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = function(e) {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE)) {
+            db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+          }
+        };
+        req.onsuccess = function(e) { _db = e.target.result; resolve(_db); };
+        req.onerror   = function(e) { reject(e.target.error); };
+      });
+    }
+
+    function _store(mode) {
+      return _open().then(function(db) { return db.transaction(STORE, mode).objectStore(STORE); });
+    }
+
+    function push(item) {
+      return _store('readwrite').then(function(s) { return new Promise(function(resolve, reject) {
+        const req = s.add(Object.assign({}, item, { created_at: Date.now(), attempts: 0, last_error: null }));
+        req.onsuccess = function() { resolve(req.result); };
+        req.onerror   = function(e) { reject(e.target.error); };
+      }); });
+    }
+
+    function all() {
+      return _store('readonly').then(function(s) { return new Promise(function(resolve, reject) {
+        const req = s.getAll();
+        req.onsuccess = function() { resolve(req.result || []); };
+        req.onerror   = function(e) { reject(e.target.error); };
+      }); });
+    }
+
+    function remove(id) {
+      return _store('readwrite').then(function(s) { return new Promise(function(resolve, reject) {
+        const req = s.delete(id);
+        req.onsuccess = function() { resolve(); };
+        req.onerror   = function(e) { reject(e.target.error); };
+      }); });
+    }
+
+    function update(id, patch) {
+      return _store('readwrite').then(function(s) { return new Promise(function(resolve, reject) {
+        const getReq = s.get(id);
+        getReq.onsuccess = function() {
+          const item = Object.assign({}, getReq.result, patch);
+          const putReq = s.put(item);
+          putReq.onsuccess = function() { resolve(); };
+          putReq.onerror   = function(e) { reject(e.target.error); };
+        };
+        getReq.onerror = function(e) { reject(e.target.error); };
+      }); });
+    }
+
+    function count() {
+      return _store('readonly').then(function(s) { return new Promise(function(resolve, reject) {
+        const req = s.count();
+        req.onsuccess = function() { resolve(req.result); };
+        req.onerror   = function(e) { reject(e.target.error); };
+      }); });
+    }
+
+    return { push, all, remove, update, count };
+  })();
+
+  // Distingue une erreur réseau (queue) d'une erreur métier (propagée)
+  function _isNetworkError(err) {
+    if (!navigator.onLine) return true;
+    if (!err || err.code === 'WB3_OFFLINE_QUEUED') return false;
+    if (err instanceof TypeError) return true; // Failed to fetch (Chrome/FF)
+    return /failed to fetch|networkerror|network request failed/i.test(String(err.message || ''));
+  }
+
+  // Toast léger sans dépendance directe : utilise WB3Toast si chargé, sinon console
+  function _offlineToast(msg, level) {
+    try {
+      if (global.WB3Toast) { global.WB3Toast.show({ level: level || 'warn', message: msg }); return; }
+    } catch (_) {}
+    console.info('[WB3 offline]', msg);
+  }
+
+  // Erreur sentinelle : l'opération a été mise en file, pas perdue
+  function _queuedError() {
+    return Object.assign(new Error('WB3_OFFLINE_QUEUED'), { code: 'WB3_OFFLINE_QUEUED', queued: true });
+  }
+
+  // ----------------------------------------------------------
   // Wrapper générique pour les INSERT — pose automatiquement le tenant_id
   async function insertRow(tableName, payload) {
     ensureLoggedIn();
     const tenantId = requireTenant();
-    const { data, error } = await client
-      .from(tableName)
-      .insert({ ...payload, tenant_id: tenantId })
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const full = Object.assign({}, payload, { tenant_id: tenantId });
+
+    if (!navigator.onLine) {
+      await WB3OfflineQueue.push({ type: 'insert', table: tableName, payload: full, meta: { tenantId, userId: state.user && state.user.id } });
+      _offlineToast('Hors-ligne — enregistrement différé, sera synchronisé à la reconnexion', 'warn');
+      throw _queuedError();
+    }
+    try {
+      const { data, error } = await client.from(tableName).insert(full).select().single();
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        await WB3OfflineQueue.push({ type: 'insert', table: tableName, payload: full, meta: { tenantId, userId: state.user && state.user.id } });
+        _offlineToast('Hors-ligne — enregistrement différé, sera synchronisé à la reconnexion', 'warn');
+        throw _queuedError();
+      }
+      throw e;
+    }
   }
 
   // Wrapper générique pour les UPDATE
@@ -563,15 +680,24 @@
   async function updateRow(tableName, id, patch) {
     ensureLoggedIn();
     const tenantId = requireTenant();
-    const { data, error } = await client
-      .from(tableName)
-      .update(patch)
-      .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+
+    if (!navigator.onLine) {
+      await WB3OfflineQueue.push({ type: 'update', table: tableName, rowId: id, payload: patch, meta: { tenantId, userId: state.user && state.user.id } });
+      _offlineToast('Hors-ligne — modification différée, sera synchronisée à la reconnexion', 'warn');
+      throw _queuedError();
+    }
+    try {
+      const { data, error } = await client.from(tableName).update(patch).eq('id', id).eq('tenant_id', tenantId).select().single();
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        await WB3OfflineQueue.push({ type: 'update', table: tableName, rowId: id, payload: patch, meta: { tenantId, userId: state.user && state.user.id } });
+        _offlineToast('Hors-ligne — modification différée, sera synchronisée à la reconnexion', 'warn');
+        throw _queuedError();
+      }
+      throw e;
+    }
   }
 
   // Wrapper générique pour les DELETE
@@ -2876,11 +3002,239 @@
     correction_jauge:         { icon: '📏', label: 'Correction de jauge', sens: 'auto'   },
     perte_technique:          { icon: '📉', label: 'Perte technique',     sens: 'sortie' },
     correction_administrative:{ icon: '📋', label: 'Correction admin.',   sens: 'audit'  },
+    enrichissement_mcr:       { icon: '🍬', label: 'Enrichissement MCR',  sens: 'entree' },
   };
+
+  // ─────────────────────────────────────────────────────────────────
+  // INTRANTS ŒNOLOGIQUES (mig 100 + 101)
+  // ─────────────────────────────────────────────────────────────────
+
+  const TRAITEMENT_TYPES = {
+    sulfitage:        { icon: '🔬', label: 'Sulfitage' },
+    levurage:         { icon: '🧫', label: 'Levurage' },
+    bacteries_malo:   { icon: '🦠', label: 'Bactéries malo' },
+    enzymage:         { icon: '⚗️', label: 'Enzymage' },
+    nutriment_levure: { icon: '🌱', label: 'Nutriment levures' },
+    acidification:    { icon: '🍋', label: 'Acidification' },
+    desacidification: { icon: '🧪', label: 'Désacidification' },
+    collage:          { icon: '🥚', label: 'Collage' },
+    tannin:           { icon: '🪵', label: 'Tanin' },
+    gomme_arabique:   { icon: '💎', label: 'Gomme arabique' },
+    autre:            { icon: '📦', label: 'Autre' },
+  };
+
+  const TRAITEMENT_UNITES = ['g/hL', 'mL/hL', 'cL/hL', 'g', 'mL', 'kg', 'L'];
+
+  async function queryTraitements({ lot_id, contenant_id, limit = 200 } = {}) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    let q = client.from('traitements')
+      .select('*,lot:lots!lot_id(id,nom,couleur),contenant:contenants!contenant_id(id,nom)')
+      .eq('tenant_id', tenantId)
+      .order('date_traitement', { ascending: false })
+      .limit(limit);
+    if (lot_id)       q = q.eq('lot_id', lot_id);
+    if (contenant_id) q = q.eq('contenant_id', contenant_id);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function saveTraitement(payload) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const user = getCurrentUser();
+    const row = { ...payload, tenant_id: tenantId, created_by: user?.id };
+    if (row.id) {
+      const { id, created_at, created_by, ...patch } = row;
+      const { data, error } = await client.from('traitements')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('id', id).eq('tenant_id', tenantId).select().single();
+      if (error) throw error;
+      return data;
+    }
+    const { data, error } = await client.from('traitements').insert(row).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteTraitement(id) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { error } = await client.from('traitements').delete()
+      .eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  // Conversion °Brix → g/L (formule Plato approximée)
+  function brixToGl(brix) {
+    const b = Number(brix);
+    if (!b || b <= 0) return null;
+    const density = 1 + b / (258.6 - b * 0.88);
+    return Math.round((b / 100) * density * 1000 * 100) / 100;
+  }
+
+  // Conversion g/L → °Brix (Newton-Raphson, 5 itérations)
+  function glToBrix(gl) {
+    const target = Number(gl);
+    if (!target || target <= 0) return null;
+    let b = target / 12;
+    for (let i = 0; i < 5; i++) {
+      const d  = 1 + b / (258.6 - b * 0.88);
+      const f  = (b / 100) * d * 1000 - target;
+      const df = d * 10 + (b * 10 * 0.88) / Math.pow(258.6 - b * 0.88, 2) * b;
+      b -= f / (df || 1);
+    }
+    return Math.round(b * 100) / 100;
+  }
+
+  // Calcule dose et volume ajouté à partir des paramètres métier
+  function calcEnrichissement({ type, tav_actuel, tav_vise, volume_hl, concentration_g_l }) {
+    const delta = Number(tav_vise) - Number(tav_actuel);
+    const vol   = Number(volume_hl);
+    if (delta <= 0 || vol <= 0) return { dose_calculee: 0, volume_ajoute_hl: 0, unite: type === 'mcr' ? 'L' : 'kg' };
+    if (type === 'saccharose') {
+      return { dose_calculee: Math.round(1.7 * delta * vol * 1000) / 1000, volume_ajoute_hl: 0, unite: 'kg' };
+    }
+    if (type === 'mcr') {
+      const conc = Number(concentration_g_l);
+      if (!conc || conc <= 0) return { dose_calculee: 0, volume_ajoute_hl: 0, unite: 'L' };
+      const dose_L   = (1.7 * delta * vol * 100) / conc;
+      const vol_ajout = Math.round(dose_L / 100 * 10000) / 10000; // hL
+      return { dose_calculee: Math.round(dose_L * 1000) / 1000, volume_ajoute_hl: vol_ajout, unite: 'L' };
+    }
+    return { dose_calculee: 0, volume_ajoute_hl: 0, unite: 'kg' };
+  }
+
+  async function queryEnrichissements({ lot_id, contenant_id, limit = 200 } = {}) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    let q = client.from('enrichissements')
+      .select('*,lot:lots!lot_id(id,nom,couleur),contenant:contenants!contenant_id(id,nom)')
+      .eq('tenant_id', tenantId)
+      .order('date_enrichissement', { ascending: false })
+      .limit(limit);
+    if (lot_id)       q = q.eq('lot_id', lot_id);
+    if (contenant_id) q = q.eq('contenant_id', contenant_id);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function saveEnrichissement(payload) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const user = getCurrentUser();
+
+    const calc = calcEnrichissement(payload);
+    const row = {
+      ...payload,
+      tenant_id:        tenantId,
+      created_by:       user?.id,
+      dose_calculee:    payload.dose_calculee    ?? calc.dose_calculee,
+      unite:            payload.unite            ?? calc.unite,
+      volume_ajoute_hl: payload.type === 'mcr'
+        ? (payload.volume_ajoute_hl ?? calc.volume_ajoute_hl)
+        : null,
+    };
+
+    let saved;
+    if (row.id) {
+      const { id, created_at, created_by, ajustement_volume_id, ...patch } = row;
+      const { data, error } = await client.from('enrichissements')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('id', id).eq('tenant_id', tenantId).select().single();
+      if (error) throw error;
+      saved = data;
+    } else {
+      const { data, error } = await client.from('enrichissements').insert(row).select().single();
+      if (error) throw error;
+      saved = data;
+      // MCR : créer un ajustement volumétrique automatique
+      if (payload.type === 'mcr' && calc.volume_ajoute_hl > 0) {
+        try {
+          const aj = await applyAjustement({
+            type:         'enrichissement_mcr',
+            lot_id:       payload.lot_id       || null,
+            contenant_id: payload.contenant_id || null,
+            delta_hl:     calc.volume_ajoute_hl,
+            motif:        `Enrichissement MCR — +${(calc.dose_calculee || 0).toFixed(1)} L`,
+            operateur:    payload.operateur    || null,
+            date:         payload.date_enrichissement,
+          });
+          await client.from('enrichissements')
+            .update({ ajustement_volume_id: aj?.id })
+            .eq('id', saved.id).eq('tenant_id', tenantId);
+          saved.ajustement_volume_id = aj?.id;
+        } catch (e) {
+          console.warn('[WB3] enrichissement ajustement volume échoué', e.message);
+        }
+      }
+    }
+    return saved;
+  }
+
+  async function deleteEnrichissement(id) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { error } = await client.from('enrichissements').delete()
+      .eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
 
   // ----------------------------------------------------------
   // Exposition globale
   // ----------------------------------------------------------
+
+  // ----------------------------------------------------------
+  // Rejoue la file d'attente IndexedDB dans l'ordre FIFO.
+  // Appelé automatiquement sur l'événement `online` (shell.html).
+  // Règles :
+  //   • Erreur réseau sur un item → stop (réseau absent ou instable).
+  //   • Erreur métier (contrainte DB, etc.) → item marqué `error`, on continue.
+  // ----------------------------------------------------------
+  async function replayOfflineQueue() {
+    if (!navigator.onLine) return;
+    let items;
+    try { items = await WB3OfflineQueue.all(); } catch (_) { return; }
+    if (!items || !items.length) return;
+
+    _offlineToast('Synchronisation de ' + items.length + ' opération(s) en attente…', 'info');
+
+    let ok = 0, fail = 0;
+    for (const item of items) {
+      if (!navigator.onLine) break;
+      try {
+        if (item.type === 'insert') {
+          // Appel direct client (bypass wrapper → évite double-mise en file)
+          const { error } = await client.from(item.table).insert(item.payload).select().single();
+          if (error) throw error;
+        } else if (item.type === 'update') {
+          const { error } = await client.from(item.table).update(item.payload)
+            .eq('id', item.rowId).eq('tenant_id', item.meta.tenantId).select().single();
+          if (error) throw error;
+        } else if (item.type === 'rpc') {
+          const { error } = await client.rpc(item.fn, item.payload);
+          if (error) throw error;
+        }
+        await WB3OfflineQueue.remove(item.id);
+        ok++;
+      } catch (e) {
+        await WB3OfflineQueue.update(item.id, { attempts: (item.attempts || 0) + 1, last_error: e.message || String(e) });
+        if (_isNetworkError(e)) break;
+        fail++;
+        console.warn('[WB3] Replay file offline — item #' + item.id + ' erreur métier :', e.message);
+      }
+    }
+
+    if (ok > 0 && fail === 0) {
+      _offlineToast(ok + ' opération(s) synchronisée(s)', 'success');
+    } else if (ok > 0) {
+      _offlineToast(ok + ' synchronisée(s), ' + fail + ' en erreur (voir console)', 'warn');
+    } else if (fail > 0) {
+      _offlineToast('Synchronisation : ' + fail + ' erreur(s) — consultez la console', 'error');
+    }
+  }
 
   global.WB3DB = {
     // ⚠️ Client Supabase brut — usage avancé uniquement.
@@ -3014,6 +3368,10 @@
     // Export tenant complet
     exportTenant,
 
+    // File hors-ligne (IndexedDB)
+    offlineQueue: WB3OfflineQueue,
+    replayOfflineQueue,
+
     // Contrôle de capacités backend (socle 2 + modules vendange 069)
     checkBackendCapabilities,
     requireCapability,
@@ -3080,10 +3438,44 @@
     // Ajustements de volume contrôlés
     AJUSTEMENT_SEUILS,
     AJUSTEMENT_TYPES,
+
+    // Intrants œnologiques (mig 100 + 101)
+    TRAITEMENT_TYPES,
+    TRAITEMENT_UNITES,
+    queryTraitements,
+    saveTraitement,
+    deleteTraitement,
+    calcEnrichissement,
+    brixToGl,
+    glToBrix,
+    queryEnrichissements,
+    saveEnrichissement,
+    deleteEnrichissement,
     applyAjustement,
     getAjustements,
     getAjustementSeuils,
+
+    // Registre de cave dématérialisé (mig 103)
+    queryRegistreCave,
   };
+  // ─────────────────────────────────────────────────────────────────
+  // REGISTRE DE CAVE (mig 103)
+  // Appelle wb3_registre_cave(tenant, du, au) → { lignes, totaux, du, au }
+  // du / au : string 'YYYY-MM-DD' ou null (pas de borne)
+  // ─────────────────────────────────────────────────────────────────
+  async function queryRegistreCave(du = null, au = null) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    await requireCapability('wb3_registre_cave');
+    const { data, error } = await client.rpc('wb3_registre_cave', {
+      p_tenant_id: tenantId,
+      p_du:        du  ?? null,
+      p_au:        au  ?? null,
+    });
+    if (error) throw error;
+    return data ?? { lignes: [], totaux: {}, du, au };
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // DIAGNOSTICS QUALITÉ TRAÇABILITÉ
   // Retourne { alertes: [], duree_ms: N }
