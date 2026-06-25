@@ -117,6 +117,7 @@
     <button class="tab" data-tab="apports">🍇 Bilan apports</button>
     <button class="tab" data-tab="suivi_anal">🔬 Suivi analytique</button>
     <button class="tab" data-tab="synthese_qual">⚗️ Synthèse qualité</button>
+    <button class="tab" data-tab="bilan_matiere">⚖️ Bilan matière</button>
   </div>
 
   <!-- ══════════════════════════════════════════
@@ -239,6 +240,26 @@
       <button class="btn btn--secondary btn--sm" onclick="exportCSV('synthese_qual')">📤 CSV</button>
     </div>
     <div id="synthese-qual-content">
+      <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 6 — Bilan matière (mig 108)
+       ══════════════════════════════════════════ -->
+  <div id="panel-bilan_matiere" class="tab-panel" style="display:none">
+    <div class="action-bar no-print">
+      <label class="field-label" style="white-space:nowrap;margin:0">Du</label>
+      <input class="input" type="date" id="bm-from" style="width:148px">
+      <label class="field-label" style="white-space:nowrap;margin:0">Au</label>
+      <input class="input" type="date" id="bm-to"   style="width:148px">
+      <span style="font-size:var(--text-caption);color:var(--color-ink-tertiary);white-space:nowrap">Vide = historique complet</span>
+      <div style="flex:1"></div>
+      <button class="btn btn--secondary btn--sm" onclick="loadBilanMatiere()">↻ Actualiser</button>
+      <button class="btn btn--secondary btn--sm" onclick="window.print()">🖨 Imprimer</button>
+      <button class="btn btn--secondary btn--sm" data-help="Télécharge le bilan matière en CSV (Excel/LibreOffice) pour l'archiver ou le transmettre." onclick="exportCSV('bilan_matiere')">📤 CSV</button>
+    </div>
+    <div id="bilan-matiere-content">
       <div class="loading-state"><div class="spinner"></div>Chargement…</div>
     </div>
   </div>
@@ -382,6 +403,10 @@ async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'
   document.getElementById('sa-to').addEventListener('change',   loadSuiviAnal);
   document.getElementById('sa-lot').addEventListener('change',  renderSuiviAnal);
 
+  // Filtres bilan matière — rechargement auto (dates vides par défaut = historique complet)
+  document.getElementById('bm-from').addEventListener('change', loadBilanMatiere);
+  document.getElementById('bm-to').addEventListener('change',   loadBilanMatiere);
+
   // Chargement initial (onglet actif = traitements)
   await loadTraitements();
 })();
@@ -393,6 +418,7 @@ function switchTab(tab) {
   if (tab === 'apports'         && !apportsData.length)      loadApports();
   if (tab === 'suivi_anal'      && !suiviAnalData.length)    loadSuiviAnal();
   if (tab === 'synthese_qual'   && !syntheseQualData.length) loadSyntheseQual();
+  if (tab === 'bilan_matiere'   && !bilanMatiereData)        loadBilanMatiere();
 }
 
 // ============================================================
@@ -1006,6 +1032,113 @@ function renderSyntheseQual() {
 // ============================================================
 // Export CSV
 // ============================================================
+// ============================================================
+// TAB 6 — Bilan matière (mig 108)
+// ============================================================
+let bilanMatiereData = null;   // { lignes, recap, du, au, seuil_ecart_pct, periode_complete }
+const BM_COULEUR = { rouge:'🔴', blanc:'⚪', rose:'🌸', gris:'⚫' };
+
+async function loadBilanMatiere() {
+  const el = document.getElementById('bilan-matiere-content');
+  el.innerHTML = '<div class="loading-state"><div class="spinner"></div>Calcul du bilan…</div>';
+  const du = document.getElementById('bm-from').value || null;
+  const au = document.getElementById('bm-to').value   || null;
+  try {
+    bilanMatiereData = await WB3DB.queryBilanMatiere(du, au);
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div>
+      <div class="title">Erreur de calcul du bilan</div>
+      <div class="desc">${escapeHtml(e.message || String(e))}</div></div>`;
+    return;
+  }
+  renderBilanMatiere();
+}
+
+function renderBilanMatiere() {
+  const el = document.getElementById('bilan-matiere-content');
+  if (!bilanMatiereData) return;
+  const { lignes, recap, du, au, seuil_ecart_pct, periode_complete } = bilanMatiereData;
+  const tenant = WB3DB.getCurrentTenant();
+  const periodLabel = (du || au)
+    ? `Du ${du ? fmtDateLong(du) : '…'} au ${au ? fmtDateLong(au) : '…'}`
+    : 'Historique complet';
+
+  if (!lignes || !lignes.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">⚖️</div>
+      <div class="title">Aucun lot avec mouvement de matière</div>
+      <div class="desc">Aucune entrée, sortie ni volume sur cette période.</div></div>`;
+    return;
+  }
+
+  const r = recap || {};
+  const nbAlertes = r.nb_ecarts_alerte || 0;
+
+  const banner = !periode_complete ? `
+    <div style="margin:0 var(--space-5) var(--space-3);padding:8px 12px;border-radius:var(--radius-md);
+                background:#fff3e0;color:#e65100;font-size:var(--text-caption);font-weight:600">
+      ⚠️ Période filtrée : l'écart non justifié n'est exact que sur l'historique complet (laisse les dates vides).
+    </div>` : '';
+
+  const rows = lignes.map(l => {
+    const alerte = l.ecart_alerte;
+    const ecartStyle = alerte
+      ? 'color:#c62828;font-weight:700;background:#fdecec'
+      : (Math.abs(l.ecart_non_justifie) < 0.01 ? 'color:#2e7d32' : '');
+    return `<tr>
+      <td>${escapeHtml(l.lot_nom)}</td>
+      <td class="num">${l.millesime ?? '—'}</td>
+      <td style="text-align:center">${BM_COULEUR[l.couleur] || ''}</td>
+      <td class="num">${fmt(l.volume_entre)}</td>
+      <td class="num">${fmt(l.volume_sorti)}</td>
+      <td class="num">${fmt(l.pertes)}</td>
+      <td class="num">${l.pct_perte > 0 ? l.pct_perte + ' %' : '—'}</td>
+      <td class="num">${l.gains > 0 ? fmt(l.gains) : '—'}</td>
+      <td class="num">${fmt(l.volume_actuel)}</td>
+      <td class="num" style="${ecartStyle}">${l.ecart_non_justifie > 0 ? '+' : ''}${fmt(l.ecart_non_justifie)}${alerte ? ' ⚠️' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="print-header">
+      <h2 style="margin:0 0 4px;font-size:18px" data-help="Le bilan matière : combien de volume est entré (vendange + assemblages), sorti, perdu (évaporation, lies — tracé dans les ajustements) et combien manque sans explication (écart non justifié). Au-delà du seuil, l'écart est surligné en rouge.">Bilan matière</h2>
+      <div style="font-size:var(--text-footnote);color:#555">${escapeHtml(tenant?.nom || '')} · ${periodLabel}</div>
+      <div style="font-size:12px;color:#888;margin-top:var(--space-1)">Édité le ${fmtDateLong(today)} · seuil d'alerte écart : ${seuil_ecart_pct} %</div>
+    </div>
+    ${banner}
+    <div class="kpi-row">
+      <div class="kpi-mini"><span class="icon">⬇️</span><div><div class="val">${fmt(r.volume_entre)} hL</div><div class="lbl">Entré</div></div></div>
+      <div class="kpi-mini"><span class="icon">⬆️</span><div><div class="val">${fmt(r.volume_sorti)} hL</div><div class="lbl">Sorti</div></div></div>
+      <div class="kpi-mini"><span class="icon">💧</span><div><div class="val">${fmt(r.pertes)} hL</div><div class="lbl">Pertes (${r.pct_perte_global ?? 0} %)</div></div></div>
+      <div class="kpi-mini"><span class="icon">🫙</span><div><div class="val">${fmt(r.volume_actuel)} hL</div><div class="lbl">En cave</div></div></div>
+      <div class="kpi-mini"><span class="icon">${nbAlertes ? '🚨' : '✅'}</span><div><div class="val" style="${nbAlertes ? 'color:#c62828' : ''}">${nbAlertes}</div><div class="lbl">Écart${nbAlertes > 1 ? 's' : ''} > ${seuil_ecart_pct} %</div></div></div>
+    </div>
+    <div style="overflow-x:auto">
+    <table class="rpt-table" id="tbl-bilan-matiere">
+      <thead><tr>
+        <th>Lot</th><th class="num">Mill.</th><th>Coul.</th>
+        <th class="num">Entré (hL)</th>
+        <th class="num">Sorti (hL)</th>
+        <th class="num">Pertes (hL)</th>
+        <th class="num">% perte</th>
+        <th class="num">Gains (hL)</th>
+        <th class="num">En cave (hL)</th>
+        <th class="num">Écart non justifié (hL)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="font-weight:700;border-top:2px solid var(--color-border)">
+        <td colspan="3">TOTAL (${r.nb_lots ?? lignes.length} lots)</td>
+        <td class="num">${fmt(r.volume_entre)}</td>
+        <td class="num">${fmt(r.volume_sorti)}</td>
+        <td class="num">${fmt(r.pertes)}</td>
+        <td class="num">${r.pct_perte_global ?? 0} %</td>
+        <td class="num">${fmt(r.gains)}</td>
+        <td class="num">${fmt(r.volume_actuel)}</td>
+        <td class="num">${r.ecart_total > 0 ? '+' : ''}${fmt(r.ecart_total)}</td>
+      </tr></tfoot>
+    </table>
+    </div>`;
+}
+
 function exportCSV(type) {
   let rows, filename;
 
@@ -1082,6 +1215,21 @@ function exportCSV(type) {
         a.so2_libre ?? '', a.so2_total ?? '', a.so2_actif ?? '',
         a.ph ?? '', a.ta ?? '', a.acidite_volatile ?? '', a.tav ?? '',
         a.sucres_residuels ?? '', a.densite ?? '', a.temperature ?? '',
+      ]),
+    ];
+
+  } else if (type === 'bilan_matiere') {
+    const du = document.getElementById('bm-from').value || 'debut';
+    const au = document.getElementById('bm-to').value   || today;
+    filename = `bilan_matiere_${du}_${au}.csv`;
+    const lignes = bilanMatiereData?.lignes || [];
+    rows = [
+      ['Lot','Millésime','Couleur','Statut','Entré (hL)','Sorti (hL)','Pertes (hL)','% perte','Gains (hL)','En cave (hL)','Théorique (hL)','Écart non justifié (hL)','Alerte écart'],
+      ...lignes.map(l => [
+        l.lot_nom, l.millesime ?? '', l.couleur ?? '', l.statut ?? '',
+        l.volume_entre, l.volume_sorti, l.pertes, l.pct_perte,
+        l.gains, l.volume_actuel, l.volume_theorique, l.ecart_non_justifie,
+        l.ecart_alerte ? 'OUI' : '',
       ]),
     ];
 

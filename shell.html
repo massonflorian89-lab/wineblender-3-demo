@@ -92,6 +92,33 @@
 
   .nav-sep { height: 1px; background: rgba(255,255,255,.08); margin: 5px 10px; }
 
+  /* ── Bloc « Accès rapide » (épinglé) ── */
+  .shell-nav-pinned { padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid rgba(255,255,255,.07); }
+
+  /* ── En-tête de groupe (repliable) ── */
+  .shell-nav-group {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 13px 5px; margin: 3px 5px 0;
+    color: rgba(255,255,255,.42);
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+    cursor: pointer; user-select: none; white-space: nowrap; border-radius: 6px;
+    transition: color .14s, background .14s;
+  }
+  .shell-nav-group:hover { color: rgba(255,255,255,.72); background: rgba(255,255,255,.05); }
+  .shell-nav-group .g-emoji { font-size: 12px; flex-shrink: 0; }
+  .shell-nav-group .g-label { flex: 1; overflow: hidden; transition: opacity .18s, max-width .22s; max-width: 200px; }
+  .shell-nav-group .g-caret { flex-shrink: 0; font-size: 9px; opacity: .7; transition: transform .16s, opacity .18s; }
+  .shell-nav-group.collapsed .g-caret { transform: rotate(-90deg); }
+  .shell-nav-item.group-hidden { display: none; }
+  /* Rail : en-têtes = fin séparateur */
+  .shell-nav.collapsed .shell-nav-group {
+    padding: 0; margin: 6px 12px; height: 1px;
+    background: rgba(255,255,255,.08); overflow: hidden; pointer-events: none;
+  }
+  .shell-nav.collapsed .shell-nav-group .g-emoji,
+  .shell-nav.collapsed .shell-nav-group .g-label,
+  .shell-nav.collapsed .shell-nav-group .g-caret { opacity: 0; }
+
   .shell-nav-item {
     display: flex; align-items: center; gap: 11px;
     padding: 9px 13px; color: rgba(255,255,255,.65);
@@ -368,27 +395,45 @@ const NICON = {
   report:         _NIC('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M8 18v-3M12 18v-6M16 18v-2"/>'),
   shieldCheck:    _NIC('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/>'),
   intrant:        _NIC('<path d="M4.5 3h15"/><path d="M6 3v7l-4 9a1 1 0 0 0 .9 1.4h14.2a1 1 0 0 0 .9-1.4L14 10V3"/><path d="M6.5 14.5h11"/>'),
+  book:           _NIC('<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>'),
   ai:             _NIC('<path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2Z"/><circle cx="7.5" cy="14.5" r="1.5"/><circle cx="16.5" cy="14.5" r="1.5"/>'),
   list:           _NIC('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
   settings:       _NIC('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>'),
 };
+// Groupes repliables (mêmes clés que nav.js). NAV_ITEMS reste PLAT (les
+// buildPanePickers / .find() restent inchangés) ; le rendu insère les en-têtes.
+const NAV_GROUPS = [
+  { key: 'pilotage', label: 'Pilotage', emoji: '🎯' },
+  { key: 'vendange', label: 'Vendange', emoji: '🍇' },
+  { key: 'chai',     label: 'Chai',     emoji: '🍷' },
+  { key: 'qualite',  label: 'Qualité',  emoji: '🔬' },
+  { key: 'gestion',  label: 'Gestion',  emoji: '📋' },
+];
 const NAV_ITEMS = [
-  { href: 'dashboard.html',  icon: '📊', iconHTML: NICON.dashboard,      label: 'Tableau de bord' },
-  { href: 'cuverie.html',    icon: '🛢', iconHTML: NICON.tank,           label: 'Cuverie' },
-  { href: 'lots.html',       icon: '🍷', iconHTML: NICON.wine,           label: 'Lots' },
-  { href: 'apports.html',    icon: '🍇', iconHTML: NICON.grape,          label: 'Apports' },
-  { href: 'reception.html',  icon: '🧺', iconHTML: NICON.hopper,         label: 'Réception' },
-  { href: 'planning.html',   icon: '📅', iconHTML: NICON.calendar,       label: 'Planning' },
-  { href: 'operations.html', icon: '⚙️', iconHTML: NICON.clipboardCheck, label: 'Opérations' },
-  { href: 'produits.html',   icon: '🧪', iconHTML: NICON.flask,          label: 'Produits' },
-  { href: 'analyses.html',   icon: '🔬', iconHTML: NICON.microscope,     label: 'Analyses' },
-  { href: 'assemblage.html', icon: '🧪', iconHTML: NICON.blend,          label: 'Assemblage' },
-  { href: 'echantillons.html', icon: '🍾', iconHTML: NICON.bottle,       label: 'Échantillons' },
-  { href: 'rapports.html',      icon: '📋', iconHTML: NICON.report,       label: 'Rapports' },
-  { href: 'registre.html',      icon: '📒', iconHTML: NICON.list,          label: 'Registre de cave' },
-  { href: 'qualite-traca.html', icon: '🩺', iconHTML: NICON.shieldCheck,  label: 'Santé traça' },
-  { href: 'traitements.html',  icon: '🧫', iconHTML: NICON.intrant,       label: 'Intrants' },
-  { href: 'assistant.html',   icon: '🤖', iconHTML: NICON.ai,            label: 'Assistant IA', iaOnly: true },
+  // ── Accès rapide (épinglé, toujours visible) ──
+  { href: 'dashboard.html',  icon: '📊', iconHTML: NICON.dashboard,      label: 'Tableau de bord', pinned: true },
+  { href: 'cuverie.html',    icon: '🛢', iconHTML: NICON.tank,           label: 'Cuverie',         pinned: true },
+  // ── Pilotage ──
+  { href: 'assistant.html',  icon: '🍇', iconHTML: NICON.ai,            label: 'OenoPulse',       group: 'pilotage', iaOnly: true },
+  { href: 'planning.html',   icon: '📅', iconHTML: NICON.calendar,       label: 'Planning',        group: 'pilotage' },
+  // ── Vendange ──
+  { href: 'reception.html',  icon: '🧺', iconHTML: NICON.hopper,         label: 'Réception',       group: 'vendange' },
+  { href: 'apports.html',    icon: '🍇', iconHTML: NICON.grape,          label: 'Apports',         group: 'vendange' },
+  // ── Chai ──
+  { href: 'lots.html',       icon: '🍷', iconHTML: NICON.wine,           label: 'Lots',            group: 'chai' },
+  { href: 'operations.html', icon: '⚙️', iconHTML: NICON.clipboardCheck, label: 'Opérations',      group: 'chai' },
+  { href: 'assemblage.html', icon: '🧪', iconHTML: NICON.blend,          label: 'Assemblage',      group: 'chai' },
+  { href: 'traitements.html',icon: '🧫', iconHTML: NICON.intrant,       label: 'Intrants',        group: 'chai' },
+  { href: 'produits.html',   icon: '🧪', iconHTML: NICON.flask,          label: 'Produits',        group: 'chai' },
+  // ── Qualité ──
+  { href: 'analyses.html',   icon: '🔬', iconHTML: NICON.microscope,     label: 'Analyses',        group: 'qualite' },
+  { href: 'echantillons.html', icon: '🍾', iconHTML: NICON.bottle,       label: 'Échantillons',    group: 'qualite' },
+  { href: 'qualite-traca.html', icon: '🩺', iconHTML: NICON.shieldCheck,  label: 'Santé traça',     group: 'qualite' },
+  // ── Gestion ──
+  { href: 'registre.html',      icon: '📒', iconHTML: NICON.list,          label: 'Registre de cave', group: 'gestion' },
+  { href: 'rapports.html',      icon: '📋', iconHTML: NICON.report,       label: 'Rapports',        group: 'gestion' },
+  { href: 'contacts.html',    icon: '📒', iconHTML: NICON.book,          label: 'Contacts',        group: 'gestion' },
+  // ── Bas (autonome) ──
   null, // separator
   { href: 'parametres.html', icon: '🔧', iconHTML: NICON.settings,       label: 'Paramètres' },
 ];
@@ -417,6 +462,15 @@ if (navState !== 'rail' && navState !== 'normal' && navState !== 'large') {
 }
 let navCollapsed = (navState === 'rail');
 const currentPages = { left: null, right: null };
+
+// Groupes de nav repliés : Set de clés. Cache localStorage (anti-FOUC) ;
+// source de vérité = serveur (user_preferences 'nav_groups'), via restoreNavGroups().
+let _collapsedGroups = (function () {
+  try {
+    const raw = JSON.parse(localStorage.getItem('wb3_nav_groups') || '[]');
+    return new Set(Array.isArray(raw) ? raw : []);
+  } catch (e) { return new Set(); }
+})();
 
 // ── URL helpers ──────────────────────────────────────────────────
 function embedUrl(href) {
@@ -447,6 +501,8 @@ function updateNavActive() {
   document.querySelectorAll('.shell-nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.href === mapped);
   });
+  // Le groupe de la page active reste visible même s'il est replié.
+  _applyGroupCollapse();
 }
 
 function updatePanePicker(paneId, href) {
@@ -570,26 +626,115 @@ function toggleCollapse() {   // Cmd/Ctrl+B : bascule rail ↔ normal
 
 let _iaEnabled = false;
 
-// ── Build nav items ───────────────────────────────────────────────
+// ── Build nav items (épinglés + groupes repliables) ───────────────
+function _shellItemVisible(item) { return !(item.iaOnly && !_iaEnabled); }
+
+function _shellActiveGroup() {
+  const base   = (currentPages[activePaneId] || '').split('?')[0].split('/').pop();
+  const mapped = PARENT_MAP[base] || base;
+  const it     = NAV_ITEMS.filter(Boolean).find(i => i.href === mapped);
+  return (it && it.group) ? it.group : null;
+}
+
 function buildNavItems() {
   const container = document.getElementById('nav-items');
   container.innerHTML = '';
+  const activeGroup = _shellActiveGroup();
+
+  const _makeItem = (item) => {
+    const el = document.createElement('div');
+    el.className   = 'shell-nav-item';
+    el.dataset.href  = item.href;
+    el.dataset.label = item.label;
+    if (item.group) el.dataset.group = item.group;
+    el.innerHTML = `<span class="n-icon">${item.iconHTML || item.icon}</span><span class="n-label">${item.label}</span>`;
+    el.addEventListener('click', () => navigate(item.href));
+    return el;
+  };
+
+  // 1) Bloc « Accès rapide » (épinglé)
+  const pinned = NAV_ITEMS.filter(it => it && it.pinned && _shellItemVisible(it));
+  if (pinned.length) {
+    const zone = document.createElement('div');
+    zone.className = 'shell-nav-pinned';
+    pinned.forEach(it => zone.appendChild(_makeItem(it)));
+    container.appendChild(zone);
+  }
+
+  // 2) Groupes repliables + items autonomes
+  let lastGroup = null;
   NAV_ITEMS.forEach(item => {
     if (!item) {
       const sep = document.createElement('div');
       sep.className = 'nav-sep';
       container.appendChild(sep);
+      lastGroup = null;
       return;
     }
-    if (item.iaOnly && !_iaEnabled) return;
-    const el = document.createElement('div');
-    el.className   = 'shell-nav-item';
-    el.dataset.href  = item.href;
-    el.dataset.label = item.label;
-    el.innerHTML = `<span class="n-icon">${item.iconHTML || item.icon}</span><span class="n-label">${item.label}</span>`;
-    el.addEventListener('click', () => navigate(item.href));
+    if (item.pinned) return;
+    if (!_shellItemVisible(item)) return;       // iaOnly masqué → ignoré
+    if (!item.group) { container.appendChild(_makeItem(item)); return; }
+    if (item.group !== lastGroup) {             // en-tête au 1er item visible du groupe
+      lastGroup = item.group;
+      const g = NAV_GROUPS.find(x => x.key === item.group) || { key:item.group, label:item.group, emoji:'' };
+      const collapsed = _collapsedGroups.has(g.key) && g.key !== activeGroup;
+      const head = document.createElement('div');
+      head.className = 'shell-nav-group' + (collapsed ? ' collapsed' : '');
+      head.dataset.group = g.key;
+      head.title = (collapsed ? 'Déplier' : 'Replier') + ' « ' + g.label + ' »';
+      head.innerHTML = `<span class="g-emoji">${g.emoji}</span><span class="g-label">${g.label}</span><span class="g-caret">▾</span>`;
+      head.addEventListener('click', () => toggleGroup(g.key));
+      container.appendChild(head);
+    }
+    const el = _makeItem(item);
+    if (_collapsedGroups.has(item.group) && item.group !== activeGroup) el.classList.add('group-hidden');
     container.appendChild(el);
   });
+}
+
+// Réapplique l'état replié au DOM (groupe de la page active toujours déplié).
+// Pas de persistance : naviguer vers un groupe replié l'affiche temporairement.
+function _applyGroupCollapse() {
+  const activeGroup = _shellActiveGroup();
+  NAV_GROUPS.forEach(g => {
+    const collapsed = _collapsedGroups.has(g.key) && g.key !== activeGroup;
+    const head = document.querySelector('.shell-nav-group[data-group="' + g.key + '"]');
+    if (head) head.classList.toggle('collapsed', collapsed);
+    document.querySelectorAll('.shell-nav-item[data-group="' + g.key + '"]').forEach(el => {
+      el.classList.toggle('group-hidden', collapsed);
+    });
+  });
+}
+
+// Repli/dépli manuel d'un groupe → persiste (serveur + localStorage).
+function toggleGroup(key) {
+  const collapsing = !_collapsedGroups.has(key);
+  if (collapsing) _collapsedGroups.add(key); else _collapsedGroups.delete(key);
+  _applyGroupCollapse();
+  const head = document.querySelector('.shell-nav-group[data-group="' + key + '"]');
+  if (head) {
+    const lbl = head.querySelector('.g-label');
+    head.title = (collapsing ? 'Déplier' : 'Replier') + ' « ' + (lbl ? lbl.textContent : '') + ' »';
+  }
+  _persistNavGroups();
+}
+
+function _persistNavGroups() {
+  const arr = Array.from(_collapsedGroups);
+  try { localStorage.setItem('wb3_nav_groups', JSON.stringify(arr)); } catch (e) {}
+  try { if (window.WB3DB && WB3DB.setUserPref) WB3DB.setUserPref('nav_groups', { collapsed: arr }).catch(() => {}); } catch (e) {}
+}
+
+// Charge l'état serveur (source de vérité) et réapplique.
+async function restoreNavGroups() {
+  try {
+    if (!window.WB3DB || !WB3DB.getUserPref) return;
+    const pref = await WB3DB.getUserPref('nav_groups');
+    if (!pref || !Array.isArray(pref.collapsed)) return;
+    _collapsedGroups = new Set(pref.collapsed);
+    try { localStorage.setItem('wb3_nav_groups', JSON.stringify(pref.collapsed)); } catch (e) {}
+    _applyGroupCollapse();
+  } catch (e) { /* no-op */ }
 }
 
 // ── Build pane page pickers ───────────────────────────────────────
@@ -1050,6 +1195,7 @@ async function checkBackendCapabilitiesUI() {
 
   buildNavItems();
   buildPanePickers();
+  restoreNavGroups();   // état des groupes repliés (source de vérité serveur)
   initDivider();
   initSidebarResize();
   initFrameFocusDetection();

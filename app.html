@@ -134,6 +134,27 @@
     display: none;
   }
   .login-error.show { display: block; }
+  .login-ok {
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: #e6f4ea;
+    border-left: 3px solid #2e7d32;
+    border-radius: 6px;
+    color: #2e7d32;
+    font-size: 12.5px;
+    display: none;
+  }
+  .login-ok.show { display: block; }
+  .login-link {
+    display: inline-block;
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--p);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .login-link:hover { text-decoration: underline; }
+  .login-hint { font-size: 12px; color: var(--muted); margin: 4px 0 0; line-height: 1.4; }
 
   /* ============ APP PRINCIPALE (placeholder) ============ */
   .app { display: none; min-height: 100vh; }
@@ -339,9 +360,31 @@
       <input type="password" id="password" autocomplete="current-password" required>
 
       <button type="submit" id="login-btn">Se connecter</button>
+      <a href="#" id="forgot-link" class="login-link">Mot de passe oublié ?</a>
+    </form>
+
+    <!-- Étape 1 — demander un lien de réinitialisation -->
+    <form id="reset-form" style="display:none">
+      <label for="reset-email">Email du compte</label>
+      <input type="email" id="reset-email" autocomplete="email" required>
+      <p class="login-hint">On t'envoie un email avec un lien pour choisir un nouveau mot de passe.</p>
+      <button type="submit" id="reset-btn">Envoyer le lien</button>
+      <a href="#" id="reset-back" class="login-link">← Retour à la connexion</a>
+    </form>
+
+    <!-- Étape 2 — choisir un nouveau mot de passe (après clic sur le lien email) -->
+    <form id="newpass-form" style="display:none">
+      <label for="newpass">Nouveau mot de passe</label>
+      <input type="password" id="newpass" autocomplete="new-password" minlength="6" required>
+
+      <label for="newpass2">Confirmer le mot de passe</label>
+      <input type="password" id="newpass2" autocomplete="new-password" minlength="6" required>
+
+      <button type="submit" id="newpass-btn">Valider le nouveau mot de passe</button>
     </form>
 
     <div class="login-error" id="login-error"></div>
+    <div class="login-ok" id="login-ok"></div>
   </div>
 </div>
 
@@ -421,17 +464,47 @@
           <div class="desc">Registre traitements, stock, apports</div>
           <span class="soon live">● disponible</span>
         </a>
+        <a class="module-card active" href="tracabilite.html">
+          <div class="icon">🌳</div>
+          <div class="name">Traçabilité</div>
+          <div class="desc">Recherche globale, timeline, chaîne lots</div>
+          <span class="soon live">● disponible</span>
+        </a>
+        <a class="module-card active" href="traitements.html">
+          <div class="icon">🧫</div>
+          <div class="name">Intrants &amp; Enrichissements</div>
+          <div class="desc">Sulfitage, levurage, collage, chaptalisation MCR/saccharose</div>
+          <span class="soon live">● disponible</span>
+        </a>
         <a class="module-card active" href="registre.html">
           <div class="icon">📒</div>
           <div class="name">Registre de cave</div>
           <div class="desc">Journal chronologique de toutes les opérations — apports, transferts, intrants, agréments</div>
           <span class="soon live">● disponible</span>
         </a>
-        <a class="module-card active" href="tracabilite.html">
-          <div class="icon">🌳</div>
-          <div class="name">Traçabilité</div>
-          <div class="desc">Recherche globale, timeline, chaîne lots</div>
+        <a class="module-card active" href="contacts.html">
+          <div class="icon">📒</div>
+          <div class="name">Contacts</div>
+          <div class="desc">Carnet d'adresses — fournisseurs, apporteurs, labos, courtiers, clients</div>
           <span class="soon live">● disponible</span>
+        </a>
+        <a class="module-card active" href="assistant.html" id="tile-assistant" style="display:none">
+          <div class="icon">🍇</div>
+          <div class="name">OenoPulse</div>
+          <div class="desc">Questions sur votre cave, lots, analyses — réponses en langage naturel</div>
+          <span class="soon live">● disponible</span>
+        </a>
+        <a class="module-card active" href="qualite-traca.html">
+          <div class="icon">🩺</div>
+          <div class="name">Santé traça</div>
+          <div class="desc">Contrôles d'intégrité, anomalies, export CSV</div>
+          <span class="soon live">● disponible</span>
+        </a>
+        <a class="module-card active" href="demo-guide.html" style="border:2px solid #c8a87e">
+          <div class="icon">🗺️</div>
+          <div class="name">Guide de démonstration</div>
+          <div class="desc">Parcours en 5 étapes · données 2025 préchargées</div>
+          <span class="soon live" style="background:#c8a87e;color:#3e0f18">● démo</span>
         </a>
         <div class="module-card">
           <div class="icon">🗓️</div>
@@ -466,13 +539,29 @@ const ui = {
   loginForm:   document.getElementById('login-form'),
   loginBtn:    document.getElementById('login-btn'),
   loginError:  document.getElementById('login-error'),
+  loginOk:     document.getElementById('login-ok'),
   emailInput:  document.getElementById('email'),
   passInput:   document.getElementById('password'),
+  forgotLink:  document.getElementById('forgot-link'),
+  resetForm:   document.getElementById('reset-form'),
+  resetEmail:  document.getElementById('reset-email'),
+  resetBtn:    document.getElementById('reset-btn'),
+  resetBack:   document.getElementById('reset-back'),
+  newpassForm: document.getElementById('newpass-form'),
+  newpass:     document.getElementById('newpass'),
+  newpass2:    document.getElementById('newpass2'),
+  newpassBtn:  document.getElementById('newpass-btn'),
+  loginSub:    document.querySelector('#login-screen .sub'),
   tenantBadge: document.getElementById('tenant-badge'),
   userInfo:    document.getElementById('user-info'),
   statusPill:  document.getElementById('status-pill'),
   statusText:  document.getElementById('status-text'),
 };
+
+// Mode « récupération de mot de passe » : détecté dès le chargement si l'URL
+// porte le jeton de récupération Supabase (#...type=recovery). Empêche la
+// redirection auto vers shell.html tant qu'on n'a pas posé le nouveau mdp.
+let _recoveryMode = /type=recovery/.test(location.hash || '');
 
 function setStatus(text, level = 'ok') {
   ui.statusText.textContent = text;
@@ -480,15 +569,46 @@ function setStatus(text, level = 'ok') {
 }
 
 function showLoginError(msg) {
+  ui.loginOk.classList.remove('show');
   ui.loginError.textContent = msg;
   ui.loginError.classList.add('show');
 }
 
+function showLoginOk(msg) {
+  ui.loginError.classList.remove('show');
+  ui.loginOk.textContent = msg;
+  ui.loginOk.classList.add('show');
+}
+
 function hideLoginError() {
   ui.loginError.classList.remove('show');
+  ui.loginOk.classList.remove('show');
+}
+
+// Bascule entre les 3 formulaires de l'écran de connexion.
+function showAuthForm(which) {
+  hideLoginError();
+  ui.loginForm.style.display   = (which === 'login')   ? '' : 'none';
+  ui.resetForm.style.display   = (which === 'reset')   ? '' : 'none';
+  ui.newpassForm.style.display = (which === 'newpass') ? '' : 'none';
+  if (ui.loginSub) {
+    ui.loginSub.textContent =
+      which === 'reset'   ? 'Réinitialisation du mot de passe' :
+      which === 'newpass' ? 'Choisis ton nouveau mot de passe' :
+                            'Connexion à l\'espace de traçabilité';
+  }
 }
 
 function renderApp() {
+  // En mode récupération, on reste sur l'écran de connexion pour saisir le
+  // nouveau mot de passe — même si une session (temporaire) est active.
+  if (_recoveryMode) {
+    ui.loginScreen.style.display = 'flex';
+    ui.app.classList.remove('show');
+    showAuthForm('newpass');
+    setStatus('Réinitialisation');
+    return;
+  }
   const user = WB3DB.getCurrentUser();
   if (!user) {
     ui.loginScreen.style.display = 'flex';
@@ -516,7 +636,62 @@ ui.loginForm.addEventListener('submit', async (e) => {
   }
 });
 
-WB3Auth.onAuthChange(({ user }) => {
+// ── Mot de passe oublié ────────────────────────────────────────
+ui.forgotLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  // Pré-remplit l'email déjà saisi sur le formulaire de connexion.
+  if (ui.emailInput.value && !ui.resetEmail.value) ui.resetEmail.value = ui.emailInput.value;
+  showAuthForm('reset');
+});
+ui.resetBack.addEventListener('click', (e) => { e.preventDefault(); showAuthForm('login'); });
+
+ui.resetForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideLoginError();
+  ui.resetBtn.disabled = true;
+  ui.resetBtn.textContent = 'Envoi…';
+  try {
+    await WB3Auth.requestPasswordReset(ui.resetEmail.value.trim());
+    showLoginOk('Si un compte existe pour cet email, un lien de réinitialisation vient d\'être envoyé. Vérifie ta boîte (et les indésirables).');
+  } catch (err) {
+    showLoginError(err.message || 'Échec de l\'envoi du lien');
+  } finally {
+    ui.resetBtn.disabled = false;
+    ui.resetBtn.textContent = 'Envoyer le lien';
+  }
+});
+
+// ── Nouveau mot de passe (après clic sur le lien reçu par email) ──
+ui.newpassForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideLoginError();
+  if (ui.newpass.value !== ui.newpass2.value) {
+    showLoginError('Les deux mots de passe ne correspondent pas.');
+    return;
+  }
+  if (ui.newpass.value.length < 6) {
+    showLoginError('Le mot de passe doit faire au moins 6 caractères.');
+    return;
+  }
+  ui.newpassBtn.disabled = true;
+  ui.newpassBtn.textContent = 'Enregistrement…';
+  try {
+    await WB3Auth.updatePassword(ui.newpass.value);
+    _recoveryMode = false;   // on sort du mode récupération (la session est valide)
+    showLoginOk('Mot de passe mis à jour ✓ — ouverture de ton espace…');
+    // On nettoie le jeton de l'URL puis on entre dans l'app.
+    setTimeout(() => { window.location.href = 'shell.html'; }, 1200);
+  } catch (err) {
+    ui.newpassBtn.disabled = false;
+    ui.newpassBtn.textContent = 'Valider le nouveau mot de passe';
+    showLoginError(err.message || 'Échec de la mise à jour du mot de passe. Le lien a peut-être expiré — redemande-en un.');
+  }
+});
+
+WB3Auth.onAuthChange(({ user, event }) => {
+  // Supabase efface parfois le hash de l'URL avant notre test au chargement :
+  // l'événement PASSWORD_RECOVERY est le déclencheur fiable du mode reset.
+  if (event === 'PASSWORD_RECOVERY') _recoveryMode = true;
   renderApp();
 });
 
@@ -556,11 +731,18 @@ window.WB3App = {
     await WB3Auth.restoreSession();
     console.log('[WB3] init: restoreSession terminé, user =', WB3DB.getCurrentUser()?.email || 'null');
     renderApp();
+    // Afficher la tuile Assistant IA si le module est activé
+    try {
+      const tol = await WB3DB.getTolerances({ force: true }).catch(() => ({}));
+      if (tol.ia_module_enabled === true) {
+        const tile = document.getElementById('tile-assistant');
+        if (tile) tile.style.display = '';
+      }
+    } catch (_) { /**/ }
   } catch(e) {
     console.error('[WB3] Erreur restoreSession:', e);
-    // En cas de timeout ou erreur, on bascule sur l'écran de login pour ne pas pendre
     setStatus('Prêt (sans session)', 'ok');
-    renderApp();   // affichera le login screen car user est null
+    renderApp();
   }
 })();
 </script>

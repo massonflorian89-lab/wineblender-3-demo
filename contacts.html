@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Contacts — VitiFlux</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<script src="lib/supabase.min.js"></script>
+<script src="toast.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+<style>
+/* ── Type badges ─────────────────────────────────────────────── */
+.type-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: .2px;
+}
+.type-fournisseur { background:#e8f5e9; color:#2e7d32; }
+.type-apporteur   { background:#fff8e1; color:#f57f17; }
+.type-labo        { background:#e3f2fd; color:#1565c0; }
+.type-courtier    { background:#f3e5f5; color:#6a1b9a; }
+.type-client      { background:#fce4ec; color:#880e4f; }
+.type-autre       { background:#f5f5f5; color:#555; }
+
+/* ── Barre de filtres ────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+.filter-bar select,
+.filter-bar input[type="search"] {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-base);
+  color: var(--color-ink-primary);
+  font-size: var(--text-callout);
+  height: 34px;
+}
+.filter-bar input[type="search"] { width: 220px; }
+.filter-bar label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-callout);
+  color: var(--color-ink-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.filter-bar .spacer { flex: 1; }
+
+/* ── Table contacts ──────────────────────────────────────────── */
+.contacts-table-wrap {
+  overflow-x: auto;
+  padding: var(--space-4) var(--space-5);
+}
+.contacts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-callout);
+}
+.contacts-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--color-ink-tertiary);
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+.contacts-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.contacts-table tr:last-child td { border-bottom: none; }
+.contacts-table tr:hover td { background: var(--color-bg-elevated); }
+.contacts-table tr.archived td { opacity: .55; font-style: italic; }
+.contacts-table .td-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.contacts-table .td-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-secondary);
+  font-size: 13px;
+}
+.contacts-table .td-actions button:hover { background: var(--color-bg-elevated); color: var(--color-ink-primary); }
+.contacts-table .td-actions button.danger:hover { color: var(--color-error); }
+
+/* ── Drawer latéral ──────────────────────────────────────────── */
+.contacts-drawer-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 1000;
+}
+.contacts-drawer-overlay.open { display: block; }
+.contacts-drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(480px, 96vw);
+  background: var(--color-bg-base);
+  box-shadow: -4px 0 24px rgba(0,0,0,.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 1001;
+  transform: translateX(100%);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+}
+.contacts-drawer.open { transform: translateX(0); }
+.drawer-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.drawer-hdr h2 { margin: 0; font-size: var(--text-title-3); }
+.drawer-close {
+  background: none; border: none; cursor: pointer;
+  font-size: 20px; color: var(--color-ink-secondary);
+  padding: 4px 8px; border-radius: var(--radius-sm);
+}
+.drawer-close:hover { background: var(--color-bg-elevated); }
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.drawer-footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.field { display: flex; flex-direction: column; gap: var(--space-1); }
+.field-label { font-size: 12px; font-weight: 600; color: var(--color-ink-secondary); text-transform: uppercase; letter-spacing: .4px; }
+.field .input { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg-base); color: var(--color-ink-primary); font-size: var(--text-body); width: 100%; box-sizing: border-box; }
+.field .input:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.field textarea.input { min-height: 80px; resize: vertical; font-family: inherit; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.section-sep { border: none; border-top: 1px solid var(--color-border); margin: 0; }
+</style>
+</head>
+<body>
+
+<div id="page-wrap" style="display:flex;flex-direction:column;min-height:100vh">
+  <div id="top-nav"></div>
+
+  <div class="page-header" style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3)">
+    <div>
+      <h1 style="margin:0;font-size:var(--text-title-2)">Contacts</h1>
+      <p style="margin:4px 0 0;color:var(--color-ink-secondary);font-size:var(--text-callout)">Carnet d'adresses — fournisseurs, apporteurs, labos, courtiers, clients</p>
+    </div>
+    <div style="display:flex;gap:var(--space-3);align-items:center">
+      <button class="btn btn--secondary btn--sm" id="btn-export-csv" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn--sm" id="btn-new" onclick="openDrawer(null)">+ Nouveau contact</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <input type="search" id="search-input" placeholder="Rechercher nom, société, email…" oninput="applyFilters()">
+    <select id="filter-type" onchange="applyFilters()">
+      <option value="">Tous les types</option>
+      <option value="fournisseur">Fournisseurs</option>
+      <option value="apporteur">Apporteurs</option>
+      <option value="labo">Laboratoires</option>
+      <option value="courtier">Courtiers</option>
+      <option value="client">Clients</option>
+      <option value="autre">Autre</option>
+    </select>
+    <label>
+      <input type="checkbox" id="show-archived" onchange="applyFilters()">
+      Afficher archivés
+    </label>
+    <span class="spacer"></span>
+    <span id="result-count" style="font-size:var(--text-callout);color:var(--color-ink-tertiary)"></span>
+  </div>
+
+  <div class="contacts-table-wrap">
+    <div id="contacts-list">
+      <div class="loading-state" style="padding:var(--space-8);text-align:center;color:var(--color-ink-tertiary)">
+        <div class="spinner" style="margin:0 auto var(--space-3)"></div>
+        Chargement…
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer overlay -->
+<div class="contacts-drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+
+<!-- Drawer formulaire -->
+<div class="contacts-drawer" id="contacts-drawer">
+  <div class="drawer-hdr">
+    <h2 id="drawer-title">Nouveau contact</h2>
+    <button class="drawer-close" onclick="closeDrawer()" title="Fermer">✕</button>
+  </div>
+  <div class="drawer-body">
+    <input type="hidden" id="contact-id">
+
+    <div class="field">
+      <label class="field-label" for="contact-type">Type *</label>
+      <select class="input" id="contact-type" required>
+        <option value="">— Choisir —</option>
+        <option value="fournisseur">Fournisseur</option>
+        <option value="apporteur">Apporteur</option>
+        <option value="labo">Laboratoire</option>
+        <option value="courtier">Courtier</option>
+        <option value="client">Client</option>
+        <option value="autre">Autre</option>
+      </select>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label" for="contact-nom">Nom *</label>
+        <input class="input" type="text" id="contact-nom" placeholder="ex : Dupont" required>
+      </div>
+      <div class="field">
+        <label class="field-label" for="contact-societe">Société</label>
+        <input class="input" type="text" id="contact-societe" placeholder="ex : Vignobles Dupont">
+      </div>
+    </div>
+
+    <hr class="section-sep">
+
+    <div class="field">
+      <label class="field-label" for="contact-email">E-mail</label>
+      <input class="input" type="email" id="contact-email" placeholder="ex : contact@exemple.fr">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label" for="contact-tel-mobile">Tél. mobile</label>
+        <input class="input" type="tel" id="contact-tel-mobile" placeholder="06 …">
+      </div>
+      <div class="field">
+        <label class="field-label" for="contact-tel-fixe">Tél. fixe</label>
+        <input class="input" type="tel" id="contact-tel-fixe" placeholder="04 …">
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="contact-adresse">Adresse</label>
+      <input class="input" type="text" id="contact-adresse" placeholder="ex : 12 route des Vignes, 34150 Aniane">
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="contact-notes">Notes</label>
+      <textarea class="input" id="contact-notes" placeholder="Informations complémentaires…"></textarea>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn btn--secondary" onclick="closeDrawer()">Annuler</button>
+    <button class="btn" id="btn-save" onclick="saveContact()">💾 Enregistrer</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── État ─────────────────────────────────────────────────────────
+let _allContacts = [];
+let _filtered    = [];
+let _canWrite    = false;
+
+// ── Init ─────────────────────────────────────────────────────────
+(async function init() {
+  try { await WB3Auth.restoreSession(); } catch(e) { console.error(e); }
+
+  if (!WB3DB.getCurrentUser()) {
+    document.getElementById('contacts-list').innerHTML =
+      `<div class="empty-state" style="padding:var(--space-10);text-align:center">
+        <div style="font-size:2rem">🔐</div>
+        <p>Session expirée — <a href="app.html">Se reconnecter</a></p>
+      </div>`;
+    return;
+  }
+
+  const role = WB3DB.getCurrentRole?.() || 'membre';
+  _canWrite = (role === 'admin' || role === 'manager');
+  if (!_canWrite) {
+    document.getElementById('btn-new').style.display = 'none';
+    document.getElementById('btn-export-csv').style.display = '';
+  }
+
+  await load();
+})();
+
+// ── Chargement ───────────────────────────────────────────────────
+async function load() {
+  try {
+    const showArchived = document.getElementById('show-archived').checked;
+    _allContacts = await WB3DB.queryContacts({ includeArchived: showArchived });
+    applyFilters();
+  } catch(e) {
+    console.error('[contacts]', e);
+    document.getElementById('contacts-list').innerHTML =
+      `<div class="empty-state" style="padding:var(--space-8);text-align:center;color:var(--color-error)">
+        Erreur de chargement : ${escHtml(e.message || String(e))}
+      </div>`;
+  }
+}
+
+// ── Filtres ───────────────────────────────────────────────────────
+function applyFilters() {
+  const q      = (document.getElementById('search-input').value || '').toLowerCase().trim();
+  const type   = document.getElementById('filter-type').value;
+  const archiv = document.getElementById('show-archived').checked;
+
+  _filtered = _allContacts.filter(c => {
+    if (!archiv && c.archived_at) return false;
+    if (archiv && !c.archived_at && false) return false; // show all when checked
+    if (type && c.type !== type) return false;
+    if (q) {
+      const hay = [c.nom, c.societe, c.email, c.tel_mobile, c.tel_fixe, c.notes]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('result-count').textContent =
+    _filtered.length === _allContacts.length
+      ? `${_allContacts.length} contact${_allContacts.length > 1 ? 's' : ''}`
+      : `${_filtered.length} / ${_allContacts.length}`;
+
+  renderTable();
+}
+
+// ── Rendu table ───────────────────────────────────────────────────
+const TYPE_LABELS = {
+  fournisseur: 'Fournisseur',
+  apporteur:   'Apporteur',
+  labo:        'Laboratoire',
+  courtier:    'Courtier',
+  client:      'Client',
+  autre:       'Autre',
+};
+
+function renderTable() {
+  const root = document.getElementById('contacts-list');
+  if (_filtered.length === 0) {
+    root.innerHTML = `
+      <div class="empty-state" style="padding:var(--space-10);text-align:center;color:var(--color-ink-tertiary)">
+        <div style="font-size:2.5rem;margin-bottom:var(--space-3)">📒</div>
+        <div style="font-weight:600;margin-bottom:var(--space-2)">Aucun contact</div>
+        <div style="font-size:var(--text-callout)">
+          ${_canWrite ? 'Cliquez sur « + Nouveau contact » pour commencer.' : 'Aucun contact enregistré.'}
+        </div>
+      </div>`;
+    return;
+  }
+
+  const rows = _filtered.map(c => {
+    const archived = c.archived_at ? ' archived' : '';
+    const editBtn  = _canWrite
+      ? `<button onclick="openDrawer('${c.id}')" title="Modifier">✏️</button>`
+      : '';
+    const archBtn  = _canWrite
+      ? c.archived_at
+        ? `<button onclick="restoreContact('${c.id}')" title="Restaurer">♻️</button>`
+        : `<button class="danger" onclick="archiveContact('${c.id}')" title="Archiver">🗄️</button>`
+      : '';
+
+    return `
+      <tr class="${archived}" data-id="${c.id}">
+        <td><span class="type-badge type-${c.type}">${escHtml(TYPE_LABELS[c.type] || c.type)}</span></td>
+        <td><strong>${escHtml(c.nom)}</strong>${c.archived_at ? ' <em style="font-size:11px;color:var(--color-ink-tertiary)">(archivé)</em>' : ''}</td>
+        <td>${escHtml(c.societe || '—')}</td>
+        <td>${c.email ? `<a href="mailto:${escHtml(c.email)}">${escHtml(c.email)}</a>` : '—'}</td>
+        <td>${escHtml(c.tel_mobile || '—')}</td>
+        <td>${escHtml(c.tel_fixe  || '—')}</td>
+        <td class="td-actions">${editBtn}${archBtn}</td>
+      </tr>`;
+  }).join('');
+
+  root.innerHTML = `
+    <table class="contacts-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Nom</th>
+          <th>Société</th>
+          <th>E-mail</th>
+          <th>Mobile</th>
+          <th>Fixe</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── Drawer ────────────────────────────────────────────────────────
+function openDrawer(id) {
+  const contact = id ? _allContacts.find(c => c.id === id) : null;
+  document.getElementById('drawer-title').textContent = contact ? 'Modifier le contact' : 'Nouveau contact';
+  document.getElementById('contact-id').value      = contact?.id || '';
+  document.getElementById('contact-type').value    = contact?.type || '';
+  document.getElementById('contact-nom').value     = contact?.nom || '';
+  document.getElementById('contact-societe').value = contact?.societe || '';
+  document.getElementById('contact-email').value   = contact?.email || '';
+  document.getElementById('contact-tel-mobile').value = contact?.tel_mobile || '';
+  document.getElementById('contact-tel-fixe').value   = contact?.tel_fixe   || '';
+  document.getElementById('contact-adresse').value = contact?.adresse || '';
+  document.getElementById('contact-notes').value   = contact?.notes || '';
+
+  document.getElementById('drawer-overlay').classList.add('open');
+  document.getElementById('contacts-drawer').classList.add('open');
+  document.getElementById('contact-type').focus();
+}
+
+function closeDrawer() {
+  document.getElementById('drawer-overlay').classList.remove('open');
+  document.getElementById('contacts-drawer').classList.remove('open');
+}
+
+// ── Sauvegarde ────────────────────────────────────────────────────
+async function saveContact() {
+  const id     = document.getElementById('contact-id').value || null;
+  const type   = document.getElementById('contact-type').value.trim();
+  const nom    = document.getElementById('contact-nom').value.trim();
+
+  if (!type || !nom) {
+    WB3Toast.legacy('Le type et le nom sont obligatoires', 'error');
+    return;
+  }
+
+  const payload = {
+    id,
+    type,
+    nom,
+    societe:    document.getElementById('contact-societe').value.trim() || null,
+    email:      document.getElementById('contact-email').value.trim()   || null,
+    tel_mobile: document.getElementById('contact-tel-mobile').value.trim() || null,
+    tel_fixe:   document.getElementById('contact-tel-fixe').value.trim()   || null,
+    adresse:    document.getElementById('contact-adresse').value.trim() || null,
+    notes:      document.getElementById('contact-notes').value.trim()   || null,
+  };
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    await WB3DB.saveContact(payload);
+    WB3Toast.legacy(id ? 'Contact mis à jour' : 'Contact créé', 'success');
+    closeDrawer();
+    await load();
+  } catch(e) {
+    console.error('[contacts] save', e);
+    WB3Toast.legacy('Erreur : ' + (e.message || String(e)), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Enregistrer';
+  }
+}
+
+// ── Archivage / restauration ──────────────────────────────────────
+async function archiveContact(id) {
+  const c = _allContacts.find(x => x.id === id);
+  if (!c) return;
+  const ok = await WB3UI.confirm(
+    `Archiver « ${c.nom} » ? Le contact ne sera plus visible dans la liste principale.`,
+    { title: 'Archiver le contact', okText: 'Archiver', danger: false }
+  );
+  if (!ok) return;
+  try {
+    await WB3DB.archiveContact(id);
+    WB3Toast.legacy('Contact archivé', 'success');
+    await load();
+  } catch(e) {
+    WB3Toast.legacy('Erreur : ' + (e.message || String(e)), 'error');
+  }
+}
+
+async function restoreContact(id) {
+  try {
+    await WB3DB.restoreContact(id);
+    WB3Toast.legacy('Contact restauré', 'success');
+    await load();
+  } catch(e) {
+    WB3Toast.legacy('Erreur : ' + (e.message || String(e)), 'error');
+  }
+}
+
+// ── Export CSV ────────────────────────────────────────────────────
+function exportCSV() {
+  if (_filtered.length === 0) {
+    WB3Toast.legacy('Aucun contact à exporter', 'warn');
+    return;
+  }
+  const cols = ['type','nom','societe','email','tel_mobile','tel_fixe','adresse','notes'];
+  const header = ['Type','Nom','Société','E-mail','Tél. mobile','Tél. fixe','Adresse','Notes'];
+  const rows = [header, ..._filtered.map(c =>
+    cols.map(k => {
+      const v = c[k] != null ? String(c[k]) : '';
+      return v.includes(',') || v.includes('"') || v.includes('\n')
+        ? '"' + v.replace(/"/g, '""') + '"'
+        : v;
+    })
+  )];
+  const csv  = rows.map(r => r.join(',')).join('\r\n');
+  const stamp = new Date().toISOString().slice(0, 10);
+  WB3Nav.downloadFile(csv, `contacts-${stamp}.csv`, 'text/csv;charset=utf-8');
+  WB3Toast.legacy('Export téléchargé', 'success');
+}
+
+// ── Utilitaires ───────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+// Fermer le drawer avec Échap
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDrawer();
+});
+</script>
+</body>
+</html>

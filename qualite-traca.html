@@ -208,6 +208,7 @@
   </div>
   <div class="header-actions">
     <span class="tenant-pill" id="tenant-pill">—</span>
+    <button class="btn btn--header" id="btn-export-csv" onclick="exportCSV()" title="Exporter les anomalies en CSV" style="display:none">⬇ CSV</button>
     <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
     <button class="btn btn--header" onclick="logout()">Déconnexion</button>
   </div>
@@ -299,6 +300,8 @@ async function runAndRender() {
     _gravFilter = 'all';
     _catFilter  = 'all';
     renderPage(result);
+    const btnCsv = document.getElementById('btn-export-csv');
+    if (btnCsv) btnCsv.style.display = '';
   } catch(e) {
     console.error('[WB3 qualite-traca]', e);
     document.getElementById('content').innerHTML = `
@@ -536,6 +539,29 @@ function setCatFilter(cat) {
   const el = document.getElementById(`fc-${cat}`);
   if (el) el.classList.add('active');
   renderFilteredAlertes();
+}
+
+// ── Export CSV ────────────────────────────────────────────────────
+function exportCSV() {
+  if (!_lastResult || !_lastResult.alertes.length) {
+    toast('Aucune donnée à exporter', false); return;
+  }
+  const cols = ['gravite','categorie','type','message','detail','entite_type','entite_nom','detecte_le'];
+  const escape = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const rows = [cols.join(';')];
+  _lastResult.alertes.forEach(a => {
+    rows.push([
+      a.gravite, a.categorie, a.type, a.message, a.detail || '',
+      a.entite?.type || '', a.entite?.nom || '', a.detecte_le,
+    ].map(escape).join(';'));
+  });
+  const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url, download: `vitiflux-qualite-${new Date().toISOString().slice(0,10)}.csv`,
+  });
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
 }
 </script>
 </body>

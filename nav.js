@@ -84,6 +84,7 @@
     trash:          _IC('<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>'),
     history:        _IC('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'),
     palette:        _IC('<circle cx="13.5" cy="6.5" r="1.3"/><circle cx="17.5" cy="10.5" r="1.3"/><circle cx="8.5" cy="7.5" r="1.3"/><circle cx="6.5" cy="12.5" r="1.3"/><path d="M12 2a10 10 0 0 0 0 20 2.5 2.5 0 0 0 2-4 2.4 2.4 0 0 1-.5-1.5A2.5 2.5 0 0 1 16 14h2a4 4 0 0 0 4-4 10 10 0 0 0-10-8Z"/>'),
+    book:           _IC('<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>'),
     mapPin:         _IC('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
     ruler:          _IC('<path d="M21.3 8.7 8.7 21.3a1 1 0 0 1-1.4 0l-4.6-4.6a1 1 0 0 1 0-1.4L15.3 2.7a1 1 0 0 1 1.4 0l4.6 4.6a1 1 0 0 1 0 1.4Z"/><path d="m7.5 10.5 2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/>'),
     download:       _IC('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>'),
@@ -480,25 +481,45 @@
   // ============================================================
   const _CUVE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="16" height="16" style="vertical-align:-.15em;display:inline-block" aria-hidden="true"><rect x="3" y="3" width="14" height="13" rx="1.2" fill="#ccd8e4" stroke="#7a96b0" stroke-width="1.3"/><ellipse cx="10" cy="3" rx="7" ry="2.2" fill="#e0eaf4" stroke="#7a96b0" stroke-width="1.3"/><ellipse cx="10" cy="16" rx="7" ry="2.2" fill="#b8cad8" stroke="#7a96b0" stroke-width="1.3"/><line x1="3" y1="8.5" x2="17" y2="8.5" stroke="#7a96b0" stroke-width="0.7"/><line x1="3" y1="12.5" x2="17" y2="12.5" stroke="#7a96b0" stroke-width="0.7"/><line x1="14" y1="17.5" x2="14" y2="20" stroke="#7a96b0" stroke-width="1.6"/></svg>`;
 
+  // Groupes de navigation (en-têtes repliables). Les items portent un champ
+  // `group` ; le rendu insère l'en-tête au changement de groupe. NAV_ITEMS reste
+  // PLAT → les .find()/.filter() existants (gateNav, recherche) marchent inchangés.
+  // `pinned: true` = bloc « Accès rapide » en haut, toujours visible (Cuverie = cœur).
+  const NAV_GROUPS = [
+    { key: 'pilotage', label: 'Pilotage', emoji: '🎯' },
+    { key: 'vendange', label: 'Vendange', emoji: '🍇' },
+    { key: 'chai',     label: 'Chai',     emoji: '🍷' },
+    { key: 'qualite',  label: 'Qualité',  emoji: '🔬' },
+    { key: 'gestion',  label: 'Gestion',  emoji: '📋' },
+  ];
+
   const NAV_ITEMS = [
-    { href: 'dashboard.html',  icon: ICON.dashboard,      label: 'Tableau de bord' },
-    { href: 'cuverie.html',    icon: ICON.tank,           label: 'Cuverie' },
-    { href: 'lots.html',       icon: ICON.wine,           label: 'Lots' },
-    { href: 'apports.html',    icon: ICON.grape,          label: 'Apports' },
-    { href: 'reception.html',  icon: ICON.hopper,         label: 'Réception' },
-    { href: 'planning.html',   icon: ICON.calendar,       label: 'Planning', module: 'planning' },
-    { href: 'operations.html', icon: ICON.clipboardCheck, label: 'Opérations' },
-    { href: 'produits.html',   icon: ICON.flask,          label: 'Produits' },
-    { href: 'analyses.html',   icon: ICON.microscope,     label: 'Analyses' },
-    { href: 'assemblage.html', icon: ICON.blend,          label: 'Assemblage', module: 'assemblage' },
-    { href: 'echantillons.html', icon: ICON.bottle,       label: 'Échantillons', module: 'echantillon' },
-    { href: 'rapports.html',     icon: ICON.report,       label: 'Rapports' },
-    { href: 'registre.html',     icon: ICON.list,         label: 'Registre de cave', module: 'registre' },
-    { href: 'qualite-traca.html', icon: ICON.shieldCheck, label: 'Santé traça' },
-    { href: 'traitements.html',  icon: ICON.intrant,      label: 'Intrants' },
-    { href: 'assistant.html',   icon: ICON.ai,            label: 'Assistant IA', module: 'ia' },
+    // ── Accès rapide (épinglé, toujours visible) ──
+    { href: 'dashboard.html',  icon: ICON.dashboard,      label: 'Tableau de bord', emoji: '📊', pinned: true },
+    { href: 'cuverie.html',    icon: ICON.tank,           label: 'Cuverie',         emoji: '🛢', pinned: true },
+    // ── Pilotage ──
+    { href: 'assistant.html',  icon: ICON.ai,             label: 'OenoPulse',       emoji: '🍇', group: 'pilotage', module: 'ia' },
+    { href: 'planning.html',   icon: ICON.calendar,       label: 'Planning',        emoji: '📅', group: 'pilotage', module: 'planning' },
+    // ── Vendange ──
+    { href: 'reception.html',  icon: ICON.hopper,         label: 'Réception',       emoji: '🫙', group: 'vendange' },
+    { href: 'apports.html',    icon: ICON.grape,          label: 'Apports',         emoji: '🍇', group: 'vendange' },
+    // ── Chai ──
+    { href: 'lots.html',       icon: ICON.wine,           label: 'Lots',            emoji: '🍷', group: 'chai' },
+    { href: 'operations.html', icon: ICON.clipboardCheck, label: 'Opérations',      emoji: '✓',  group: 'chai' },
+    { href: 'assemblage.html', icon: ICON.blend,          label: 'Assemblage',      emoji: '🔀', group: 'chai', module: 'assemblage' },
+    { href: 'traitements.html',icon: ICON.intrant,        label: 'Intrants',        emoji: '🧫', group: 'chai' },
+    { href: 'produits.html',   icon: ICON.flask,          label: 'Produits',        emoji: '⚗️', group: 'chai' },
+    // ── Qualité ──
+    { href: 'analyses.html',   icon: ICON.microscope,     label: 'Analyses',        emoji: '🔬', group: 'qualite' },
+    { href: 'echantillons.html', icon: ICON.bottle,       label: 'Échantillons',    emoji: '🍾', group: 'qualite', module: 'echantillon' },
+    { href: 'qualite-traca.html', icon: ICON.shieldCheck, label: 'Santé traça',     emoji: '🩺', group: 'qualite' },
+    // ── Gestion ──
+    { href: 'registre.html',   icon: ICON.list,           label: 'Registre de cave',emoji: '📋', group: 'gestion', module: 'registre' },
+    { href: 'rapports.html',   icon: ICON.report,         label: 'Rapports',        emoji: '📑', group: 'gestion' },
+    { href: 'contacts.html',   icon: ICON.book,           label: 'Contacts',        emoji: '📒', group: 'gestion' },
+    // ── Bas (autonome) ──
     'sep',
-    { href: 'parametres.html', icon: ICON.settings,       label: 'Paramètres' },
+    { href: 'parametres.html', icon: ICON.settings,       label: 'Paramètres',      emoji: '🔧' },
   ];
 
   // Pages "filles" → parent dans la nav (pour surlignage correct)
@@ -525,6 +546,16 @@
   }
   let collapsed  = (navState === 'rail');   // compat interne (rail)
   let mobileOpen = false;
+
+  // Groupes de nav repliés : Set de clés. Cache localStorage (anti-FOUC) ;
+  // source de vérité = serveur (user_preferences 'nav_groups'), chargée à l'init
+  // via restoreNavGroups().
+  let _collapsedGroups = (function () {
+    try {
+      const raw = JSON.parse(localStorage.getItem('wb3_nav_groups') || '[]');
+      return new Set(Array.isArray(raw) ? raw : []);
+    } catch (e) { return new Set(); }
+  })();
 
   // ============================================================
   // CSS injecté
@@ -612,6 +643,59 @@
     .wb3-nav-items::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 2px; }
 
     .wb3-nav-sep { height: 1px; background: rgba(255,255,255,.08); margin: 5px 10px; }
+
+    /* ── Barre de recherche (sidebar) ── */
+    .wb3-nav-search {
+      display: flex; align-items: center; gap: 10px;
+      margin: 9px 6px 8px; padding: 11px 13px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 10px; cursor: text;
+      color: rgba(255,255,255,.6); font-size: 13.5px;
+      transition: background .14s, border-color .14s;
+      white-space: nowrap; overflow: hidden;
+    }
+    .wb3-nav-search:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.24); }
+    .wb3-nav-search .s-ic { flex-shrink: 0; font-size: 15px; }
+    .wb3-nav-search .s-txt { overflow: hidden; transition: opacity .18s, max-width .22s; max-width: 200px; }
+    .wb3-nav.collapsed .wb3-nav-search {
+      margin: 9px 7px 8px; padding: 11px 0; justify-content: center;
+    }
+    .wb3-nav.collapsed .wb3-nav-search .s-txt { opacity: 0; max-width: 0; }
+
+    /* ── Bloc « Accès rapide » (épinglé) ── */
+    .wb3-nav-pinned { padding-bottom: 4px; margin-bottom: 2px;
+      border-bottom: 1px solid rgba(255,255,255,.07); }
+
+    /* ── En-tête de groupe (repliable) ── */
+    .wb3-nav-group {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 13px 5px; margin: 3px 5px 0;
+      color: rgba(255,255,255,.42);
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .6px; cursor: pointer; user-select: none;
+      white-space: nowrap; border-radius: 6px;
+      transition: color .14s, background .14s;
+    }
+    .wb3-nav-group:hover { color: rgba(255,255,255,.72); background: rgba(255,255,255,.05); }
+    .wb3-nav-group .g-emoji { font-size: 12px; flex-shrink: 0; }
+    .wb3-nav-group .g-label { flex: 1; overflow: hidden;
+      transition: opacity .18s, max-width .22s; max-width: 200px; }
+    .wb3-nav-group .g-caret {
+      flex-shrink: 0; font-size: 9px; transition: transform .16s, opacity .18s;
+      opacity: .7;
+    }
+    .wb3-nav-group.collapsed .g-caret { transform: rotate(-90deg); }
+    /* Item caché quand son groupe est replié */
+    .wb3-nav-item.group-hidden { display: none; }
+    /* Rail : en-têtes = fin séparateur, texte + caret masqués */
+    .wb3-nav.collapsed .wb3-nav-group {
+      padding: 0; margin: 6px 12px; height: 1px;
+      background: rgba(255,255,255,.08); overflow: hidden; pointer-events: none;
+    }
+    .wb3-nav.collapsed .wb3-nav-group .g-emoji,
+    .wb3-nav.collapsed .wb3-nav-group .g-label,
+    .wb3-nav.collapsed .wb3-nav-group .g-caret { opacity: 0; }
 
     /* ── Nav item ── */
     .wb3-nav-item {
@@ -784,24 +868,79 @@
     const items = document.createElement('div');
     items.className = 'wb3-nav-items';
 
+    // ── Barre de recherche (ouvre l'overlay WB3Search : pages + cuves + lots) ──
+    const search = document.createElement('div');
+    search.className = 'wb3-nav-search';
+    search.id = 'wb3-nav-search';
+    search.setAttribute('role', 'button');
+    search.setAttribute('tabindex', '0');
+    search.title = 'Rechercher une page, une cuve, un lot';
+    search.innerHTML = `<span class="s-ic">🔍</span><span class="s-txt">Recherche</span>`;
+    const _openSearch = () => { if (window.WB3Search) WB3Search.open(); };
+    search.addEventListener('click', _openSearch);
+    search.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _openSearch(); }
+    });
+    items.appendChild(search);
+
+    // Groupe de l'item actif → forcé déplié au chargement
+    const _activeItem  = NAV_ITEMS.find(it => it !== 'sep' && it.href.split('/').pop() === activeTarget);
+    const _activeGroup = (_activeItem && _activeItem.group) ? _activeItem.group : null;
+
+    const _makeItemEl = (item) => {
+      const isActive = activeTarget === item.href.split('/').pop();
+      const a = document.createElement('a');
+      a.href      = item.href;
+      a.className = 'wb3-nav-item' + (isActive ? ' active' : '');
+      a.dataset.label = item.label;
+      if (item.group) a.dataset.group = item.group;
+      a.setAttribute('aria-current', isActive ? 'page' : 'false');
+      a.innerHTML = `<span class="n-icon">${item.icon}</span><span class="n-label">${item.label}</span>`;
+      return a;
+    };
+
+    // ── 1) Bloc « Accès rapide » (épinglé, toujours visible) ──
+    const pinned = NAV_ITEMS.filter(it => it !== 'sep' && it.pinned);
+    if (pinned.length) {
+      const zone = document.createElement('div');
+      zone.className = 'wb3-nav-pinned';
+      pinned.forEach(it => zone.appendChild(_makeItemEl(it)));
+      items.appendChild(zone);
+    }
+
+    // ── 2) Groupes repliables + items autonomes (Paramètres) ──
+    let lastGroup = null;
     NAV_ITEMS.forEach(item => {
       if (item === 'sep') {
         const sep = document.createElement('div');
         sep.className = 'wb3-nav-sep';
         items.appendChild(sep);
+        lastGroup = null;
         return;
       }
-      const filename = item.href.split('/').pop();
-      const isActive = activeTarget === filename;
-
-      const a = document.createElement('a');
-      a.href      = item.href;
-      a.className = 'wb3-nav-item' + (isActive ? ' active' : '');
-      a.dataset.label = item.label;
-      a.setAttribute('aria-current', isActive ? 'page' : 'false');
-      a.innerHTML = `<span class="n-icon">${item.icon}</span><span class="n-label">${item.label}</span>`;
+      if (item.pinned) return;                 // déjà rendu dans « Accès rapide »
+      if (!item.group) {                        // item autonome (ex. Paramètres)
+        items.appendChild(_makeItemEl(item));
+        return;
+      }
+      if (item.group !== lastGroup) {           // nouvel en-tête de groupe
+        lastGroup = item.group;
+        const g = NAV_GROUPS.find(x => x.key === item.group) || { key: item.group, label: item.group, emoji: '' };
+        const collapsed = _collapsedGroups.has(g.key) && g.key !== _activeGroup;
+        const head = document.createElement('div');
+        head.className = 'wb3-nav-group' + (collapsed ? ' collapsed' : '');
+        head.dataset.group = g.key;
+        head.setAttribute('role', 'button');
+        head.title = (collapsed ? 'Déplier' : 'Replier') + ' « ' + g.label + ' »';
+        head.innerHTML = `<span class="g-emoji">${g.emoji}</span><span class="g-label">${g.label}</span><span class="g-caret">▾</span>`;
+        head.addEventListener('click', () => toggleGroup(g.key));
+        items.appendChild(head);
+      }
+      const a = _makeItemEl(item);
+      if (_collapsedGroups.has(item.group) && item.group !== _activeGroup) a.classList.add('group-hidden');
       items.appendChild(a);
     });
+
     nav.appendChild(items);
 
     // Poignée de redimensionnement (bord droit). Masquée en mobile (CSS).
@@ -813,6 +952,55 @@
     nav.appendChild(grip);
 
     return nav;
+  }
+
+  // ── Repli/dépli des groupes de nav ──────────────────────────────
+  // État persisté SERVEUR (user_preferences 'nav_groups') + cache localStorage.
+  function toggleGroup(key) {
+    const collapsing = !_collapsedGroups.has(key);
+    if (collapsing) _collapsedGroups.add(key); else _collapsedGroups.delete(key);
+    const head = document.querySelector('.wb3-nav-group[data-group="' + key + '"]');
+    if (head) {
+      head.classList.toggle('collapsed', collapsing);
+      const lbl = head.querySelector('.g-label');
+      head.title = (collapsing ? 'Déplier' : 'Replier') + ' « ' + (lbl ? lbl.textContent : '') + ' »';
+    }
+    document.querySelectorAll('.wb3-nav-item[data-group="' + key + '"]').forEach(a => {
+      a.classList.toggle('group-hidden', collapsing);
+    });
+    _persistNavGroups();
+  }
+
+  function _persistNavGroups() {
+    const arr = Array.from(_collapsedGroups);
+    try { localStorage.setItem('wb3_nav_groups', JSON.stringify(arr)); } catch (e) {}
+    try {
+      if (window.WB3DB && WB3DB.setUserPref) {
+        WB3DB.setUserPref('nav_groups', { collapsed: arr }).catch(function () {});
+      }
+    } catch (e) {}
+  }
+
+  // Charge l'état serveur (source de vérité) et réapplique au DOM. Le groupe
+  // de la page active reste toujours déplié.
+  async function restoreNavGroups() {
+    try {
+      if (!window.WB3DB || !WB3DB.getUserPref) return;
+      const pref = await WB3DB.getUserPref('nav_groups');
+      if (!pref || !Array.isArray(pref.collapsed)) return;
+      _collapsedGroups = new Set(pref.collapsed);
+      try { localStorage.setItem('wb3_nav_groups', JSON.stringify(pref.collapsed)); } catch (e) {}
+      const activeItem  = NAV_ITEMS.find(it => it !== 'sep' && it.href.split('/').pop() === activeTarget);
+      const activeGroup = (activeItem && activeItem.group) ? activeItem.group : null;
+      NAV_GROUPS.forEach(g => {
+        const collapsed = _collapsedGroups.has(g.key) && g.key !== activeGroup;
+        const head = document.querySelector('.wb3-nav-group[data-group="' + g.key + '"]');
+        if (head) head.classList.toggle('collapsed', collapsed);
+        document.querySelectorAll('.wb3-nav-item[data-group="' + g.key + '"]').forEach(a => {
+          a.classList.toggle('group-hidden', collapsed);
+        });
+      });
+    } catch (e) { /* no-op : la nav reste utilisable */ }
   }
 
   // ── États de la sidebar (W3) : rail → normal → large ────────────
@@ -1024,8 +1212,8 @@
     });
 
     // Raccourcis sidebar (desktop) : « [ » cycle rail→normal→large ;
-    // Cmd/Ctrl+B réduit/agrandit (rail↔normal). Aucun conflit clavier dans WB3
-    // (seul Ctrl/Cmd+K = recherche est pris). Ignorés si la frappe vise un champ.
+    // Cmd/Ctrl+B réduit/agrandit (rail↔normal). La recherche n'a plus de
+    // raccourci (barre dédiée dans la sidebar). Ignorés si la frappe vise un champ.
     document.addEventListener('keydown', e => {
       if (window.innerWidth < BREAK) return;                 // mobile : aucune interaction
       const t = e.target;
@@ -1043,6 +1231,9 @@
 
     // Passe asynchrone : restaure la largeur sauvegardée (user_preferences).
     restoreSidebarWidth();
+
+    // Passe asynchrone : restaure les groupes repliés (source de vérité serveur).
+    restoreNavGroups();
   }
 
   // Modules visibles par le rôle CAVISTE (consultation cave + saisie analyse).
@@ -1066,7 +1257,15 @@
         let hide = false;
         if (cfg && cfg.module && mods[cfg.module] === false) hide = true;   // toggle cave
         if (isCaviste && !CAVISTE_NAV.has(f)) hide = true;                   // périmètre caviste
-        if (hide) a.style.display = 'none';
+        a.style.display = hide ? 'none' : '';
+      });
+      // Masque l'en-tête d'un groupe dont TOUS les items sont cachés.
+      document.querySelectorAll('#wb3-nav .wb3-nav-group').forEach(head => {
+        const key = head.dataset.group;
+        const visibles = Array.from(
+          document.querySelectorAll('#wb3-nav .wb3-nav-item[data-group="' + key + '"]')
+        ).filter(a => a.style.display !== 'none');
+        head.style.display = visibles.length ? '' : 'none';
       });
     } catch (_) { /* nav reste complète en cas de souci */ }
   }
@@ -1078,9 +1277,9 @@
   }
 
   // ============================================================
-  // 🔎 Recherche globale (command-palette) — cuves & lots
-  //   Déclencheur : bouton dans la topbar (.header-actions) + Ctrl/Cmd+K.
-  //   Résultats cliquables → fiche cuve / fiche lot. Lecture seule.
+  // 🔎 Recherche globale — pages + cuves + lots
+  //   Déclencheur : barre de recherche de la sidebar (WB3Search.open()).
+  //   Résultats cliquables → page / fiche cuve / fiche lot. Lecture seule.
   // ============================================================
   window.WB3Search = (function () {
     let _css = false, _box = null, _cache = null, _items = [], _hi = 0, _loading = false;
@@ -1099,9 +1298,7 @@
         '.wb3-srch-ic{font-size:18px;width:24px;text-align:center;flex-shrink:0;}' +
         '.wb3-srch-nm{font-weight:600;font-size:14px;}' +
         '.wb3-srch-sub{font-size:12px;color:var(--color-ink-tertiary,#888);}' +
-        '.wb3-srch-empty{padding:18px;color:var(--color-ink-tertiary,#888);font-size:13px;text-align:center;}' +
-        '.wb3-srch-trig{display:inline-flex;align-items:center;gap:6px;cursor:pointer;}' +
-        '.wb3-srch-kbd{font-size:10px;border:1px solid var(--color-border,#ccc);border-radius:4px;padding:1px 5px;color:var(--color-ink-tertiary,#999);}';
+        '.wb3-srch-empty{padding:18px;color:var(--color-ink-tertiary,#888);font-size:13px;text-align:center;}';
       document.head.appendChild(st);
     }
     async function _load(){
@@ -1109,6 +1306,16 @@
       if (_loading) return [];
       _loading = true;
       const out = [];
+      // Pages de navigation (statique, depuis NAV_ITEMS) — toujours dispo.
+      NAV_ITEMS.forEach(it => {
+        if (it === 'sep') return;
+        out.push({
+          type:'page', icon: it.emoji || '📄', id: it.href,
+          name: it.label, sub: 'Page',
+          hay: it.label.toLowerCase(),
+          href: it.href,
+        });
+      });
       try {
         const DB = window.WB3DB;
         const [cuves, lots] = await Promise.all([
@@ -1141,9 +1348,10 @@
       list = list.slice(0, 40);
       _items = list; _hi = 0;
       if (!list.length){ res.innerHTML = `<div class="wb3-srch-empty">${(_cache===null)?'Chargement…':'Aucun résultat'}</div>`; return; }
-      const groups = { cuve:[], lot:[] };
+      const groups = { page:[], cuve:[], lot:[] };
       list.forEach((x,i)=>groups[x.type].push({ ...x, i }));
       let html = '';
+      if (groups.page.length) html += `<div class="wb3-srch-grp">Pages</div>` + groups.page.map(_row).join('');
       if (groups.cuve.length) html += `<div class="wb3-srch-grp">Cuves</div>` + groups.cuve.map(_row).join('');
       if (groups.lot.length)  html += `<div class="wb3-srch-grp">Lots</div>`  + groups.lot.map(_row).join('');
       res.innerHTML = html;
@@ -1170,7 +1378,7 @@
     async function open(){
       if (_box) return; _inject();
       _box = document.createElement('div'); _box.className='wb3-srch-bd';
-      _box.innerHTML = `<div class="wb3-srch" role="dialog" aria-modal="true"><input class="wb3-srch-in" placeholder="Rechercher une cuve, un lot, un millésime…" autocomplete="off"><div class="wb3-srch-res"></div></div>`;
+      _box.innerHTML = `<div class="wb3-srch" role="dialog" aria-modal="true"><input class="wb3-srch-in" placeholder="Rechercher une page, une cuve, un lot…" autocomplete="off"><div class="wb3-srch-res"></div></div>`;
       document.body.appendChild(_box);
       _box.addEventListener('mousedown', e=>{ if(e.target===_box) close(); });
       const inp = _box.querySelector('.wb3-srch-in');
@@ -1180,22 +1388,9 @@
       _render('');                 // affiche « Chargement… »
       await _load(); _render(inp.value);
     }
-    return { open, mount: function(){
-      _inject();
-      // Bouton dans la topbar de la page (si présente).
-      document.querySelectorAll('.header-actions').forEach(bar=>{
-        if (bar.querySelector('.wb3-srch-trig')) return;
-        const b = document.createElement('button');
-        b.type='button'; b.className='btn btn--header wb3-srch-trig'; b.title='Recherche (Ctrl/Cmd+K)';
-        b.innerHTML = `🔎 <span class="wb3-srch-kbd">⌘K</span>`;
-        b.addEventListener('click', open);
-        bar.insertBefore(b, bar.firstChild);
-      });
-      // Raccourci clavier global.
-      document.addEventListener('keydown', e=>{
-        if ((e.ctrlKey||e.metaKey) && (e.key==='k'||e.key==='K')){ e.preventDefault(); open(); }
-      });
-    }};
+    // Point d'entrée = la barre de recherche de la sidebar (cf. buildNav).
+    // Plus de bouton topbar ni de raccourci Ctrl/Cmd+K (retirés à la demande).
+    return { open, mount: function(){ _inject(); } };
   })();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>WB3Search.mount());
   else WB3Search.mount();

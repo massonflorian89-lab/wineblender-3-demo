@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Relogement — WineBlender 3</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  /* .header-actions, .breadcrumb-flex, .tenant-pill → theme.css (composants partagés) */
+
+  .relog-layout {
+    max-width:680px; margin:0 auto; padding:var(--space-5) var(--space-4);
+    display:flex; flex-direction:column; gap:var(--space-5);
+  }
+
+  /* ── Card section ── */
+  .relog-card {
+    background:var(--color-bg-elevated); border-radius:var(--radius-lg);
+    box-shadow:0 1px 4px rgba(0,0,0,.07); overflow:hidden;
+  }
+  .relog-card-head {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:var(--space-3) var(--space-5); border-bottom:1px solid var(--color-border);
+    font-size:var(--text-callout); font-weight:700;
+  }
+  .relog-card-head.source { color:#d04f00; border-bottom-color:#ffe4d0; }
+  .relog-card-head.dest   { color:#2e7d32; border-bottom-color:#c8f0cc; }
+  .relog-card-head.meta   { color:var(--color-ink-secondary); }
+  .relog-card-body { padding:var(--space-4) var(--space-5); }
+
+  /* ── Arrow divider ── */
+  .relog-arrow {
+    text-align:center; font-size:24px; color:var(--color-primary);
+    line-height:1; margin:-var(--space-2) 0;
+  }
+
+  /* ── Volume disponible ── */
+  .vol-info {
+    font-size:var(--text-footnote); color:var(--color-ink-tertiary);
+    margin-top:var(--space-1); display:flex; align-items:center; gap:var(--space-2);
+  }
+  .vol-bar { flex:1; height:5px; border-radius:3px; background:var(--color-bg-subtle); overflow:hidden; }
+  .vol-bar-fill { height:100%; border-radius:3px; background:var(--color-primary); transition:width .3s; }
+  .vol-warn { color:var(--color-danger); font-weight:600; }
+
+  /* ── Destination rows ── */
+  .dest-row {
+    display:flex; align-items:center; gap:var(--space-2);
+    padding:6px 0; border-bottom:1px solid var(--color-border);
+  }
+  .dest-row:last-child { border-bottom:none; }
+  .dest-row select { flex:1; min-width:0; }
+  .dest-row input  { width:90px; flex-shrink:0; }
+  .dest-cap-info { font-size:var(--text-caption); color:var(--color-ink-tertiary); white-space:nowrap; min-width:80px; }
+
+  /* ── Résumé visuel ── */
+  .relog-summary {
+    background:var(--color-bg-subtle); border:1px solid var(--color-border);
+    border-radius:var(--radius-md); padding:var(--space-3) var(--space-4);
+    font-size:var(--text-callout); display:flex; align-items:center; gap:var(--space-3);
+    flex-wrap:wrap;
+  }
+  .sum-from { color:#d04f00; font-weight:600; }
+  .sum-arr  { color:var(--color-ink-tertiary); font-size:20px; }
+  .sum-to   { color:#2e7d32; font-weight:600; }
+  .sum-vol  { margin-left:auto; font-weight:700; color:var(--color-primary); }
+
+  /* ── Lots chips ── */
+  .lot-chips-mini { display:flex; flex-wrap:wrap; gap:var(--space-1); margin-top:var(--space-1); }
+  .lot-chip-mini {
+    background:var(--color-bg-mute); border-radius:var(--radius-pill);
+    padding:2px 8px; font-size:var(--text-caption); color:var(--color-ink-secondary);
+  }
+
+  /* ── Footer actions ── */
+  .relog-footer {
+    display:flex; align-items:center; gap:var(--space-3);
+    padding:var(--space-4) 0 var(--space-6);
+  }
+  .relog-footer .actions-right { margin-left:auto; display:flex; gap:var(--space-2); }
+
+  /* Validation feedback */
+  .field-error { color:var(--color-danger); font-size:var(--text-caption); margin-top:4px; }
+
+  /* ── Volume bars temps réel ── */
+  .vol-panel { margin-top:var(--space-2); }
+  .vol-row-label {
+    display:flex; justify-content:space-between;
+    font-size:var(--text-caption); color:var(--color-ink-tertiary); margin-bottom:3px;
+  }
+  .vol-row-label b { color:var(--color-ink); }
+  .vol-row-label .warn { color:var(--color-danger); font-weight:600; }
+  .vol-row-label .ok   { color:var(--color-success); }
+  .vol-bar-dual { display:flex; height:7px; border-radius:4px; overflow:hidden; background:var(--color-bg-mute); }
+  .vbd-transferred { background:var(--color-warning); transition:width .25s; }
+  .vbd-remaining   { background:var(--color-primary);  transition:width .25s; }
+  .vbd-current     { background:var(--color-ink-tertiary); transition:width .25s; }
+  .vbd-incoming    { background:var(--color-success);  transition:width .25s; }
+  .vbd-over        { background:var(--color-danger);   transition:width .25s; }
+
+  /* ── Destination info panel ── */
+  .dest-info-panel {
+    margin:4px 0 8px; padding:8px 10px;
+    background:var(--color-bg-subtle);
+    border-radius:var(--radius-sm);
+    font-size:var(--text-caption);
+    color:var(--color-ink-secondary);
+  }
+  .dest-lots-row { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+  .dest-lot-chip {
+    background:var(--color-bg-mute);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-pill);
+    padding:1px 7px; font-size:11px; color:var(--color-ink-secondary);
+  }
+
+  /* ── Modal mélange ── */
+  .mix-overlay {
+    position:fixed; inset:0; z-index:900;
+    background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .mix-box {
+    background:var(--color-bg-elevated);
+    border-radius:var(--radius-lg);
+    box-shadow:0 12px 40px rgba(0,0,0,.3);
+    padding:var(--space-5); max-width:460px; width:90%;
+  }
+  .mix-box h3 { margin:0 0 var(--space-3); font-size:var(--text-headline); }
+  .mix-section-label {
+    font-size:var(--text-caption); color:var(--color-ink-tertiary);
+    text-transform:uppercase; letter-spacing:.4px; font-weight:600;
+    margin-bottom:4px;
+  }
+  .mix-lots { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:var(--space-3); }
+  .mix-lot-chip {
+    padding:3px 10px; border-radius:var(--radius-pill); font-size:var(--text-caption);
+    background:var(--color-bg-mute); border:1px solid var(--color-border); color:var(--color-ink);
+  }
+  .mix-warning-text {
+    background:var(--color-warning-soft); border-left:3px solid var(--color-warning);
+    border-radius:var(--radius-sm); padding:var(--space-2) var(--space-3);
+    font-size:var(--text-callout); margin-bottom:var(--space-4);
+  }
+  .mix-actions { display:flex; gap:var(--space-2); justify-content:flex-end; }
+</style>
+</head>
+<body>
+
+<header class="wb-header">
+  <div class="breadcrumb-flex">
+    <a href="app.html" class="home"><img class="home-logo" src="img/icon-wineblender-192.png" alt="">WB3</a>
+    <span class="sep">/</span>
+    <a href="cuverie.html" class="home"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="1em" height="1em" style="vertical-align:-.15em" aria-hidden="true"><rect x="3" y="3" width="14" height="13" rx="1.2" fill="#ccd8e4" stroke="#7a96b0" stroke-width="1.3"/><ellipse cx="10" cy="3" rx="7" ry="2.2" fill="#e0eaf4" stroke="#7a96b0" stroke-width="1.3"/><ellipse cx="10" cy="16" rx="7" ry="2.2" fill="#b8cad8" stroke="#7a96b0" stroke-width="1.3"/><line x1="3" y1="8.5" x2="17" y2="8.5" stroke="#7a96b0" stroke-width=".7"/><line x1="3" y1="12.5" x2="17" y2="12.5" stroke="#7a96b0" stroke-width=".7"/><line x1="14" y1="17.5" x2="14" y2="20" stroke="#7a96b0" stroke-width="1.6"/></svg> Cuverie</a>
+    <span class="sep">/</span>
+    <h1>🔀 Relogement</h1>
+  </div>
+  <div class="header-actions">
+    <span class="tenant-pill" id="tenant-pill">—</span>
+    <a class="btn btn--header" href="parametres.html" title="Paramètres">⚙️</a>
+    <button class="btn btn--header" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wb-main">
+  <div id="content">
+    <div class="loading-state"><div class="spinner"></div>Chargement…</div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- Modal mélange de lots -->
+<div class="mix-overlay" id="mix-modal" style="display:none">
+  <div class="mix-box">
+    <h3>⚠️ Mélange de lots détecté</h3>
+    <div class="mix-section-label">Lots dans la cuve source</div>
+    <div class="mix-lots" id="mix-src-chips"></div>
+    <div class="mix-section-label">Lots déjà présents dans <span id="mix-dest-name">—</span></div>
+    <div class="mix-lots" id="mix-dst-chips"></div>
+    <div class="mix-warning-text">
+      ⚠️ Ce relogement mélangera des lots différents. Le vin résultant sera un assemblage non intentionnel.
+    </div>
+    <div class="mix-actions">
+      <button class="btn btn--secondary" onclick="cancelMix()">← Changer de cuve</button>
+      <button class="btn" style="background:var(--color-warning);border-color:var(--color-warning);color:#fff" onclick="confirmMix()">Confirmer le mélange</button>
+    </div>
+  </div>
+</div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="wb3-init.js"></script>
+<script src="auth.js"></script>
+<script src="nav.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+// État
+// ============================================================
+let contenants  = [];
+let allLots     = [];
+let destRows    = [];          // [{ contenant_id, volume_hl }]
+let srcId       = null;
+let srcNom      = '';
+let srcVolDispo = null;
+let srcLots     = [];          // lots chargés depuis lot_contenants pour la source
+let prefillLots = [];
+let destLotsCache  = {};       // { contenant_id: [{ id, nom, couleur, millesime }] }
+let mixConfirmedDests = new Set(); // destinations où le mélange a été confirmé
+let _pendingMixRowIdx = null;  // index du dest-row en attente de confirmation
+
+const today = new Date().toISOString().slice(0, 10);
+
+// ============================================================
+// Utilitaires
+// ============================================================
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmt(n, d = 1) {
+  if (n == null) return '—';
+  const v = parseFloat(n);
+  return isNaN(v) ? '—' : v.toFixed(d).replace(/\.?0+$/, '');
+}
+function toast(msg, level = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show toast--' + level;
+  clearTimeout(window._toastTO);
+  window._toastTO = setTimeout(() => t.classList.remove('show'), 3200);
+}
+async function logout() { await WB3Auth.signOut(); WB3Nav.navigateTop('app.html'); }
+
+// ============================================================
+// Init
+// ============================================================
+(async function init() {
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient ||
+      typeof window.WB3DB === 'undefined'    || typeof window.WB3Auth === 'undefined') {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">❌</div><div class="title">Modules WB3 non chargés</div></div>';
+    return;
+  }
+  const ctx = await WB3AppBoot.requireReadyContext();
+  if (!ctx) {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><div class="title">Aucun tenant accessible</div></div>';
+    return;
+  }
+  const { tenant } = ctx;
+  document.getElementById('tenant-pill').textContent = `🏢 ${tenant.nom} · ${tenant.role}`;
+
+  // Charger les contenants actifs
+  [contenants, allLots] = await Promise.all([
+    WB3DB.listTable('contenants', { filter:{ actif:true }, order:'nom', ascending:true }),
+    WB3DB.listTable('lots', { select:'id,nom,couleur,millesime,actif', filter:{ actif:true }, order:'nom', ascending:true }),
+  ]);
+
+  // Lire le prefill sessionStorage
+  const raw = sessionStorage.getItem('wb3_relog_prefill');
+  sessionStorage.removeItem('wb3_relog_prefill');
+  const prefill = raw ? JSON.parse(raw) : {};
+
+  if (prefill.sources?.length) {
+    const firstSrc = prefill.sources[0];
+    srcId       = firstSrc.id;
+    srcNom      = firstSrc.nom;
+    srcVolDispo = firstSrc.volume_actuel_hl;
+    prefillLots = prefill.sources.flatMap(s => s.lots || []);
+    // Charger les lots réels depuis lot_contenants
+    srcLots = await loadContLots(srcId);
+  }
+
+  renderForm();
+})();
+
+// ============================================================
+// Rendu formulaire
+// ============================================================
+function renderForm() {
+  document.getElementById('content').innerHTML = `
+    <div class="relog-layout">
+
+      <!-- ── Méta ── -->
+      <div class="relog-card">
+        <div class="relog-card-head meta">📋 Informations</div>
+        <div class="relog-card-body">
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Date *</label>
+              <input class="input" type="date" id="f-date" value="${today}">
+            </div>
+            <div class="field">
+              <label class="field-label">Heure</label>
+              <input class="input" type="time" id="f-heure" value="${new Date().toTimeString().slice(0,5)}">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Opérateur</label>
+              <input class="input" type="text" id="f-operateur" placeholder="Prénom, initiales…">
+            </div>
+            <div class="field">
+              <label class="field-label">Référence</label>
+              <input class="input" type="text" id="f-reference" placeholder="N° libre…">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Statut</label>
+            <select class="select" id="f-statut">
+              <option value="realise">✅ Réalisé</option>
+              <option value="planifie">🗓 Planifié</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Source ── -->
+      <div class="relog-card">
+        <div class="relog-card-head source">← Depuis (source)</div>
+        <div class="relog-card-body">
+          <div class="field">
+            <label class="field-label">Cuve source *</label>
+            <select class="select" id="f-src" onchange="onSrcChange(this.value)">
+              <option value="">— Choisir une cuve —</option>
+              ${contenants.map(c => `<option value="${c.id}" data-vol="${c.volume_actuel_hl??''}" ${c.id===srcId?'selected':''}>${escapeHtml(c.nom)}${c.capacite_hl?' (cap. '+fmt(c.capacite_hl)+' hL)':''}</option>`).join('')}
+            </select>
+          </div>
+          <div id="src-vol-info"></div>
+          <div class="field" style="margin-top:var(--space-3)">
+            <label class="field-label">Volume transféré (hL) *</label>
+            <input class="input" type="number" id="f-volume" min="0" step="0.1"
+              placeholder="ex : 120" oninput="onVolumeInput()">
+            <div class="field-error" id="vol-error" style="display:none"></div>
+          </div>
+          <div id="src-lots" class="lot-chips-mini" style="margin-top:var(--space-2)"></div>
+        </div>
+      </div>
+
+      <div class="relog-arrow">↓</div>
+
+      <!-- ── Destinations ── -->
+      <div class="relog-card">
+        <div class="relog-card-head dest">→ Vers (destination)</div>
+        <div class="relog-card-body">
+          <div id="dest-rows"></div>
+          <button class="btn btn--ghost btn--sm" style="margin-top:var(--space-2)" onclick="addDestRow()">+ Ajouter une cuve destination</button>
+        </div>
+      </div>
+
+      <!-- ── Résumé ── -->
+      <div id="relog-summary" style="display:none" class="relog-summary"></div>
+
+      <!-- ── Notes ── -->
+      <div class="relog-card">
+        <div class="relog-card-head meta">📝 Notes</div>
+        <div class="relog-card-body">
+          <textarea class="input" id="f-notes" rows="3" placeholder="Observations libres…" style="resize:vertical"></textarea>
+        </div>
+      </div>
+
+      <!-- ── Actions ── -->
+      <div class="relog-footer">
+        <a href="cuverie.html" class="btn btn--secondary">← Retour</a>
+        <div class="actions-right">
+          <button class="btn" onclick="saveRelogement()">Enregistrer le relogement</button>
+        </div>
+      </div>
+
+    </div>`;
+
+  // Appliquer prefill source
+  if (srcId) {
+    updateSrcVolInfo();
+    renderSrcLots();
+  }
+  // Une destination vide par défaut
+  addDestRow();
+  renderSummary();
+}
+
+// ============================================================
+// Helpers lots
+// ============================================================
+async function loadContLots(contenantId) {
+  if (destLotsCache[contenantId] !== undefined) return destLotsCache[contenantId];
+  try {
+    const rows = await WB3DB.listTable('lot_contenants', {
+      select: 'lot_id,volume_hl,lots(id,nom,couleur,millesime)',
+      filter: { contenant_id: contenantId },
+    });
+    const lots = rows
+      .filter(r => r.lots?.id)
+      .map(r => ({ ...r.lots, volume_hl: r.volume_hl }));
+    destLotsCache[contenantId] = lots;
+    return lots;
+  } catch(e) { return []; }
+}
+
+// ============================================================
+// Source
+// ============================================================
+async function onSrcChange(id) {
+  srcId = id || null;
+  const opt = document.querySelector(`#f-src option[value="${id}"]`);
+  srcNom      = opt?.textContent?.split(' (')[0] || '';
+  srcVolDispo = opt ? parseFloat(opt.dataset.vol) || null : null;
+  srcLots = id ? await loadContLots(id) : [];
+  // reset cache destination + confirmations (lot mix dépend de la source)
+  destLotsCache      = {};
+  mixConfirmedDests.clear();
+  updateSrcVolInfo();
+  renderSrcLots();
+  // Recharger les panneaux destination existants
+  for (let i = 0; i < destRows.length; i++) {
+    if (destRows[i].contenant_id) await refreshDestPanel(i);
+  }
+  renderSummary();
+}
+
+function updateSrcVolInfo() {
+  const el = document.getElementById('src-vol-info');
+  if (!el) return;
+  if (srcVolDispo == null) { el.innerHTML = ''; return; }
+  const vol = parseFloat(document.getElementById('f-volume')?.value) || 0;
+  const remaining  = Math.max(0, srcVolDispo - vol);
+  const overflow   = vol > srcVolDispo;
+  const transferPct = srcVolDispo > 0 ? Math.min(100, (vol / srcVolDispo) * 100) : 0;
+  const remPct      = 100 - transferPct;
+  el.innerHTML = `
+    <div class="vol-panel">
+      <div class="vol-row-label">
+        <span>Dans la cuve : <b>${fmt(srcVolDispo)} hL</b></span>
+        ${vol > 0 ? `<span class="${overflow ? 'warn' : 'ok'}">Restant après transfert : <b>${fmt(remaining)} hL</b></span>` : ''}
+      </div>
+      <div class="vol-bar-dual">
+        <div class="vbd-transferred" style="width:${transferPct}%"></div>
+        <div class="vbd-remaining"   style="width:${remPct}%"></div>
+      </div>
+    </div>`;
+}
+
+function renderSrcLots() {
+  const el = document.getElementById('src-lots');
+  if (!el) return;
+  const lots = srcLots.length ? srcLots : prefillLots;
+  el.innerHTML = lots.map(l =>
+    `<span class="lot-chip-mini">🍷 ${escapeHtml(l.nom)}${l.volume_hl != null ? ' · ' + fmt(l.volume_hl) + ' hL' : ''}</span>`
+  ).join('');
+}
+
+// ============================================================
+// Volume validation
+// ============================================================
+function onVolumeInput() {
+  const vol = parseFloat(document.getElementById('f-volume')?.value);
+  const err = document.getElementById('vol-error');
+  if (!err) return;
+  if (srcVolDispo != null && !isNaN(vol) && vol > srcVolDispo) {
+    err.textContent = `⚠ Volume supérieur au disponible (${fmt(srcVolDispo)} hL)`;
+    err.style.display = '';
+  } else {
+    err.style.display = 'none';
+  }
+  updateSrcVolInfo();
+  // Mettre à jour les panneaux destination (volumes reçus changent)
+  destRows.forEach((_, i) => refreshDestPanelVolumes(i));
+  renderSummary();
+}
+
+// ============================================================
+// Destinations
+// ============================================================
+function renderDestRows() {
+  const container = document.getElementById('dest-rows');
+  if (!container) return;
+  const contOpts = contenants.map(c =>
+    `<option value="${c.id}" data-cap="${c.capacite_hl??''}" data-vol="${c.volume_actuel_hl??''}">${escapeHtml(c.nom)}${c.capacite_hl ? ' (cap. ' + fmt(c.capacite_hl) + ' hL)' : ''}</option>`
+  ).join('');
+
+  container.innerHTML = destRows.map((row, i) => `
+    <div class="dest-row" id="dest-row-${i}">
+      <select class="select" id="dest-sel-${i}" onchange="onDestChange(${i},this)">
+        <option value="">— Choisir —</option>
+        ${contOpts.replace(`value="${row.contenant_id}"`, `value="${row.contenant_id}" selected`)}
+      </select>
+      <input class="input" type="number" min="0" step="0.1" placeholder="Vol. hL"
+        value="${row.volume_hl ?? ''}"
+        oninput="destRows[${i}].volume_hl=parseFloat(this.value)||null;refreshDestPanelVolumes(${i});renderSummary()">
+      <button class="btn btn--ghost btn--sm" onclick="removeDestRow(${i})">✕</button>
+    </div>
+    <div class="dest-info-panel" id="dest-info-${i}" style="display:none"></div>
+  `).join('');
+
+  // Charger les panneaux pour les cuves déjà sélectionnées
+  destRows.forEach((row, i) => { if (row.contenant_id) refreshDestPanel(i); });
+}
+
+async function onDestChange(i, sel) {
+  const id = sel.value;
+  destRows[i].contenant_id = id || null;
+  if (!id) {
+    const panel = document.getElementById(`dest-info-${i}`);
+    if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
+    renderSummary();
+    return;
+  }
+  await refreshDestPanel(i);
+  renderSummary();
+}
+
+async function refreshDestPanel(i) {
+  const row    = destRows[i];
+  const panel  = document.getElementById(`dest-info-${i}`);
+  if (!panel || !row.contenant_id) return;
+
+  const cont   = contenants.find(c => c.id === row.contenant_id);
+  const cap    = cont?.capacite_hl ?? null;
+  const curVol = cont?.volume_actuel_hl ?? 0;
+  const lots   = await loadContLots(row.contenant_id);
+
+  // Détecter mélange
+  if (lots.length && (srcLots.length || prefillLots.length) && !mixConfirmedDests.has(row.contenant_id)) {
+    const activeSrcLots = srcLots.length ? srcLots : prefillLots;
+    const srcIds = new Set(activeSrcLots.map(l => l.id));
+    const hasMix = lots.some(l => !srcIds.has(l.id));
+    if (hasMix) {
+      _pendingMixRowIdx = i;
+      const destName = cont?.nom || '?';
+      showMixWarning(activeSrcLots, lots, destName);
+      return; // panneau sera affiché après confirmation
+    }
+  }
+
+  renderDestPanelContent(i, lots, cap, curVol);
+}
+
+function refreshDestPanelVolumes(i) {
+  const row   = destRows[i];
+  const panel = document.getElementById(`dest-info-${i}`);
+  if (!panel || panel.style.display === 'none' || !row.contenant_id) return;
+  const cont   = contenants.find(c => c.id === row.contenant_id);
+  const cap    = cont?.capacite_hl ?? null;
+  const curVol = cont?.volume_actuel_hl ?? 0;
+  const lots   = destLotsCache[row.contenant_id] || [];
+  renderDestPanelContent(i, lots, cap, curVol);
+}
+
+function renderDestPanelContent(i, lots, cap, curVol) {
+  const panel  = document.getElementById(`dest-info-${i}`);
+  if (!panel) return;
+  const row    = destRows[i];
+  const incoming = row.volume_hl ?? 0;
+  const after  = curVol + incoming;
+  const over   = cap != null && after > cap;
+
+  // Barres
+  let barHtml = '';
+  if (cap != null && cap > 0) {
+    const curPct  = Math.min(100, (curVol / cap) * 100);
+    const incPct  = Math.min(100 - curPct, (incoming / cap) * 100);
+    const freePct = Math.max(0, 100 - curPct - incPct);
+    barHtml = `
+      <div class="vol-bar-dual" style="margin:4px 0">
+        <div class="vbd-current"  style="width:${curPct}%" title="${fmt(curVol)} hL actuels"></div>
+        <div class="${over ? 'vbd-over' : 'vbd-incoming'}" style="width:${incPct}%" title="${fmt(incoming)} hL entrants"></div>
+        <div style="flex:1;background:transparent"></div>
+      </div>`;
+  }
+
+  const lotChips = lots.map(l =>
+    `<span class="dest-lot-chip">🍷 ${escapeHtml(l.nom)}${l.volume_hl != null ? ' · ' + fmt(l.volume_hl) + ' hL' : ''}</span>`
+  ).join('');
+
+  panel.style.display = '';
+  panel.innerHTML = `
+    <div class="vol-row-label">
+      <span>Actuellement : <b>${fmt(curVol)} hL</b>${cap != null ? ' / cap. ' + fmt(cap) + ' hL' : ''}</span>
+      ${incoming > 0 ? `<span class="${over ? 'warn' : 'ok'}">Après réception : <b>${fmt(after)} hL</b>${over ? ' ⚠ dépassement' : ''}</span>` : ''}
+    </div>
+    ${barHtml}
+    ${lots.length ? `<div class="dest-lots-row">${lotChips}</div>` : '<div style="color:var(--color-ink-tertiary);font-style:italic">Cuve vide (aucun lot)</div>'}
+  `;
+}
+
+function addDestRow()     { destRows.push({ contenant_id:null, volume_hl:null }); renderDestRows(); }
+function removeDestRow(i) { destRows.splice(i,1); renderDestRows(); renderSummary(); }
+
+// ============================================================
+// Modal mélange
+// ============================================================
+function showMixWarning(srcLotsArr, dstLotsArr, destName) {
+  document.getElementById('mix-dest-name').textContent = destName;
+  document.getElementById('mix-src-chips').innerHTML = srcLotsArr.map(l =>
+    `<span class="mix-lot-chip">🍷 ${escapeHtml(l.nom)}</span>`
+  ).join('');
+  document.getElementById('mix-dst-chips').innerHTML = dstLotsArr.map(l =>
+    `<span class="mix-lot-chip">🍷 ${escapeHtml(l.nom)}</span>`
+  ).join('');
+  document.getElementById('mix-modal').style.display = '';
+}
+
+function cancelMix() {
+  document.getElementById('mix-modal').style.display = 'none';
+  if (_pendingMixRowIdx != null) {
+    // Réinitialiser le select
+    destRows[_pendingMixRowIdx].contenant_id = null;
+    const sel = document.getElementById(`dest-sel-${_pendingMixRowIdx}`);
+    if (sel) sel.value = '';
+    const panel = document.getElementById(`dest-info-${_pendingMixRowIdx}`);
+    if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
+    _pendingMixRowIdx = null;
+    renderSummary();
+  }
+}
+
+async function confirmMix() {
+  document.getElementById('mix-modal').style.display = 'none';
+  if (_pendingMixRowIdx != null) {
+    const id = destRows[_pendingMixRowIdx].contenant_id;
+    if (id) {
+      mixConfirmedDests.add(id);
+      const cont   = contenants.find(c => c.id === id);
+      const cap    = cont?.capacite_hl ?? null;
+      const curVol = cont?.volume_actuel_hl ?? 0;
+      const lots   = destLotsCache[id] || [];
+      renderDestPanelContent(_pendingMixRowIdx, lots, cap, curVol);
+    }
+    _pendingMixRowIdx = null;
+    renderSummary();
+  }
+}
+
+// ============================================================
+// Résumé
+// ============================================================
+function renderSummary() {
+  const summaryEl = document.getElementById('relog-summary');
+  if (!summaryEl) return;
+  const vol   = parseFloat(document.getElementById('f-volume')?.value);
+  const dests = destRows.filter(r => r.contenant_id);
+  if (!srcId || !dests.length || isNaN(vol)) { summaryEl.style.display = 'none'; return; }
+
+  const srcCont    = contenants.find(c => c.id === srcId);
+  const srcVolNow  = srcCont?.volume_actuel_hl ?? srcVolDispo ?? 0;
+  const remaining  = Math.max(0, srcVolNow - vol);
+  const overflow   = srcVolDispo != null && vol > srcVolDispo;
+
+  const destNames = dests.map(r => {
+    const c = contenants.find(x => x.id === r.contenant_id);
+    return c?.nom || r.contenant_id;
+  });
+  const destVolTotal = dests.reduce((s, r) => {
+    const c = contenants.find(x => x.id === r.contenant_id);
+    return s + (c?.volume_actuel_hl ?? 0) + (r.volume_hl ?? 0);
+  }, 0);
+
+  summaryEl.style.display = '';
+  summaryEl.innerHTML = `
+    <span class="sum-from">${escapeHtml(srcNom || srcCont?.nom || '—')}</span>
+    <span class="sum-arr">→</span>
+    <span class="sum-to">${destNames.map(n => escapeHtml(n)).join(', ')}</span>
+    <span class="sum-vol" style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+      <span style="font-weight:700;color:var(--color-primary)">${fmt(vol)} hL transférés</span>
+      <span style="font-size:var(--text-caption);color:${overflow ? 'var(--color-danger)' : 'var(--color-ink-tertiary)'}">
+        Source restant : ${fmt(remaining)} hL${overflow ? ' ⚠' : ''}
+      </span>
+    </span>
+  `;
+}
+
+// ============================================================
+// Sauvegarde
+// ============================================================
+async function saveRelogement() {
+  const dateVal = document.getElementById('f-date').value;
+  if (!dateVal) { toast('La date est obligatoire', 'error'); return; }
+  if (!srcId)   { toast('Choisissez une cuve source', 'error'); return; }
+
+  const vol = parseFloat(document.getElementById('f-volume').value);
+  if (isNaN(vol) || vol <= 0) { toast('Le volume transféré est obligatoire', 'error'); return; }
+  if (srcVolDispo != null && vol > srcVolDispo) {
+    toast(`Volume supérieur au disponible (${fmt(srcVolDispo)} hL)`, 'error'); return;
+  }
+
+  const validDests = destRows.filter(r => r.contenant_id);
+  if (!validDests.length) { toast('Ajoutez au moins une cuve destination', 'error'); return; }
+
+  const btn = document.querySelector('.relog-footer .btn:not(.btn--secondary)');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+
+  try {
+    const payload = {
+      type_operation:  'soutirage',
+      date_operation:  dateVal,
+      heure_operation: document.getElementById('f-heure').value || null,
+      operateur:       document.getElementById('f-operateur').value.trim() || null,
+      reference:       document.getElementById('f-reference').value.trim() || null,
+      statut:          document.getElementById('f-statut').value,
+      volume_hl:       vol,
+      notes:           document.getElementById('f-notes').value.trim() || null,
+    };
+
+    const contenantsPayload = [
+      { contenant_id: srcId, role: 'source', volume_hl: vol },
+      ...validDests.map(r => ({ contenant_id: r.contenant_id, role: 'destination', volume_hl: r.volume_hl })),
+    ];
+
+    // Utiliser srcLots (chargés depuis lot_contenants) ou prefillLots comme fallback
+    const activeLots  = srcLots.length ? srcLots : prefillLots;
+    const lotsPayload = activeLots.map(l => ({ lot_id: l.id, role: 'traite', volume_hl: null }));
+
+    await WB3DB.saveOperationGraphAtomic(payload, {
+      opId: null,
+      lots: lotsPayload,
+      contenants: contenantsPayload,
+      produits: [],
+    });
+
+    toast('Relogement enregistré', 'success');
+    setTimeout(() => WB3Nav.navigate('operations.html'), 900);
+  } catch(e) {
+    console.error('[WB3 relogement]', e);
+    toast('Erreur : ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer le relogement'; }
+  }
+}
+</script>
+
+</body>
+</html>

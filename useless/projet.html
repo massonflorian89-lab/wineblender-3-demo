@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>WB3 — Suivi projet</title>
+<style>
+  :root {
+    --p: #6a1b2a;
+    --p-lt: #a84658;
+    --p-dk: #3e0f18;
+    --acc: #c8a87e;
+    --bg: #f7f3ee;
+    --card: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --ok: #2e7d32;
+    --warn: #c77700;
+    --err: #b00020;
+    --border: #e5e0d8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: linear-gradient(135deg, var(--p), var(--p-dk));
+    color: #fff;
+    padding: 20px 24px 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.15);
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  header .subtitle {
+    font-size: 13px;
+    opacity: 0.85;
+    margin-bottom: 14px;
+  }
+  .progress-global {
+    background: rgba(255,255,255,.15);
+    border-radius: 10px;
+    height: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-global .bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--acc), #fff);
+    transition: width 0.4s ease;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-top: 6px;
+    opacity: 0.9;
+  }
+  .toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .toolbar button {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.25);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s;
+  }
+  .toolbar button:hover { background: rgba(255,255,255,.28); }
+  .toolbar button.danger { background: rgba(255,100,100,.25); }
+  .toolbar a {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.25);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.2s;
+  }
+  .toolbar a:hover { background: rgba(255,255,255,.28); }
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 80px;
+  }
+  .phase {
+    background: var(--card);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.03);
+  }
+  .phase-head {
+    padding: 14px 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .phase-head:hover { background: #faf7f2; }
+  .phase-head .chevron {
+    font-size: 14px;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .phase.expanded .chevron { transform: rotate(90deg); }
+  .phase-head .num {
+    background: var(--p);
+    color: #fff;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px;
+    flex-shrink: 0;
+  }
+  .phase.done .num { background: var(--ok); }
+  .phase-head .title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .phase-head .counter {
+    font-size: 12px;
+    color: var(--muted);
+    background: #f0ece5;
+    padding: 3px 9px;
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .phase.done .phase-head .counter {
+    background: #e1f1e1;
+    color: var(--ok);
+  }
+  .phase-body {
+    display: none;
+    padding: 0 18px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .phase.expanded .phase-body { display: block; }
+  .phase-desc {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 12px 0 4px;
+    font-style: italic;
+  }
+  .phase-bar {
+    background: #f0ece5;
+    border-radius: 6px;
+    height: 4px;
+    overflow: hidden;
+    margin: 10px 0 14px;
+  }
+  .phase-bar .fill {
+    height: 100%;
+    background: var(--p);
+    transition: width 0.3s ease;
+  }
+  .phase.done .phase-bar .fill { background: var(--ok); }
+  .task {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px dashed #eee;
+  }
+  .task:last-child { border-bottom: none; }
+  .task input[type="checkbox"] {
+    margin-top: 3px;
+    width: 18px; height: 18px;
+    accent-color: var(--p);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .task .txt {
+    flex: 1;
+    font-size: 14px;
+  }
+  .task.checked .txt {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+  .task .note-toggle {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .task .note-toggle:hover { background: #f0ece5; }
+  .task .note-toggle.has-note { color: var(--acc); }
+  .task-note {
+    display: none;
+    margin: 6px 0 8px 28px;
+    padding: 10px;
+    background: #faf7f2;
+    border-left: 3px solid var(--acc);
+    border-radius: 4px;
+  }
+  .task.note-open .task-note { display: block; }
+  .task-note textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    resize: vertical;
+    min-height: 60px;
+    background: #fff;
+  }
+  .task-note textarea:focus {
+    outline: 2px solid var(--p-lt);
+    outline-offset: -1px;
+  }
+  .legend {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 24px;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .legend code {
+    background: #f0ece5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  /* Indicateur de sauvegarde */
+  .save-indicator {
+    position: absolute;
+    top: 16px; right: 20px;
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    padding: 5px 11px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 500;
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s;
+  }
+  .save-indicator .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
+  }
+  .save-indicator.saving .dot { background: #fbbf24; animation: pulse 1s infinite; }
+  .save-indicator.error .dot { background: #ef4444; }
+  .save-indicator.file-active { background: rgba(74,222,128,.25); }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+
+  /* Modal historique */
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 200;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 14px;
+    max-width: 520px; width: 100%;
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,.3);
+  }
+  .modal-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-head h3 { margin: 0; font-size: 16px; }
+  .modal-head button {
+    background: none; border: none; font-size: 22px;
+    cursor: pointer; color: var(--muted); padding: 0 6px;
+  }
+  .modal-body {
+    overflow-y: auto;
+    padding: 10px 0;
+  }
+  .snapshot {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px;
+    border-bottom: 1px solid #f0ece5;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .snapshot:hover { background: #faf7f2; }
+  .snapshot .ts { font-size: 13px; font-weight: 600; color: var(--p); flex: 1; }
+  .snapshot .meta { font-size: 11px; color: var(--muted); }
+  .snapshot button {
+    background: var(--p); color: #fff;
+    border: none; padding: 5px 11px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .snapshot button:hover { background: var(--p-dk); }
+  .modal-empty { padding: 30px; text-align: center; color: var(--muted); font-size: 13px; }
+  @media (max-width: 600px) {
+    header { padding: 16px 16px 14px; }
+    header h1 { font-size: 18px; }
+    main { padding: 14px 10px 60px; }
+    .phase-head { padding: 12px 14px; gap: 10px; }
+    .phase-body { padding: 0 14px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="save-indicator" id="save-indicator">
+    <span class="dot"></span>
+    <span id="save-text">Chargement…</span>
+  </div>
+  <h1><img src="img/icon-wineblender-192.png" alt="" style="width:26px;height:26px;object-fit:contain;vertical-align:-6px;margin-right:6px">WineBlender 3 — Suivi projet</h1>
+  <div class="subtitle">Refonte traçabilité complète · Supabase EU · Plan réorganisé par priorité — màj 17 mai 2026</div>
+  <div class="progress-global"><div class="bar" id="global-bar"></div></div>
+  <div class="progress-label">
+    <span id="global-label">0 / 0 tâches</span>
+    <span id="global-pct">0 %</span>
+  </div>
+  <div class="toolbar">
+    <button onclick="expandAll(true)">Tout déplier</button>
+    <button onclick="expandAll(false)">Tout replier</button>
+    <button onclick="exportState()">Exporter (.json)</button>
+    <button onclick="document.getElementById('import-file').click()">Importer</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importState(event)">
+    <button onclick="openHistory()">⏮ Historique (20 versions)</button>
+    <button id="file-backup-btn" onclick="toggleFileBackup()">🔒 Sauvegarde fichier</button>
+    <button class="danger" onclick="resetAll()">Tout réinitialiser</button>
+    <a href="operations.html">⚙️ Liste des opérations →</a>
+  </div>
+</header>
+
+<div class="modal-backdrop" id="history-modal" onclick="if(event.target===this)closeHistory()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>⏮ Versions précédentes</h3>
+      <button onclick="closeHistory()">×</button>
+    </div>
+    <div class="modal-body" id="history-list"></div>
+  </div>
+</div>
+
+<main id="phases-container"></main>
+
+<div class="legend">
+  Sauvegarde locale automatique · Utilisez <code>Exporter</code> pour partager l'état<br>
+  Fichier : <code>public/wb3/projet.html</code>
+</div>
+
+<script src="storage.js"></script>
+<script>
+// ============================================================
+// PHASES — Plan d'action WB3 réorganisé par priorité d'exécution
+// Mise à jour : 2026-05-14 (suite au diagnostic complet)
+// ============================================================
+// Phases 0→6 : modules existants (ordre chronologique, état réel)
+// Phases 7→9 : hardening + fondations UX manquantes (PRIORITÉ)
+// Phases 10→13 : nouveaux gros chantiers métier
+// ============================================================
+// La clé `defaultChecked` pré-coche les tâches déjà faites lors
+// du premier chargement (storage v2). Voir init() en bas.
+// ============================================================
+
+const PHASES = [
+  // ──────────────────────────────────────────────────────────
+  // ACQUIS — Modules livrés ou quasi-livrés
+  // ──────────────────────────────────────────────────────────
+  {
+    num: 0,
+    title: '✅ Cadrage & validation',
+    desc: 'Réflexion partagée — validation des fondations métier. Clôturée 2026-04-27, consolidée dans spec.html.',
+    tasks: [
+      'Schéma de numérotation des lots (L-YYYY-JJJ-CÉP-COUL-SEQ + suffixes .DB .FA .FML .EL .F .PM)',
+      'Machine à états (12 statuts : vendange → mout → fa → vin → fml → elevage → vin_filtre → pre_mise → conditionne → sorti)',
+      'Types d\'opérations exhaustifs (~47 types sur 8 phases) — operations.json',
+      'Type unifié "Intrant œnologique" avec sous-types',
+      'Séparation WB2 (Firebase) / WB3 (Supabase EU)',
+      'Modèle SQL multi-tenant (tables, relations, policies RLS)',
+      'Schéma SQL Postgres complet validé',
+      'Cartographie données à migrer depuis WB2',
+      'Rôles utilisateurs (caviste, oenologue, admin) + permissions RLS',
+      'Stack frontend : vanilla JS + theme.css Marine + Supabase SDK local',
+    ],
+    defaultChecked: 'all',
+  },
+
+  {
+    num: 1,
+    title: '✅ Fondations techniques Supabase',
+    desc: 'Base Supabase EU, auth, design system, navigation, RLS, verrouillage opérations. Clôturée mi-mai 2026.',
+    tasks: [
+      'Projet Supabase région Frankfurt (eu-central-1)',
+      'SDK Supabase servi en local (contournement Tracking Prevention Edge)',
+      'Migrations 001 → 041 appliquées (tables, RLS, fonctions, triggers, vues)',
+      'Policies RLS multi-tenant via user_tenants() + is_privileged_in()',
+      'Pattern _setUserSync + mutex _refreshInFlight (session fiable)',
+      'db.js : wrapper Supabase complet (queryLots, queryCuverieData, archiveLot, helpers)',
+      'auth.js + config.js + restoreSession robuste (onAuthStateChange unique source de vérité)',
+      'app.html : login + cartes modules + badge tenant',
+      'Seed 002_seed_richemer.sql (tenant Richemer + admin fmasson@richemer.fr)',
+      'theme.css : design system Marine (tokens couleur/typo/espacement)',
+      'shell.html : vue partagée 2 volets + sidebar collapsible + thèmes',
+      'Verrouillage opérations réalisées (migrations 037+038+040 : RPC + triggers défense en profondeur)',
+      'Journal lot_mouvements immuable (migration 035)',
+      'Décrémentation stock produits avec FOR UPDATE anti-race (migration 038)',
+      'Realtime activé sur lots, contenants, operations, fiches_travail',
+    ],
+    defaultChecked: 'all',
+  },
+
+  {
+    num: 2,
+    title: '✅ Apports vendange (95%)',
+    desc: 'Point d\'entrée traçabilité. Saisie + import + bilan opérationnels. Reste : cumul journalier + saisie mobile au quai (voir Phase 9).',
+    tasks: [
+      'Formulaire saisie apport (date, apporteur, parcelle, cépage, couleur, poids, volume, degré probable)',
+      'Référentiel cépages configurable (parametres.html → 41 cépages standard)',
+      'Import CSV avec assistant de mapping colonnes',
+      'apports.html : liste avec filtres, tri, pagination, Realtime',
+      'Édition / suppression avec contrôle FK (impossible si lot rattaché)',
+      'Bilan apports dans rapports.html (tonnes, hL, apporteurs, lots) + export CSV',
+      'Affectation cuve/pressoir à la saisie (créer lot + lot_contenants)',
+      'Génération automatique du numéro de lot (WB3DB.nextLotNumeroApport)',
+      'Indicateur cumul journalier par cépage (tonnes / hL / degrés moyens)',
+      'Saisie tablette optimisée au quai (→ traité en Phase 9)',
+    ],
+    defaultChecked: [0,1,2,3,4,5,6,7],
+  },
+
+  {
+    num: 3,
+    title: '✅ Cuverie & contenants (100%)',
+    desc: 'Complète (vérifié 16/05). Le "bloquant" CRUD contenants était en fait DÉJÀ FAIT : section parametres.html ?section=contenants — liste groupée par travée, création/édition/suppression, tous champs schéma (+ fûts : tonnelier/chauffe/origine), gestion doublon, Realtime. Diagnostic de 13 j périmé sur ce point.',
+    tasks: [
+      'Modèle contenant complet (nom, type, capacité, travée, localisation, matériau, marque, année, prix, tags, actif)',
+      'Section "Gestion des contenants" dans parametres.html (CRUD complet — création/édition/suppression) ✔ FAIT',
+      'Import cuverie WB2 one-shot via CSV',
+      'Vue planning cuverie.html : grille + filtres style Excel + tri + pagination',
+      'Colonnes lot-focus : Lot en cours, Volume actuel (hL), Remplissage (fill bar)',
+      'Fiche contenant : jauge SVG circulaire + timeline opérations + liens lots',
+      'Speed dial FAB dock macOS (Opération, Relogement, Produits, Analyse)',
+      'Multi-sélection contenants → préfill operations.html via sessionStorage',
+    ],
+    defaultChecked: [0,1,2,3,4,5,6,7],
+  },
+
+  {
+    num: 4,
+    title: '✅ Produits œnologiques (95%)',
+    desc: 'Catalogue + lots commerciaux + DLUO + décrémentation stock backend (migration 040). UI feedback sur consommation à parfaire.',
+    tasks: [
+      'Modèle produit catalogue (catégorie, nom, fournisseur, unité, dose max, concentration)',
+      'Lots commerciaux (produits_lots) : n° lot, DLUO, quantité actuelle, unité',
+      'Interface produits.html : CRUD catalogue + gestion lots par produit',
+      'Alertes DLUO visuelles (J-30, J-7, dépassée) dans rapports.html',
+      'Rapport consommations par produit et par période',
+      'Décrémentation auto stock backend (migration 040, FOR UPDATE, vérif stock)',
+      'Saisie unités multiples (g/hL, mg/L, mL/hL)',
+      'UI feedback consommation après opération (badge stock restant)',
+    ],
+    defaultChecked: [0,1,2,3,4,5,6],
+  },
+
+  {
+    num: 5,
+    title: '✅ Opérations & mouvements (100%)',
+    desc: 'Complète (vérifié 16/05). Machine à états auto (_findStatutTransitions + UI "Transition de statut suggérée"), vue groupée (renderGroupedGrid/Table), édition corrective (_applyLockUI + message) : tout DÉJÀ FAIT. Diagnostic de 13 j périmé sur ce point.',
+    tasks: [
+      'Modèle opération (type, date, heure, lots/contenants/produits avec rôles, statut)',
+      'operations.html : liste filtres style Excel + pagination + Realtime',
+      'Drawer création/édition : lots + contenants + produits en M-M',
+      'Filtres colonne style Excel sur la liste opérations',
+      'Pré-remplissage depuis cuverie (multi-sélection → sessionStorage → ?new=1)',
+      'Pré-remplissage du type depuis speed dial cuverie',
+      'Rapport traitements œnologiques avec filtres date + catégorie',
+      'Timeline opérations dans lot-detail.html (badges rôle, chips)',
+      'Timeline opérations dans contenant-detail.html',
+      'Verrouillage automatique des opérations réalisées (migrations 037+038+040)',
+      'Machine à états auto : proposer transition statut lot lors d\'opérations clés (ex : Écoulage → vin)',
+      'Type Assemblage : création lot fils + filiation auto (migrations 032+038)',
+      'Édition opération réalisée via "opération corrective" (workflow UI)',
+      'Vue groupée par lot ou par contenant dans la liste opérations',
+      'Export CSV opérations (BOM UTF-8 Excel)',
+      'Realtime sync multi-utilisateurs sur operations.html',
+    ],
+    defaultChecked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+  },
+
+  {
+    num: 6,
+    title: '✅ Lot & lineage (100%)',
+    desc: 'COMPLÈTE (17/05). Fiche lot, généalogie, filiation, suffixes, PDF Dossier de lot : FAITS. Héritage auto cépages du lot fils sur assemblage ✔ IMPLÉMENTÉ & VÉRIFIÉ : migration 047 (helper _wb3_assemblage_inherit_cepages, flags lots.cepages_auto/_partiel, formule pondérée par volume), pgTAP 042b (1 source/2 sources/sans cépages/rejeu), check intégrité ajouté, appliqué Richemer. Appellation/IGP exclu de l\'auto (réglementaire, décision conservée).',
+    tasks: [
+      'lots.html : liste filtres + groupement + colonnes configurables (userPrefs)',
+      'lot-detail.html : fiche hero (statut, millésime, volumes, cépages, contenants)',
+      'Timeline opérations par lot avec badges rôle',
+      'Généalogie parents/enfants dans fiche lot (zéro requête extra)',
+      'Lien bidirectionnel lot ↔ contenant ↔ cuverie',
+      'Filiation lot_filiation + wb3_lot_chain (CTE récursive — migrations 030+041)',
+      'Numérotation automatique avec suffixes selon opération (.DB .FA .FML .EL .F .PM) ✔ FAIT (LOT_STATUT_SUFFIX)',
+      'Assemblage : héritage auto cépages du lot fils ✔ FAIT 17/05 (migration 047 + helper + pgTAP 042b + integrity, appliqué Richemer). Appellation auto = exclu (réglementaire)',
+      'Export PDF "Dossier de lot" complet (opérations + analyses + filiation + signataires) ✔ FAIT & VALIDÉ navigateur 16/05',
+      'tracabilite.html : recherche globale + timeline + chaîne lots',
+    ],
+    defaultChecked: [0,1,2,3,4,5,6,7,8,9],
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // À FAIRE — par ordre de priorité d'exécution
+  // ──────────────────────────────────────────────────────────
+  {
+    num: 7,
+    title: '🔄 Hardening socle technique — PRIORITÉ #1',
+    desc: 'SOCLE PROUVÉ : 043→046 déployées+vérifiées, pgTAP 14/14, integrity OK. D : baseline 000 GÉNÉRÉ via pg_dump (15/05, 9962 l., plus un wrapper) — reste à exécuter le test différentiel DIFF §1-7 pour clore en "équivalent prouvé" (ne pas onboarder de client avant). E : audit primitives CSS fait 16/05 (audit_css_primitives.csv) — les primitives stables étaient DÉJÀ consolidées en theme.css ; restantes (.btn analyses, .statut-badge) DIVERGENTES, laissées intactes ; E "lourd" (composants) toujours différé pré-Mobile. Socle ne bloque pas les Phases 8-13.',
+    tasks: [
+      '✍️ Suite pgTAP rédigée — 042_pgtap_save_op_graph.sql (14 scénarios : transitions, lock, journal, idempotence, guards volume/stock, privilèges)',
+      '✍️ Scripts d\'intégrité rédigés — wb3_integrity_check.sql (read-only) + wb3_post_change_check.sql',
+      '✍️ Soft-delete + Export tenant rédigés — 043_soft_delete_archived_at.sql + 044_wb3_export_tenant.sql',
+      '✍️ Audit log rédigé — 045_audit_log.sql (table partitionnée + triggers génériques)',
+      '✍️ Realtime étendu rédigé — 046_realtime_extended.sql (publication + REPLICA IDENTITY FULL)',
+      '[Prompt A] Runbook de déploiement (backup, blast radius, rollback) — déploiement déjà fait sans : à produire en doc rétrospective + procédure rollback documentée',
+      '[Prompt A] Appliquer 043→046 sur Richemer — ✔ DÉPLOYÉ & VÉRIFIÉ 15/05 (043 archived_at, 044 wb3_export_tenant, 045 audit_log, 046 realtime confirmés par requêtes schéma)',
+      '[Prompt B] Exécuter la suite pgTAP → ✔ 14/14 OK, 0 régression (tests/RESULTATS_042.md, 15/05) · run de confirmation post-046 recommandé (optionnel, 043/045/046 analysés non-interférents)',
+      '[Prompt C] wb3_integrity_check ✔ exécuté Richemer (15/05), anomalies corrigées, base saine — PLAN_REMEDIATION.md · suivi : 1 run récap de confirmation + combler lacune script (orphelins apports non scannés)',
+      '[Prompt D] Baseline 000 généré pg_dump 15/05 (9962 l.) MAIS désormais PÉRIMÉ : ne contient pas 047 (état réel = 001→047). RESTE : régénérer 000 incluant 047 + test différentiel DIFF_baseline.md §1-7 + résidu R5 (realtime) avant tout onboarding client',
+      '[Prompt E] Audit primitives CSS ✔ FAIT 16/05 (audit_css_primitives.csv) — stables déjà consolidées theme.css, divergentes laissées. E "lourd" (timelines/cartes/filtres) toujours différé pré-Mobile',
+    ],
+    defaultChecked: [0,1,2,3,4,6,7,8],
+  },
+
+  {
+    num: 8,
+    title: '✅ Dashboard vitrine vivant (95%)',
+    desc: 'FAIT 16/05 (vérifié code) : dashboard.html refondu en hub vivant — 10 widgets configurables (KPIs, lots par statut, volumes, ops récentes, alertes, SO₂, FA en cours, DLUO, contenants, apports), Realtime débouncé, theme.css, 0 stub. Reste : valider le rendu en navigateur sur données Richemer + widget "ma journée" (dépend Phase 10 Fiches de travail).',
+    tasks: [
+      'KPIs vivants : lots actifs par statut, opérations du jour, alertes (Realtime)',
+      'Carte cuverie : % remplissage global tenant + cuves vides / pleines / en FA',
+      'Stock produits avec alertes DLUO (J-30, J-7, dépassée) — lien Phase 4',
+      'FA en cours : densité, jour J de fermentation, alertes "FA stuck" (densité stagnante >48h)',
+      'Activité utilisateurs récente (qui a saisi quoi)',
+      'Widget météo locale (base déjà présente dans dashboard.html)',
+      'Configuration widgets par utilisateur (persistée en user_preferences)',
+      'Hero greeting + raccourcis (déjà partiellement présent)',
+      'Vue "ma journée" (lien Phase 10 Fiches de travail)',
+    ],
+    defaultChecked: [0,1,2,3,4,5,6,7],
+  },
+
+  {
+    num: 9,
+    title: '❌ Mobile & tablette chai',
+    desc: 'Toutes les saisies caviste se font sur tablette/téléphone au chai ou au quai. Aujourd\'hui WB3 est desktop-first → inutilisable hors bureau. Pré-requis pour Phase 10 (Fiches de travail).',
+    tasks: [
+      'Audit responsive de chaque page (cuverie, opérations, apports, fiches lot/contenant, analyses)',
+      'Optimisation tactile : cibles ≥44px, swipe, drag mobile-friendly',
+      'Sidebar mobile : hamburger plein écran (au lieu du rail collapse desktop)',
+      'Saisie opération mobile-first : drawer plein écran, sélection lot/contenant simplifiée',
+      'Mode hors-ligne partiel (PWA + cache local IndexedDB + sync différée)',
+      'Scan codes-barres / QR (cuves, bons d\'apport, n° lot produits)',
+      'Tests réels sur iPad / iPhone / tablette Android au chai Richemer',
+    ],
+    defaultChecked: [],
+  },
+
+  {
+    num: 10,
+    title: '❌ Fiches de travail (caviste) — Priorité commerciale #1',
+    desc: 'Workflow caviste central : composition, impression, signature. Sans ça, aucune cave ne migre depuis Agreo. Dépend des Phases 7 (lock opérations) + 9 (mobile).',
+    tasks: [
+      'Modèle fiche : date, caviste, liste ordonnée d\'opérations, notes, signature',
+      'Composer une fiche : sélectionner des opérations à planifier/réaliser',
+      'Vue planning hebdomadaire (calendar grid)',
+      'Mobile : cochage des opérations sur tablette pendant l\'exécution (lien Phase 9)',
+      'Impression A4 optimisée (print CSS, en-tête, signatures)',
+      'Export PDF de la fiche',
+      'Validation par œnologue (signature → opérations verrouillées via migration 037)',
+      'Récurrence d\'opérations (ex : bâtonnage hebdomadaire, ouillage)',
+      'Vue "ma journée" sur dashboard + notification push (lien Phase 8)',
+    ],
+    defaultChecked: [],
+  },
+
+  {
+    num: 11,
+    title: '❌ Assemblages WB3 — Moteur IA',
+    desc: 'Brancher le moteur d\'assemblage IA WineBlender historique sur les lots WB3. Différenciateur produit majeur — aucun concurrent ne l\'a. Hook commercial principal.',
+    tasks: [
+      'Adapter ui-assemblage.js pour lire les lots WB3 (table lots + lot_contenants)',
+      'Adapter le calcul IA (gemini.js) avec contexte WB3 (lots + filiation + cépages + analyses)',
+      'Création auto lot d\'assemblage au format A-YYYY-XXX-APPELLATION-COUL (filiation auto via migrations 032+038)',
+      'Calcul auto cépages/IGP du lot fils (héritage proportionnel pondéré)',
+      'Aide à la décision : matching profil sensoriel, contraintes IGP/AOP',
+      'Intégration relogement IA sur la cuverie WB3 (suggestions cuves dispo)',
+      'Rapport d\'assemblage réutilisant template WB historique',
+      'Lien bidirectionnel essai assemblage ↔ opération WB3 réalisée',
+    ],
+    defaultChecked: [],
+  },
+
+  {
+    num: 12,
+    title: '❌ Rapports réglementaires (conformité)',
+    desc: 'Conformité DGCCRF / Douanes / INAO. Base posée (3 onglets rapports.html). Manquent : DRM, DAA, registre cave, dossier lot PDF. Sans ça, pas de Go-live commercial.',
+    tasks: [
+      'rapports.html : onglet Traitements (filtres + export CSV)',
+      'rapports.html : onglet Stock/DLUO + alertes visuelles',
+      'rapports.html : onglet Bilan Apports + export CSV',
+      'Impression print CSS optimisée (en-tête, colonnes statiques, titre dynamique)',
+      'Dossier de lot PDF complet (toutes opérations + analyses + filiation + signataires)',
+      'Registre de cave réglementaire (entrées/sorties/transformations format OIV)',
+      'DRM mensuelle automatisée (Déclaration Récapitulative Mensuelle Douanes)',
+      'DAA / DAE numérique (Document Administratif d\'Accompagnement)',
+      'Déclaration de récolte (cumul cépage/couleur/appellation, export XLSX)',
+      'Rapport de collage officiel (doses, produit, lot, date, opérateur, format DGCCRF)',
+    ],
+    defaultChecked: [0,1,2],
+  },
+
+  {
+    num: 13,
+    title: '❌ Migration & Go-live commercial',
+    desc: 'Bascule WB2 → WB3 sur Richemer puis commercialisation autres caves. Dépend de toutes les phases précédentes.',
+    tasks: [
+      'Outil d\'import cuverie WB2 actuelle (noms + capacités + contenu)',
+      'Création auto des lots WB3 depuis l\'état cuverie WB2',
+      'Import depuis Agreo / Process2Wine / Isavigne / Excel cave (pour autres clients)',
+      'Double-saisie temporaire WB2 + WB3 sur période de validation',
+      'Formation utilisateurs (guide, vidéos courtes, parcours onboarding intégré)',
+      'Onboarding nouveau tenant clé en main (use migration consolidée Phase 7)',
+      'Basculement par défaut sur WB3 (WB2 lecture seule)',
+      'Passage Supabase Free → Pro (région EU, backups quotidiens, monitoring)',
+      'Option self-host Supabase (Docker) pour clients on-premise',
+      'Archive WB2 consultable (lecture seule permanente)',
+      'Stratégie pricing / packaging commercial',
+    ],
+    defaultChecked: [],
+  },
+];
+
+// Storage v5 — bumped 2026-05-17 : Phase 6 CLÔTURÉE 100%
+// (migration 047 héritage cépages assemblage faite+vérifiée).
+// Phase 7 D : baseline 000 désormais périmé (ne contient pas 047).
+// defaultChecked recalé sur le réel vérifié → repart propre au
+// prochain chargement. États v1→v4 conservés dans localStorage.
+const STORAGE_KEY = 'wb3_projet_state_v5';
+const store = new WB3Storage(STORAGE_KEY);
+let state = { checked: {}, notes: {}, expanded: {} };
+
+// Pré-coche les tâches déjà faites au premier chargement.
+// `defaultChecked` peut être 'all' (toutes) ou un tableau d'indices.
+function applyDefaultChecked(targetState) {
+  PHASES.forEach(phase => {
+    const dc = phase.defaultChecked;
+    if (!dc) return;
+    if (dc === 'all') {
+      phase.tasks.forEach((_, i) => {
+        targetState.checked[taskKey(phase.num, i)] = true;
+      });
+    } else if (Array.isArray(dc)) {
+      dc.forEach(i => {
+        targetState.checked[taskKey(phase.num, i)] = true;
+      });
+    }
+  });
+}
+
+store.onStatusChange = (status, ts) => {
+  const el = document.getElementById('save-indicator');
+  const txt = document.getElementById('save-text');
+  if (!el || !txt) return;
+  el.classList.remove('saving', 'error');
+  if (status === 'saving') {
+    el.classList.add('saving');
+    txt.textContent = 'Sauvegarde…';
+  } else if (status === 'saved') {
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    const ss = String(d.getSeconds()).padStart(2,'0');
+    txt.textContent = `Sauvegardé ${hh}:${mm}:${ss}`;
+    if (store.isFileBackupActive()) el.classList.add('file-active');
+  } else {
+    el.classList.add('error');
+    txt.textContent = 'Erreur de sauvegarde';
+  }
+};
+
+function saveState() { store.save(state); }
+
+async function openHistory() {
+  const modal = document.getElementById('history-modal');
+  const list = document.getElementById('history-list');
+  list.innerHTML = '<div class="modal-empty">Chargement…</div>';
+  modal.classList.add('open');
+  const snaps = await store.getHistory();
+  if (!snaps.length) {
+    list.innerHTML = '<div class="modal-empty">Aucune version précédente enregistrée.<br>Les snapshots se créent automatiquement au fil des modifications (1 par minute maximum).</div>';
+    return;
+  }
+  list.innerHTML = '';
+  snaps.forEach(s => {
+    const d = new Date(s.ts);
+    const day = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const checkedCount = Object.values(s.data.checked || {}).filter(v => v).length;
+    const notesCount = Object.values(s.data.notes || {}).filter(v => v).length;
+    const el = document.createElement('div');
+    el.className = 'snapshot';
+    el.innerHTML = `
+      <div style="flex:1">
+        <div class="ts">${day} · ${time}</div>
+        <div class="meta">${checkedCount} tâche${checkedCount>1?'s':''} cochée${checkedCount>1?'s':''} · ${notesCount} note${notesCount>1?'s':''}</div>
+      </div>
+      <button>Restaurer</button>
+    `;
+    el.querySelector('button').addEventListener('click', async () => {
+      if (!confirm(`Restaurer l'état du ${day} à ${time} ? L'état actuel sera écrasé (une sauvegarde sera créée).`)) return;
+      await store.save(state);
+      const restored = await store.restoreFromHistory(s.id);
+      if (restored) {
+        state = restored;
+        closeHistory();
+        render();
+      }
+    });
+    list.appendChild(el);
+  });
+}
+function closeHistory() { document.getElementById('history-modal').classList.remove('open'); }
+
+async function toggleFileBackup() {
+  const btn = document.getElementById('file-backup-btn');
+  if (store.isFileBackupActive()) {
+    store.disableFileBackup();
+    btn.textContent = '🔒 Sauvegarde fichier';
+    document.getElementById('save-indicator').classList.remove('file-active');
+    return;
+  }
+  const res = await store.enableFileBackup('wb3-suivi-projet.json');
+  if (res.ok) {
+    btn.textContent = '✅ Fichier : ' + res.name;
+    await store.save(state);
+  } else if (res.reason === 'unsupported') {
+    alert('Ton navigateur ne supporte pas la sauvegarde fichier automatique. Utilise Chrome, Edge ou Opera.\n\nLes sauvegardes localStorage + IndexedDB restent actives.');
+  }
+}
+
+function taskKey(phaseNum, taskIdx) { return `p${phaseNum}_t${taskIdx}`; }
+
+function render() {
+  const container = document.getElementById('phases-container');
+  container.innerHTML = '';
+  let totalTasks = 0, totalChecked = 0;
+
+  PHASES.forEach(phase => {
+    let phaseDone = 0;
+    const phaseEl = document.createElement('section');
+    phaseEl.className = 'phase';
+    if (state.expanded[phase.num]) phaseEl.classList.add('expanded');
+
+    phase.tasks.forEach((_, i) => {
+      totalTasks++;
+      if (state.checked[taskKey(phase.num, i)]) { totalChecked++; phaseDone++; }
+    });
+    const allDone = phaseDone === phase.tasks.length && phase.tasks.length > 0;
+    if (allDone) phaseEl.classList.add('done');
+
+    const head = document.createElement('div');
+    head.className = 'phase-head';
+    head.innerHTML = `
+      <span class="chevron">▶</span>
+      <span class="num">${phase.num}</span>
+      <span class="title">${phase.title}</span>
+      <span class="counter">${phaseDone} / ${phase.tasks.length}</span>
+    `;
+    head.addEventListener('click', () => {
+      state.expanded[phase.num] = !state.expanded[phase.num];
+      saveState();
+      render();
+    });
+    phaseEl.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'phase-body';
+    const pct = phase.tasks.length ? Math.round(100 * phaseDone / phase.tasks.length) : 0;
+    body.innerHTML = `
+      <div class="phase-desc">${phase.desc}</div>
+      <div class="phase-bar"><div class="fill" style="width:${pct}%"></div></div>
+    `;
+
+    phase.tasks.forEach((txt, i) => {
+      const key = taskKey(phase.num, i);
+      const isChecked = !!state.checked[key];
+      const note = state.notes[key] || '';
+      const taskEl = document.createElement('div');
+      taskEl.className = 'task' + (isChecked ? ' checked' : '');
+      taskEl.innerHTML = `
+        <input type="checkbox" ${isChecked ? 'checked' : ''}>
+        <div style="flex:1">
+          <div style="display:flex; align-items:flex-start; gap:8px;">
+            <span class="txt">${txt}</span>
+            <button class="note-toggle ${note ? 'has-note' : ''}" title="Note">📝</button>
+          </div>
+          <div class="task-note">
+            <textarea placeholder="Notes, décisions, liens…">${escapeHtml(note)}</textarea>
+          </div>
+        </div>
+      `;
+      const cb = taskEl.querySelector('input[type="checkbox"]');
+      cb.addEventListener('change', () => {
+        state.checked[key] = cb.checked;
+        saveState();
+        render();
+      });
+      const noteBtn = taskEl.querySelector('.note-toggle');
+      noteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        taskEl.classList.toggle('note-open');
+      });
+      const ta = taskEl.querySelector('textarea');
+      ta.addEventListener('input', () => {
+        state.notes[key] = ta.value;
+        saveState();
+        noteBtn.classList.toggle('has-note', !!ta.value);
+      });
+      if (note) taskEl.classList.add('note-open');
+      body.appendChild(taskEl);
+    });
+
+    phaseEl.appendChild(body);
+    container.appendChild(phaseEl);
+  });
+
+  const globalPct = totalTasks ? Math.round(100 * totalChecked / totalTasks) : 0;
+  document.getElementById('global-bar').style.width = globalPct + '%';
+  document.getElementById('global-label').textContent = `${totalChecked} / ${totalTasks} tâches`;
+  document.getElementById('global-pct').textContent = globalPct + ' %';
+}
+
+function expandAll(open) {
+  PHASES.forEach(p => { state.expanded[p.num] = open; });
+  saveState();
+  render();
+}
+
+function exportState() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `wb3-projet-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importState(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (imported.checked && imported.notes) {
+        state = { expanded: {}, ...imported };
+        saveState();
+        render();
+        alert('État importé avec succès.');
+      } else {
+        alert('Fichier invalide.');
+      }
+    } catch(err) {
+      alert('Erreur lors de l\'import : ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+async function resetAll() {
+  if (!confirm('Réinitialiser tout l\'avancement ? Cette action est irréversible (pensez à exporter avant).')) return;
+  await store.clearAll();
+  state = { checked: {}, notes: {}, expanded: {} };
+  saveState();
+  render();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+(async function init() {
+  const loaded = await store.load();
+  if (loaded) {
+    state = Object.assign({ checked:{}, notes:{}, expanded:{} }, loaded);
+  } else {
+    // Premier chargement v2 : pré-coche les tâches déjà réalisées
+    // (basé sur le diagnostic complet du 14 mai 2026).
+    applyDefaultChecked(state);
+    // Déplie par défaut la Phase 7 (Hardening) — c'est là qu'on commence.
+    state.expanded[7] = true;
+    await store.save(state);
+  }
+  render();
+  const el = document.getElementById('save-indicator');
+  const txt = document.getElementById('save-text');
+  if (el && txt) { txt.textContent = 'Données chargées'; }
+})();
+</script>
+
+</body>
+</html>

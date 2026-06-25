@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>Guide de démonstration — VitiFlux</title>
+<link rel="stylesheet" href="theme.css">
+<script>(function(){var t=localStorage.getItem('wb3_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         background: var(--color-bg, #f7f3ee); color: var(--color-ink, #1c1c1e);
+         font-size: 14.5px; line-height: 1.55; margin: 0; }
+
+  .guide-header {
+    background: #3e0f18;
+    color: #fff;
+    padding: 20px 28px 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .guide-header img { width: 36px; height: 36px; }
+  .guide-header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+  .guide-header p  { margin: 3px 0 0; font-size: 13px; opacity: .75; }
+  .guide-header .hright { margin-left: auto; }
+  .btn-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 8px;
+    background: rgba(255,255,255,.12); color: #fff;
+    font-size: 13px; font-weight: 600; text-decoration: none;
+    border: 1.5px solid rgba(255,255,255,.25);
+    transition: background .14s;
+  }
+  .btn-back:hover { background: rgba(255,255,255,.2); }
+
+  .guide-body { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  .demo-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: #c8a87e22; border: 1.5px solid #c8a87e;
+    color: #6b4c28; border-radius: 20px;
+    padding: 5px 14px; font-size: 12.5px; font-weight: 700;
+    margin-bottom: 20px;
+  }
+
+  .intro-box {
+    background: var(--color-bg-elevated, #fff);
+    border: 1px solid var(--color-border, #e5e0d8);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 28px;
+    font-size: 13.5px; color: var(--color-ink-secondary, #48484a);
+    line-height: 1.6;
+  }
+  .intro-box strong { color: var(--color-ink, #1c1c1e); }
+
+  .steps { display: flex; flex-direction: column; gap: 16px; }
+
+  .step {
+    background: var(--color-bg-elevated, #fff);
+    border: 1.5px solid var(--color-border, #e5e0d8);
+    border-radius: 14px; overflow: hidden;
+    transition: box-shadow .15s;
+  }
+  .step:hover { box-shadow: 0 4px 18px rgba(0,0,0,.08); }
+  .step.done { border-color: #2e7d32; }
+
+  .step-head {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 16px 18px; cursor: pointer;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800;
+    background: #3e0f18; color: #c8a87e;
+  }
+  .step.done .step-num { background: #2e7d32; color: #fff; font-size: 18px; }
+  .step-meta { flex: 1; }
+  .step-title { font-size: 15px; font-weight: 700; color: var(--color-ink, #1c1c1e); margin: 0; }
+  .step-sub   { font-size: 12.5px; color: var(--color-ink-tertiary, #6b6b70); margin: 3px 0 0; }
+  .step-time  { font-size: 11.5px; color: var(--color-ink-tertiary, #6b6b70);
+                background: var(--color-bg-subtle, #f2ede8);
+                border-radius: 20px; padding: 3px 9px; white-space: nowrap; align-self: flex-start; }
+
+  .step-body { padding: 0 18px 18px 68px; }
+  .step-body ol { margin: 0; padding-left: 18px; }
+  .step-body li { margin: 7px 0; font-size: 13.5px; }
+  .step-body li strong { color: var(--color-primary, #6a1b2a); }
+
+  .step-cta {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: 8px; margin-top: 12px;
+    background: #6a1b2a; color: #fff;
+    font-size: 13px; font-weight: 700; text-decoration: none;
+    transition: background .14s;
+  }
+  .step-cta:hover { background: #3e0f18; }
+  .step-tip {
+    margin-top: 10px; padding: 9px 12px; border-radius: 8px;
+    background: #e3f2fd; border-left: 3px solid #1565c0;
+    font-size: 12.5px; color: #1a237e; line-height: 1.5;
+  }
+  .step-tip b { color: #0d47a1; }
+
+  .data-pill {
+    display: inline-block; background: #fce8e8; color: #c62828;
+    border: 1px solid #f5c6c6; border-radius: 6px;
+    padding: 1px 7px; font-size: 12px; font-weight: 600;
+    font-family: monospace;
+  }
+  .data-pill.green { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
+  .data-pill.blue  { background: #e3f2fd; color: #1565c0; border-color: #90caf9; }
+
+  .final-box {
+    margin-top: 28px;
+    background: linear-gradient(135deg, #3e0f18 0%, #6a1b2a 100%);
+    border-radius: 14px; padding: 22px 24px; color: #fff;
+  }
+  .final-box h3 { margin: 0 0 8px; font-size: 16px; }
+  .final-box p  { margin: 0; font-size: 13.5px; opacity: .85; line-height: 1.6; }
+  .final-box .acc { color: #c8a87e; font-weight: 700; }
+
+  .done-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 14px; padding: 9px 18px; border-radius: 8px;
+    background: #c8a87e; color: #3e0f18;
+    font-size: 13px; font-weight: 700; text-decoration: none;
+    transition: background .14s;
+  }
+  .done-btn:hover { background: #dfc19a; }
+
+  @media (max-width: 600px) {
+    .step-body { padding-left: 18px; }
+    .guide-header { flex-wrap: wrap; }
+    .guide-header .hright { margin-left: 0; margin-top: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="guide-header">
+  <img src="img/icon-wineblender-192.png" alt="VitiFlux">
+  <div>
+    <h1>Guide de démonstration VitiFlux</h1>
+    <p>Vendange 2025 · 5 étapes · ~10 minutes</p>
+  </div>
+  <div class="hright">
+    <a class="btn-back" href="app.html">← Accueil</a>
+  </div>
+</header>
+
+<div class="guide-body">
+
+  <div class="demo-badge">🍇 Données démo préchargées — Vendange 2025</div>
+
+  <div class="intro-box">
+    Ce guide suit un scénario réel de vendange : <strong>réception des apports</strong>,
+    <strong>suivi de fermentation</strong>, <strong>traçabilité des opérations</strong>
+    et <strong>contrôle de cohérence</strong>. Les données sont déjà en base :
+    4 lots (<span class="data-pill green">Syrah</span>
+    <span class="data-pill green">Grenache</span>
+    <span class="data-pill blue">Viognier</span>
+    <span class="data-pill" style="background:#ffe0f0;color:#880e4f;border-color:#f48fb1">Rosé</span>),
+    leurs apports, leurs analyses, et un soutirage tracé.
+    <br><br>
+    Parcourez les étapes dans l'ordre ou naviguez librement — cliquez sur un lien
+    pour ouvrir la page directement dans l'app.
+  </div>
+
+  <div class="steps">
+
+    <!-- ÉTAPE 1 -->
+    <div class="step" id="step1">
+      <div class="step-head" onclick="toggle('step1')">
+        <div class="step-num">1</div>
+        <div class="step-meta">
+          <p class="step-title">🏠 Tableau de bord — vue cave du jour</p>
+          <p class="step-sub">KPIs vendange, alertes actives, état de chaque cuve</p>
+        </div>
+        <span class="step-time">~1 min</span>
+      </div>
+      <div class="step-body">
+        <ol>
+          <li>Ouvrez le <strong>Tableau de bord</strong>. Vous voyez les <strong>KPIs vendange</strong> : kg reçus aujourd'hui, rendement moyen, cuves en FA.</li>
+          <li>Regardez les <strong>alertes</strong> : la Syrah a une densité à surveiller et le Grenache a un pH élevé.</li>
+          <li>Cliquez sur une cuve pour ouvrir sa fiche depuis la <strong>Cuverie</strong>.</li>
+        </ol>
+        <a class="step-cta" href="dashboard.html">→ Ouvrir le tableau de bord</a>
+        <div class="step-tip"><b>Astuce :</b> les pastilles de couleur sur chaque carte cuve (rouge/orange/vert) indiquent le niveau d'alerte calculé en temps réel.</div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 -->
+    <div class="step" id="step2">
+      <div class="step-head" onclick="toggle('step2')">
+        <div class="step-num">2</div>
+        <div class="step-meta">
+          <p class="step-title">🍇 Apports — rendement de la Syrah</p>
+          <p class="step-sub">Deux apports le 28/08, poids, taux sucre, apporteur</p>
+        </div>
+        <span class="step-time">~1 min</span>
+      </div>
+      <div class="step-body">
+        <ol>
+          <li>Allez dans <strong>Apports</strong>. Filtrez sur la date <strong>28/08/2025</strong>.</li>
+          <li>Vous voyez deux bennes <span class="data-pill green">Syrah 2025</span> du Domaine Martin : <strong>15 200 kg</strong> et <strong>14 850 kg</strong>, taux sucre ~212 g/L.</li>
+          <li>Cliquez sur un apport pour voir la fiche détaillée : rendement calculé, lien vers le lot et la cuve de réception.</li>
+        </ol>
+        <a class="step-cta" href="apports.html">→ Ouvrir les apports</a>
+        <div class="step-tip"><b>Point clé :</b> le rendement kg/hL est calculé automatiquement depuis le poids et le volume cuvée — pas de saisie double.</div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 3 -->
+    <div class="step" id="step3">
+      <div class="step-head" onclick="toggle('step3')">
+        <div class="step-num">3</div>
+        <div class="step-meta">
+          <p class="step-title">🍷 Fiche lot Syrah — analyses et traçabilité</p>
+          <p class="step-sub">Série FA, état de la fermentation, lien vers le soutirage</p>
+        </div>
+        <span class="step-time">~2 min</span>
+      </div>
+      <div class="step-body">
+        <ol>
+          <li>Allez dans <strong>Lots</strong> → cliquez sur <strong>Syrah 2025</strong>.</li>
+          <li>Dans la fiche lot, consultez la série d'analyses : J3, J8, fin FA (densité, pH, SO₂ libre).</li>
+          <li>Vérifiez la <strong>cohérence volumétrique</strong> : 138,80 hL en cuve = volume lot.</li>
+          <li>Cliquez sur <strong>Opérations</strong> dans la fiche : le soutirage du 13/09 est tracé avec son lien cuve.</li>
+        </ol>
+        <a class="step-cta" href="lots.html">→ Ouvrir les lots</a>
+        <div class="step-tip"><b>Argument de vente :</b> VitiFlux peut reconstruire l'état exact de cette cuve à <em>n'importe quelle date passée</em> — fonctionnalité rare dans les logiciels cave.</div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 4 -->
+    <div class="step" id="step4">
+      <div class="step-head" onclick="toggle('step4')">
+        <div class="step-num">4</div>
+        <div class="step-meta">
+          <p class="step-title">🔬 Analyses — vue croisée cave</p>
+          <p class="step-sub">4 lots, chronologie, valeurs hors seuil surlignées</p>
+        </div>
+        <span class="step-time">~2 min</span>
+      </div>
+      <div class="step-body">
+        <ol>
+          <li>Allez dans <strong>Analyses</strong>. Vous voyez toutes les analyses des 4 lots en liste chronologique.</li>
+          <li>Observez le Grenache : son <strong>pH 3,65</strong> et son <strong>acidité volatile 0,44 g/L</strong> sont proches des seuils — ils apparaîtront en alerte dans la Santé Traça.</li>
+          <li>Cliquez sur une analyse pour voir le détail complet (SO₂ moléculaire calculé, température mesure).</li>
+          <li>Utilisez le <strong>comparatif lots</strong> pour voir SO₂/pH côte à côte sur les 4 lots.</li>
+        </ol>
+        <a class="step-cta" href="analyses.html">→ Ouvrir les analyses</a>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 5 -->
+    <div class="step" id="step5">
+      <div class="step-head" onclick="toggle('step5')">
+        <div class="step-num">5</div>
+        <div class="step-meta">
+          <p class="step-title">🩺 Santé traçabilité — argument clé de la démo</p>
+          <p class="step-sub">Contrôle d'intégrité en 1 clic, export CSV</p>
+        </div>
+        <span class="step-time">~2 min</span>
+      </div>
+      <div class="step-body">
+        <ol>
+          <li>Allez dans <strong>Santé traça</strong> (menu latéral 🩺 ou lien ci-dessous).</li>
+          <li>La page lance automatiquement les contrôles : volumes cohérents, analyses aux valeurs extrêmes, opérations sans mouvement…</li>
+          <li>Observez le résumé : <span class="data-pill green">Cave cohérente</span> ou liste des anomalies avec lien direct vers l'entité fautive.</li>
+          <li>Cliquez sur <strong>⬇ CSV</strong> pour télécharger le rapport — prêt pour une présentation direction ou un audit.</li>
+        </ol>
+        <a class="step-cta" href="qualite-traca.html">→ Ouvrir Santé traça</a>
+        <div class="step-tip"><b>Message clé :</b> Agreo propose ce type de contrôle, mais uniquement en post-traitement mensuel. VitiFlux le fait <em>en temps réel à la demande</em>, sur l'état actuel de la cave.</div>
+      </div>
+    </div>
+
+  </div><!-- /.steps -->
+
+  <div class="final-box">
+    <h3>✅ Fin du parcours démo</h3>
+    <p>Vous avez vu : <span class="acc">réception vendange</span> →
+    <span class="acc">suivi FA</span> → <span class="acc">traçabilité opération</span> →
+    <span class="acc">analyse croisée</span> → <span class="acc">contrôle intégrité</span>.<br><br>
+    La suite : modules <strong>Planning / fiches de travail</strong>, <strong>Échantillons clients</strong>,
+    et le futur <strong>assistant IA</strong> (copilote langage naturel sur les données de la cave).
+    </p>
+    <a class="done-btn" href="app.html">← Retour à l'accueil</a>
+  </div>
+
+</div><!-- /.guide-body -->
+
+<script>
+function toggle(id) {
+  // Les étapes sont toujours ouvertes (pas de collapse dans ce guide)
+  // — réservé pour usage futur ou si on veut cocher les étapes.
+}
+</script>
+</body>
+</html>

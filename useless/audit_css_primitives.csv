@@ -1,0 +1,15 @@
+selecteur;definitions_locales (fichier:ligne);nb_occurrences_locales;deja_dans_theme_css;divergent;detail_divergence;action
+.tenant-pill;(aucune);0;oui (theme.css:1504);non;Consolidé session précédente, plus aucune copie locale;AUCUNE (déjà fait)
+.breadcrumb-flex;(aucune);0;oui (theme.css:1495);non;Consolidé session précédente, plus aucune copie locale;AUCUNE (déjà fait)
+.header-actions;(aucune);0;oui (theme.css:1487);non;Consolidé session précédente, plus aucune copie locale;AUCUNE (déjà fait)
+.btn;analyses.html:220;1;oui (theme.css:336);OUI;analyses.html redéfinit un système bouton TOTALEMENT distinct (padding 9px 18px / border-radius 8px / font 13.5px / vars --p,--p-dk,--muted,--err) vs theme.css (.btn base différent). Supprimer la version locale = régression visuelle certaine sur analyses.;AUCUNE — divergent, NE PAS fusionner (rapport)
+.btn--header;(aucune);0;oui (theme.css:379);non;Aucune surcharge locale;AUCUNE (déjà fait)
+.btn--secondary;(aucune);0;oui (theme.css:360);non;Aucune surcharge locale;AUCUNE (déjà fait)
+.btn--sm;(aucune);0;oui (theme.css:390);non;Aucune surcharge locale;AUCUNE (déjà fait)
+.btn--primary;(aucune);0;NON;n/a;Jamais défini (ni theme.css ni pages). Classe utilisée en HTML mais stylée par .btn base seul. Le définir = changement visuel = HORS scope;AUCUNE — absence intentionnelle, ne pas créer
+.empty-state;(aucune);0;oui (theme.css:728);non;Aucune copie locale;AUCUNE (déjà fait)
+.statut-badge;operations.html:21 / lots.html:23 / lot-detail.html:46 / apports.html:24 / tracabilite.html:202;5;NON;OUI;DIVERGENT: operations=padding 2px 8px,letter-spacing .3px,white-space nowrap | lots=3px 9px,.4px,nowrap,flex-shrink:0 | lot-detail=3px 9px,.4px,nowrap | apports=3px 9px,.4px,nowrap,flex-shrink:0 | tracabilite=3px 9px,.4px (ni nowrap ni flex-shrink). 3 variantes distinctes;AUCUNE — divergent, NE PAS fusionner (rapport)
+.statut-realise;operations.html:27;1;NON;non;Définition unique (#e6f4ea/#2e7d32), non dupliquée. Dépend de .statut-badge qui est divergent → consolider isolément serait incohérent;AUCUNE — non massivement dupliqué + base divergente
+.statut-planifie;operations.html:28;1;NON;non;Définition unique (#e3f2fd/#1565c0), non dupliquée;AUCUNE — non massivement dupliqué + base divergente
+.statut-annule;operations.html:29 / apports.html:31;2;NON;non;Identique dans les 2 (#f2f2f2/#888) MAIS dépend de .statut-badge divergent → consolider la couleur sans la base = incohérent/risqué;AUCUNE — base .statut-badge divergente, faible gain, principe FAIBLE RISQUE
+.op-badge;operations.html:15;1;NON;non;Définition unique (operations seulement), NON dupliquée;AUCUNE — non dupliqué (critère "massivement dupliqué" non rempli)

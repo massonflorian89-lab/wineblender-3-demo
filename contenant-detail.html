@@ -334,6 +334,13 @@ async function loadAndRender(contenantId) {
 
     renderPage(cont, lotConts, opConts, lotsByOp, prodByOp, mouvements, contAnalyses, lotAnalyses, ajustements);
 
+    // Badge « vin de barrique » pour les contenants bois (mig 109, vue dérivée)
+    if (['fut','foudre','demi_muid','cuve_bois'].includes(cont.type) && WB3DB.queryBarriqueEtat) {
+      WB3DB.queryBarriqueEtat(contenantId)
+        .then(rows => { if (rows && rows[0]) injectBarriqueBadge(rows[0]); })
+        .catch(() => {});
+    }
+
   } catch(e) {
     console.error('[WB3 contenant-detail]', e);
     document.getElementById('content').innerHTML =
@@ -341,6 +348,30 @@ async function loadAndRender(contenantId) {
        <div class="desc">${escapeHtml(e.message)}</div>
        <div class="actions"><a href="cuverie.html" class="btn">← Cuverie</a></div></div>`;
   }
+}
+
+// ── Badge « vin de barrique » (mig 109) ──────────────────────
+const VIN_BADGE = {
+  neuve:    { label: 'Neuve',    bg: '#e8f5e9', fg: '#2e7d32' },
+  vin_neuf: { label: 'Vin neuf', bg: '#fff8e1', fg: '#b8860b' },
+  '2_vins': { label: '2 vins',   bg: '#fff3e0', fg: '#e65100' },
+  '3_vins': { label: '3 vins',   bg: '#efebe9', fg: '#6d4c41' },
+  vieille:  { label: 'Vieille',  bg: '#eceff1', fg: '#546e7a' },
+};
+
+function injectBarriqueBadge(b) {
+  const host = document.querySelector('.hero-badges');
+  if (!host) return;
+  const m = VIN_BADGE[b.vin_badge] || { label: b.vin_badge, bg: '#eee', fg: '#333' };
+  const nb = b.nb_remplissages != null ? b.nb_remplissages : 0;
+  const fillTxt = `${nb} vin${nb > 1 ? 's' : ''} passé${nb > 1 ? 's' : ''}`;
+  const ageTxt  = (b.age_ans != null) ? ` · ${b.age_ans} an${b.age_ans > 1 ? 's' : ''}` : '';
+  const bois    = [b.tonnelier, b.origine_bois, b.chauffe ? 'chauffe ' + b.chauffe : null].filter(Boolean).join(' · ');
+  const span = document.createElement('span');
+  span.style.cssText = `background:${m.bg};color:${m.fg};padding:2px 10px;border-radius:999px;font-size:var(--text-caption);font-weight:700`;
+  span.title = `Vin de barrique : ${fillTxt}${ageTxt}${bois ? ' — ' + bois : ''}`;
+  span.textContent = `🛢 ${m.label}`;
+  host.appendChild(span);
 }
 
 // ============================================================
@@ -496,6 +527,22 @@ function renderPage(cont, lotConts, opConts, lotsByOp, prodByOp, mouvements, con
     ${renderProduitsSection(prodByOp, opConts, cont)}
 
     ${ajustements.length > 0 ? `<div class="bloc-label">⚖️ Ajustements de cave</div>${renderAjustementsCuve(ajustements)}` : ''}
+
+    <!-- Intrants & Enrichissements (chargés après rendu) -->
+    <div id="section-intrants-cont">
+      <div class="bloc-label">🧫 Intrants &amp; Enrichissements</div>
+      <div class="detail-section">
+        <div class="section-head">
+          <h2>🧫 Intrants &amp; Enrichissements</h2>
+          <span class="section-count" id="intrants-cont-count">…</span>
+          <a class="btn btn--secondary btn--sm" href="traitements.html?contenant_id=${cont.id}" style="margin-left:auto">Voir tout</a>
+          <button class="btn btn--primary btn--sm" onclick="openIntrantFormCont()">+ Intrant</button>
+        </div>
+        <div id="intrants-cont-body" class="section-body">
+          <div style="color:var(--color-ink-tertiary);font-size:var(--text-footnote)">Chargement…</div>
+        </div>
+      </div>
+    </div>
 
     <div id="section-analyses" class="bloc-label">📈 Analyses liées</div>
     ${renderAnalysesBloc(contAnalyses, { title: '📈 Analyses du contenant' })}
@@ -990,6 +1037,114 @@ function renderAnalyseCard(a, isLast) {
     </div>
   </div>`;
 }
+</script>
+
+<!-- ── Section Intrants cuve (async) ── -->
+<script>
+'use strict';
+(function () {
+  const TT = () => (window.WB3DB?.TRAITEMENT_TYPES || {});
+  let _t = [], _e = [], _contId = null;
+
+  async function loadIntrantsCont() {
+    if (!window.WB3DB) return;
+    const params = new URLSearchParams(location.search);
+    _contId = params.get('id');
+    if (!_contId) return;
+    try {
+      [_t, _e] = await Promise.all([
+        WB3DB.queryTraitements({ contenant_id: _contId }).catch(() => []),
+        WB3DB.queryEnrichissements({ contenant_id: _contId }).catch(() => []),
+      ]);
+    } catch (_) {}
+    renderIntrantsCont();
+  }
+
+  function renderIntrantsCont() {
+    const body  = document.getElementById('intrants-cont-body');
+    const count = document.getElementById('intrants-cont-count');
+    if (!body) return;
+    const total = _t.length + _e.length;
+    if (count) count.textContent = total;
+    if (total === 0) {
+      body.innerHTML = '<p style="margin:0;color:var(--color-ink-tertiary);font-size:var(--text-footnote)">Aucun intrant enregistré sur ce contenant.</p>';
+      return;
+    }
+    const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('fr-FR') : '—';
+    const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const fmt = v => v != null ? Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 3 }) : '—';
+
+    const traitsHtml = _t.map(t => {
+      const tt = TT()[t.type] || { icon: '📦', label: t.type };
+      return `<tr>
+        <td>${fmtDate(t.date_traitement)}</td>
+        <td>${tt.icon} ${esc(tt.label)}</td>
+        <td>${esc(t.produit)}</td>
+        <td style="text-align:right;font-family:monospace">${fmt(t.dose)} ${esc(t.unite)}</td>
+        <td>${esc(t.operateur || '—')}</td>
+        <td style="text-align:right">
+          <button onclick="_delIntrantCont('${t.id}')" style="background:none;border:none;cursor:pointer">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const enrichHtml = _e.map(e => {
+      const badge = e.type === 'mcr'
+        ? `<span style="background:#e3f2fd;color:#1565c0;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">MCR</span>`
+        : `<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">Saccharose</span>`;
+      return `<tr>
+        <td>${fmtDate(e.date_enrichissement)}</td>
+        <td>🍬 ${badge}</td>
+        <td>${esc(e.tav_actuel)} → ${esc(e.tav_vise)} %vol</td>
+        <td style="text-align:right;font-family:monospace">${e.dose_calculee != null ? fmt(e.dose_calculee)+' '+esc(e.unite) : '—'}</td>
+        <td>${esc(e.operateur || '—')}</td>
+        <td style="text-align:right">
+          <button onclick="_delEnrichCont('${e.id}')" style="background:none;border:none;cursor:pointer">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    let html = '<div style="overflow-x:auto">';
+    if (_t.length) {
+      html += `<table style="width:100%;border-collapse:collapse;font-size:var(--text-footnote);margin-bottom:var(--space-3)">
+        <thead><tr style="background:var(--color-bg-subtle)"><th style="padding:6px 10px;text-align:left">Date</th><th>Type</th><th>Produit</th><th style="text-align:right">Dose</th><th>Opérateur</th><th></th></tr></thead>
+        <tbody>${traitsHtml}</tbody>
+      </table>`;
+    }
+    if (_e.length) {
+      html += `<table style="width:100%;border-collapse:collapse;font-size:var(--text-footnote)">
+        <thead><tr style="background:var(--color-bg-subtle)"><th style="padding:6px 10px;text-align:left">Date</th><th>Type</th><th>TAV actuel → visé</th><th style="text-align:right">Dose calculée</th><th>Opérateur</th><th></th></tr></thead>
+        <tbody>${enrichHtml}</tbody>
+      </table>`;
+    }
+    html += '</div>';
+    body.innerHTML = html;
+  }
+
+  window.openIntrantFormCont = function() {
+    if (_contId) WB3Nav.navigate(`traitements.html?contenant_id=${_contId}`);
+  };
+  window._delIntrantCont = async function(id) {
+    if (!confirm('Supprimer cet intrant ?')) return;
+    try { await WB3DB.deleteTraitement(id); await loadIntrantsCont(); WB3Toast?.show({ level:'success', message:'Supprimé' }); }
+    catch(e) { WB3Toast?.show({ level:'error', message: e.message }); }
+  };
+  window._delEnrichCont = async function(id) {
+    if (!confirm('Supprimer cet enrichissement ?')) return;
+    try { await WB3DB.deleteEnrichissement(id); await loadIntrantsCont(); WB3Toast?.show({ level:'success', message:'Supprimé' }); }
+    catch(e) { WB3Toast?.show({ level:'error', message: e.message }); }
+  };
+
+  document.addEventListener('WB3_READY', () => {
+    const obs = new MutationObserver(() => {
+      if (document.getElementById('intrants-cont-body')) {
+        obs.disconnect();
+        loadIntrantsCont();
+      }
+    });
+    obs.observe(document.getElementById('content'), { childList: true, subtree: true });
+  });
+})();
 </script>
 
 </body>

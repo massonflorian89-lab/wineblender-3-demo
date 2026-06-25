@@ -525,6 +525,16 @@
 
   // Wrapper générique pour les SELECT — ajoute automatiquement le tenant_id
   async function listTable(tableName, options = {}) {
+    // Lectures clés (lots, contenants) : cache hors-ligne pour la consultation
+    // terrain. Les autres tables passent au réseau sans cache (inchangé).
+    if (OFFLINE_READ_TABLES.has(tableName)) {
+      return _cachedRead('lt:' + tableName + ':' + JSON.stringify(options),
+                         () => _listTableNet(tableName, options));
+    }
+    return _listTableNet(tableName, options);
+  }
+
+  async function _listTableNet(tableName, options = {}) {
     ensureLoggedIn();
     const tenantId = requireTenant();
     let q = client.from(tableName).select(options.select || '*').eq('tenant_id', tenantId);
@@ -647,6 +657,85 @@
   // Erreur sentinelle : l'opération a été mise en file, pas perdue
   function _queuedError() {
     return Object.assign(new Error('WB3_OFFLINE_QUEUED'), { code: 'WB3_OFFLINE_QUEUED', queued: true });
+  }
+
+  // ----------------------------------------------------------
+  // Cache de LECTURE hors-ligne (IndexedDB) — mode consultation terrain
+  // ----------------------------------------------------------
+  // Sert la dernière réponse réussie d'une lecture clé quand le réseau est
+  // coupé (sous-sol), avec une bannière « données du JJ/MM HH:MM ». N'altère
+  // NI le schéma NI la file d'écriture WB3OfflineQueue (best-effort, isolé).
+  const _RC_DB = 'wb3_readcache', _RC_STORE = 'reads';
+  const OFFLINE_READ_TABLES = new Set(['lots', 'contenants']);  // tables mises en cache via listTable
+  let _rcDbPromise = null;
+  function _rcOpen() {
+    if (_rcDbPromise) return _rcDbPromise;
+    _rcDbPromise = new Promise((resolve, reject) => {
+      if (!('indexedDB' in global)) { reject(new Error('no idb')); return; }
+      const req = indexedDB.open(_RC_DB, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(_RC_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = () => reject(req.error);
+    });
+    return _rcDbPromise;
+  }
+  async function _rcSet(key, data) {
+    try {
+      const db = await _rcOpen();
+      await new Promise((res, rej) => {
+        const tx = db.transaction(_RC_STORE, 'readwrite');
+        tx.objectStore(_RC_STORE).put({ data, ts: Date.now() }, key);
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    } catch (_) { /* cache best-effort : ne jamais casser une lecture */ }
+  }
+  async function _rcGet(key) {
+    try {
+      const db = await _rcOpen();
+      return await new Promise((res, rej) => {
+        const tx = db.transaction(_RC_STORE, 'readonly');
+        const r = tx.objectStore(_RC_STORE).get(key);
+        r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error);
+      });
+    } catch (_) { return null; }
+  }
+
+  // Bannière globale « hors-ligne ». Posée en bas pour ne masquer aucun en-tête.
+  const _offlineBanner = {
+    el: null,
+    show(ts) {
+      if (typeof document === 'undefined') return;
+      if (!this.el) {
+        this.el = document.createElement('div');
+        this.el.id = 'wb3-offline-banner';
+        this.el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;'
+          + 'background:#b45309;color:#fff;font-size:13px;font-weight:600;text-align:center;'
+          + 'padding:7px 12px;box-shadow:0 -2px 10px rgba(0,0,0,.25)';
+        (document.body || document.documentElement).appendChild(this.el);
+      }
+      const d = new Date(ts), p = (n) => String(n).padStart(2, '0');
+      this.el.textContent = `📡 Hors-ligne — données du ${p(d.getDate())}/${p(d.getMonth() + 1)} à ${p(d.getHours())}:${p(d.getMinutes())}`;
+      this.el.style.display = '';
+    },
+    hide() { if (this.el) this.el.style.display = 'none'; },
+  };
+
+  // Enveloppe une lecture : succès réseau → cache + bannière masquée ;
+  // échec RÉSEAU (pas métier) avec cache dispo → sert le cache + bannière.
+  async function _cachedRead(key, fetchFn) {
+    const k = key + ':' + (state.currentTenantId || '_');
+    try {
+      const data = await fetchFn();
+      _rcSet(k, data);            // fire-and-forget
+      _offlineBanner.hide();      // une lecture réseau réussie = en ligne
+      return data;
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        const rec = await _rcGet(k);
+        if (rec) { _offlineBanner.show(rec.ts); return rec.data; }
+      }
+      throw e;                     // erreur métier ou pas de cache → on propage
+    }
   }
 
   // ----------------------------------------------------------
@@ -928,6 +1017,10 @@
   // RLS appliquée par la vue (security_invoker) ; .eq tenant_id =
   // défense en profondeur + perf (index tenant_id).
   async function queryCuverieEtat(options = {}) {
+    return _cachedRead('cuverie_etat:' + JSON.stringify(options),
+                       () => _queryCuverieEtatNet(options));
+  }
+  async function _queryCuverieEtatNet(options = {}) {
     ensureLoggedIn();
     const tenantId = requireTenant();
     let q = client
@@ -953,6 +1046,10 @@
 
   // Analyses avec références lot et contenant
   async function queryAnalyses(options = {}) {
+    return _cachedRead('analyses:' + JSON.stringify(options),
+                       () => _queryAnalysesNet(options));
+  }
+  async function _queryAnalysesNet(options = {}) {
     ensureLoggedIn();
     const tenantId = requireTenant();
     let q = client
@@ -3457,6 +3554,32 @@
 
     // Registre de cave dématérialisé (mig 103)
     queryRegistreCave,
+
+    // Bilan matière (mig 108)
+    queryBilanMatiere,
+
+    // Barriques — vin de barrique (mig 109) + création par lot (mig 110)
+    queryBarriqueEtat,
+    createContenantsBatch,
+
+    // Contacts (mig 105)
+    queryContacts,
+    saveContact,
+    archiveContact,
+    restoreContact,
+
+    // Coûts par lot (mig 106)
+    queryCoutsLot,
+    saveCoutLot,
+    deleteCoutLot,
+    importIntraitsAsCoûts,
+
+    // OenoPulse RPCs (mig 107)
+    queryAnomalies,
+    queryLotSummary,
+    queryBilanCave,
+    queryConseilSo2,
+    queryComparaisonLots,
   };
   // ─────────────────────────────────────────────────────────────────
   // REGISTRE DE CAVE (mig 103)
@@ -3474,6 +3597,70 @@
     });
     if (error) throw error;
     return data ?? { lignes: [], totaux: {}, du, au };
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // BILAN MATIÈRE (mig 108)
+  // wb3_bilan_matiere(tenant, du, au) → { lignes, recap, du, au,
+  //   seuil_ecart_pct, periode_complete }
+  // du / au : string 'YYYY-MM-DD' ou null (historique complet).
+  // L'écart non justifié n'est fiable que si periode_complete = true.
+  // ─────────────────────────────────────────────────────────────────
+  async function queryBilanMatiere(du = null, au = null) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_bilan_matiere', {
+      p_tenant_id: tenantId,
+      p_du:        du ?? null,
+      p_au:        au ?? null,
+    });
+    if (error) throw error;
+    return data ?? { lignes: [], recap: {}, du, au, seuil_ecart_pct: 5, periode_complete: true };
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // BARRIQUES — vin de barrique (mig 109)
+  // v_barrique_etat : nb_remplissages + badge vin_badge + age_ans, par fût.
+  // contenantId optionnel → filtre sur un seul contenant (fiche).
+  // ─────────────────────────────────────────────────────────────────
+  async function queryBarriqueEtat(contenantId = null) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    let q = client.from('v_barrique_etat').select('*').eq('tenant_id', tenantId);
+    if (contenantId) q = q.eq('contenant_id', contenantId);
+    q = q.order('nom');
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Création par lot de contenants (barriques) — mig 110.
+  // rows : [{ nom, type, capacite_hl, travee_id?, tonnelier?, ... }]
+  // Insère en une seule requête (respecte la RLS) après filtrage des noms
+  // déjà existants (unique tenant_id,nom). Retourne { created, skipped }.
+  async function createContenantsBatch(rows) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    if (!Array.isArray(rows) || !rows.length) return { created: 0, skipped: 0 };
+
+    const noms = rows.map(r => r.nom).filter(Boolean);
+    const { data: existing, error: exErr } = await client
+      .from('contenants').select('nom')
+      .eq('tenant_id', tenantId).in('nom', noms);
+    if (exErr) throw exErr;
+    const existingSet = new Set((existing || []).map(c => c.nom));
+
+    const toInsert = rows
+      .filter(r => r.nom && !existingSet.has(r.nom))
+      .map(r => ({ ...r, tenant_id: tenantId, actif: r.actif !== false, tags: r.tags || [] }));
+
+    let created = 0;
+    if (toInsert.length) {
+      const { error } = await client.from('contenants').insert(toInsert);
+      if (error) throw error;
+      created = toInsert.length;
+    }
+    return { created, skipped: rows.length - created };
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -3864,6 +4051,205 @@
       }
     } catch(_) {}
     return { ...AJUSTEMENT_SEUILS };
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // CONTACTS (mig 105)
+  // Carnet de contacts multi-type (fournisseurs, apporteurs, labos…)
+  // ─────────────────────────────────────────────────────────────────
+
+  async function queryContacts({ type = null, includeArchived = false } = {}) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    let q = client.from('contacts').select('*').eq('tenant_id', tenantId);
+    if (type) q = q.eq('type', type);
+    if (!includeArchived) q = q.is('archived_at', null);
+    q = q.order('type').order('nom');
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function saveContact(payload) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { id, created_at, ...fields } = payload;
+    const row = { ...fields, tenant_id: tenantId };
+    if (id) {
+      const { error } = await client.from('contacts')
+        .update(row).eq('id', id).eq('tenant_id', tenantId);
+      if (error) throw error;
+    } else {
+      const { error } = await client.from('contacts').insert(row);
+      if (error) throw error;
+    }
+  }
+
+  async function archiveContact(id) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { error } = await client.from('contacts')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  async function restoreContact(id) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { error } = await client.from('contacts')
+      .update({ archived_at: null })
+      .eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // COÛTS PAR LOT (mig 106)
+  // Prix de revient : matière, intrants, MO, conditionnement, autre.
+  // ─────────────────────────────────────────────────────────────────
+
+  async function queryCoutsLot(lotId) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client
+      .from('cout_lot')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('lot_id', lotId)
+      .order('date_cout', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function saveCoutLot(payload) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { id, created_at, ...fields } = payload;
+    const row = { ...fields, tenant_id: tenantId };
+    if (id) {
+      const { error } = await client.from('cout_lot')
+        .update(row).eq('id', id).eq('tenant_id', tenantId);
+      if (error) throw error;
+    } else {
+      const { error } = await client.from('cout_lot').insert(row);
+      if (error) throw error;
+    }
+  }
+
+  async function deleteCoutLot(id) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { error } = await client.from('cout_lot')
+      .delete().eq('id', id).eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  // Importe les traitements + enrichissements d'un lot comme lignes de coût
+  // (montant = 0, à renseigner). Ignore les lignes déjà importées (source_id).
+  // Retourne le nombre de nouvelles lignes créées.
+  async function importIntraitsAsCoûts(lotId) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+
+    const [existingRes, traitementsRes, enrichissementsRes] = await Promise.all([
+      client.from('cout_lot').select('source_id')
+        .eq('tenant_id', tenantId).eq('lot_id', lotId).not('source_id', 'is', null),
+      client.from('traitements').select('id,produit,dose,unite,date_traitement')
+        .eq('tenant_id', tenantId).eq('lot_id', lotId),
+      client.from('enrichissements').select('id,type,dose_reelle,date_enrichissement')
+        .eq('tenant_id', tenantId).eq('lot_id', lotId),
+    ]);
+
+    const existingIds = new Set((existingRes.data || []).map(r => r.source_id));
+    const rows = [];
+
+    for (const t of (traitementsRes.data || [])) {
+      if (existingIds.has(t.id)) continue;
+      rows.push({
+        tenant_id:   tenantId,
+        lot_id:      lotId,
+        categorie:   'intrant',
+        libelle:     `${t.produit} (${t.dose} ${t.unite})`,
+        montant:     0,
+        date_cout:   t.date_traitement,
+        source_type: 'traitement',
+        source_id:   t.id,
+      });
+    }
+
+    for (const e of (enrichissementsRes.data || [])) {
+      if (existingIds.has(e.id)) continue;
+      const label = e.type + (e.dose_reelle != null ? ` — ${e.dose_reelle} kg` : '');
+      rows.push({
+        tenant_id:   tenantId,
+        lot_id:      lotId,
+        categorie:   'intrant',
+        libelle:     label,
+        montant:     0,
+        date_cout:   e.date_enrichissement,
+        source_type: 'enrichissement',
+        source_id:   e.id,
+      });
+    }
+
+    if (rows.length === 0) return 0;
+    const { error } = await client.from('cout_lot').insert(rows);
+    if (error) throw error;
+    return rows.length;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // OENOPULSE RPCs (mig 107)
+  // ─────────────────────────────────────────────────────────────────
+
+  async function queryAnomalies() {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_anomalies', { p_tenant_id: tenantId });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function queryLotSummary(lotId) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_lot_summary', {
+      p_tenant_id: tenantId,
+      p_lot_id:    lotId,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function queryBilanCave() {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_bilan_cave', { p_tenant_id: tenantId });
+    if (error) throw error;
+    return data;
+  }
+
+  async function queryConseilSo2(lotId) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_conseil_so2', {
+      p_tenant_id: tenantId,
+      p_lot_id:    lotId,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function queryComparaisonLots(lotId) {
+    ensureLoggedIn();
+    const tenantId = requireTenant();
+    const { data, error } = await client.rpc('wb3_comparaison_lots', {
+      p_tenant_id: tenantId,
+      p_lot_id:    lotId,
+    });
+    if (error) throw error;
+    return data;
   }
 
 })(window);

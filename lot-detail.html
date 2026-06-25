@@ -1181,6 +1181,38 @@ function renderPage(lot, apports, sortedOps, prodByOp, contByOp, othersByOp, fil
     <!-- Ajustements de cave -->
     ${renderAjustementsSection(ajustements)}
 
+    <!-- Intrants & Enrichissements (chargés après rendu) -->
+    <div id="section-intrants">
+      <div class="detail-section">
+        <div class="section-head">
+          <h2>🧫 Intrants &amp; Enrichissements</h2>
+          <span class="section-count" id="intrants-count">…</span>
+          <a class="btn btn--secondary btn--sm" href="traitements.html?lot_id=${lot.id}" style="margin-left:auto">Voir tout</a>
+          <button class="btn btn--primary btn--sm" onclick="openIntrantForm()">+ Intrant</button>
+          <button class="btn btn--secondary btn--sm" onclick="openEnrichForm()">+ Enrichissement</button>
+        </div>
+        <div id="intrants-body" class="section-body">
+          <div style="color:var(--color-ink-tertiary);font-size:var(--text-footnote)">Chargement…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coûts & Prix de revient (chargés après rendu) -->
+    <div id="section-couts">
+      <div class="detail-section">
+        <div class="section-head">
+          <h2>💶 Coûts &amp; Prix de revient</h2>
+          <span class="section-count" id="couts-count">…</span>
+          <button class="btn btn--secondary btn--sm" style="margin-left:auto" onclick="importCoutsIntrants()" title="Importer les intrants/enrichissements comme lignes de coût (montant à renseigner)">↓ Importer intrants</button>
+          <button class="btn btn--secondary btn--sm" onclick="exportCoutsCSV()">⬇ CSV</button>
+          <button class="btn btn--primary btn--sm" onclick="openCoutForm(null)">+ Coût</button>
+        </div>
+        <div id="couts-body" class="section-body">
+          <div style="color:var(--color-ink-tertiary);font-size:var(--text-footnote)">Chargement…</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Opérations détaillées -->
     <div class="detail-section">
       <div class="section-head"><h2>📋 Opérations détaillées</h2><span class="section-count">${sortedOps.length}</span></div>
@@ -2520,6 +2552,413 @@ function renderAnalysesTable(reversed) {
     </table>
   </div>`;
 }
+</script>
+
+<!-- ── Section Intrants & Enrichissements (async) ── -->
+<script>
+'use strict';
+// Chargé après renderPage — lot ID disponible via currentLot
+(function () {
+  const TT = () => (window.WB3DB?.TRAITEMENT_TYPES || {});
+  const TU = () => (window.WB3DB?.TRAITEMENT_UNITES || ['g/hL','mL/hL','g','kg','L']);
+  let _t = [], _e = [], _mcrDef = 700;
+
+  async function loadIntrants() {
+    const lot = window.currentLot;
+    if (!lot || !window.WB3DB) return;
+    try {
+      [_t, _e] = await Promise.all([
+        WB3DB.queryTraitements({ lot_id: lot.id }).catch(() => []),
+        WB3DB.queryEnrichissements({ lot_id: lot.id }).catch(() => []),
+      ]);
+      const tol = await WB3DB.getTolerances().catch(() => ({}));
+      _mcrDef = Number(tol?.mcr_concentration_defaut || 700);
+    } catch (_) {}
+    renderIntrants();
+  }
+
+  function renderIntrants() {
+    const body  = document.getElementById('intrants-body');
+    const count = document.getElementById('intrants-count');
+    if (!body) return;
+    const total = _t.length + _e.length;
+    if (count) count.textContent = total;
+    if (total === 0) {
+      body.innerHTML = '<p style="margin:0;color:var(--color-ink-tertiary);font-size:var(--text-footnote)">Aucun intrant ni enrichissement enregistré pour ce lot.</p>';
+      return;
+    }
+    const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('fr-FR') : '—';
+    const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const fmt = v => v != null ? Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 3 }) : '—';
+
+    const traitsHtml = _t.map(t => {
+      const tt = TT()[t.type] || { icon: '📦', label: t.type };
+      return `<tr>
+        <td>${fmtDate(t.date_traitement)}</td>
+        <td>${tt.icon} ${esc(tt.label)}</td>
+        <td>${esc(t.produit)}</td>
+        <td style="text-align:right;font-family:monospace">${fmt(t.dose)} ${esc(t.unite)}</td>
+        <td>${esc(t.operateur || '—')}</td>
+        <td style="color:var(--color-ink-tertiary);font-style:italic">${esc(t.notes || '')}</td>
+        <td style="text-align:right">
+          <button onclick="_editIntrant('${t.id}')" style="background:none;border:none;cursor:pointer">✏️</button>
+          <button onclick="_delIntrant('${t.id}')" style="background:none;border:none;cursor:pointer">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const enrichHtml = _e.map(e => {
+      const badge = e.type === 'mcr'
+        ? `<span style="background:#e3f2fd;color:#1565c0;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">MCR</span>`
+        : `<span style="background:#f3e5f5;color:#6a1b9a;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">Saccharose</span>`;
+      const delta = ((Number(e.tav_vise) - Number(e.tav_actuel)) >= 0 ? '+' : '') + (Number(e.tav_vise) - Number(e.tav_actuel)).toFixed(2);
+      return `<tr>
+        <td>${fmtDate(e.date_enrichissement)}</td>
+        <td>🍬 ${badge}</td>
+        <td>${esc(e.tav_actuel)} → ${esc(e.tav_vise)} %vol (${delta})</td>
+        <td style="text-align:right;font-family:monospace">${fmt(e.volume_hl)} hL</td>
+        <td style="text-align:right;font-family:monospace">${e.dose_calculee != null ? fmt(e.dose_calculee)+' '+esc(e.unite) : '—'}</td>
+        <td>${esc(e.operateur || '—')}</td>
+        <td style="text-align:right">
+          <button onclick="_editEnrich('${e.id}')" style="background:none;border:none;cursor:pointer">✏️</button>
+          <button onclick="_delEnrich('${e.id}')" style="background:none;border:none;cursor:pointer">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    let html = '<div style="overflow-x:auto">';
+    if (_t.length) {
+      html += `<div style="font-size:var(--text-caption);font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);margin-bottom:var(--space-2)">Intrants (${_t.length})</div>
+        <table style="width:100%;border-collapse:collapse;font-size:var(--text-footnote);margin-bottom:var(--space-4)">
+          <thead><tr style="background:var(--color-bg-subtle)"><th style="padding:6px 10px;text-align:left">Date</th><th>Type</th><th>Produit</th><th style="text-align:right">Dose</th><th>Opérateur</th><th>Notes</th><th></th></tr></thead>
+          <tbody>${traitsHtml}</tbody>
+        </table>`;
+    }
+    if (_e.length) {
+      html += `<div style="font-size:var(--text-caption);font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);margin-bottom:var(--space-2)">Enrichissements (${_e.length})</div>
+        <table style="width:100%;border-collapse:collapse;font-size:var(--text-footnote)">
+          <thead><tr style="background:var(--color-bg-subtle)"><th style="padding:6px 10px;text-align:left">Date</th><th>Type</th><th>TAV actuel → visé</th><th style="text-align:right">Volume</th><th style="text-align:right">Dose calculée</th><th>Opérateur</th><th></th></tr></thead>
+          <tbody>${enrichHtml}</tbody>
+        </table>`;
+    }
+    html += '</div>';
+    body.innerHTML = html;
+  }
+
+  // Délégation globale pour ouverture formulaire depuis la page
+  window.openIntrantForm = function () {
+    const lotId = window.currentLot?.id;
+    if (!lotId) return;
+    WB3Nav.navigate(`traitements.html?lot_id=${lotId}`);
+  };
+  window.openEnrichForm = function () {
+    const lotId = window.currentLot?.id;
+    if (!lotId) return;
+    WB3Nav.navigate(`traitements.html?lot_id=${lotId}#enrichissements`);
+  };
+  window._editIntrant = id => { const lotId = window.currentLot?.id; WB3Nav.navigate(`traitements.html?lot_id=${lotId || ''}&edit_t=${id}`); };
+  window._editEnrich  = id => { const lotId = window.currentLot?.id; WB3Nav.navigate(`traitements.html?lot_id=${lotId || ''}&edit_e=${id}`); };
+  window._delIntrant  = async function(id) {
+    if (!confirm('Supprimer cet intrant ?')) return;
+    try { await WB3DB.deleteTraitement(id); await loadIntrants(); WB3Toast?.show({ level:'success', message:'Supprimé' }); }
+    catch(e) { WB3Toast?.show({ level:'error', message: e.message }); }
+  };
+  window._delEnrich = async function(id) {
+    if (!confirm('Supprimer cet enrichissement ?')) return;
+    try { await WB3DB.deleteEnrichissement(id); await loadIntrants(); WB3Toast?.show({ level:'success', message:'Supprimé' }); }
+    catch(e) { WB3Toast?.show({ level:'error', message: e.message }); }
+  };
+
+  // Déclenche le chargement après que renderPage a injecté le DOM
+  document.addEventListener('WB3_READY', () => {
+    // Attendre que renderPage soit appelé (observable via MutationObserver sur #section-intrants)
+    const obs = new MutationObserver(() => {
+      if (document.getElementById('intrants-body')) {
+        obs.disconnect();
+        loadIntrants();
+      }
+    });
+    obs.observe(document.getElementById('content'), { childList: true, subtree: true });
+  });
+})();
+</script>
+
+<!-- ── Section Coûts & Prix de revient (async) ── -->
+<script>
+'use strict';
+(function () {
+  const CAT_LABELS = {
+    matiere:         'Matière',
+    intrant:         'Intrant',
+    main_oeuvre:     'Main-d\'œuvre',
+    conditionnement: 'Conditionnement',
+    autre:           'Autre',
+  };
+  const CAT_COLORS = {
+    matiere:         '#e8f5e9',
+    intrant:         '#e3f2fd',
+    main_oeuvre:     '#fff3e0',
+    conditionnement: '#f3e5f5',
+    autre:           '#f5f5f5',
+  };
+  let _couts = [];
+  let _editingId = null;
+  let _canWrite = false;
+
+  // ── Chargement ─────────────────────────────────────────────
+  async function loadCouts() {
+    const lot = window.currentLot;
+    if (!lot || !window.WB3DB) return;
+    const role = WB3DB.getCurrentRole?.() || 'membre';
+    _canWrite = (role === 'admin' || role === 'manager');
+    try {
+      _couts = await WB3DB.queryCoutsLot(lot.id);
+    } catch(e) {
+      console.error('[couts]', e);
+      _couts = [];
+    }
+    renderCouts();
+  }
+
+  // ── Rendu ───────────────────────────────────────────────────
+  function renderCouts() {
+    const body  = document.getElementById('couts-body');
+    const count = document.getElementById('couts-count');
+    if (!body) return;
+    if (count) count.textContent = _couts.length;
+
+    const total = _couts.reduce((s, c) => s + Number(c.montant || 0), 0);
+    const lot   = window.currentLot;
+    const volHl = lot?.volume_actuel_hl;
+    const parHl = (volHl > 0 && total > 0) ? (total / volHl).toFixed(2) : null;
+
+    // Répartition par catégorie
+    const bycat = {};
+    for (const c of _couts) {
+      bycat[c.categorie] = (bycat[c.categorie] || 0) + Number(c.montant || 0);
+    }
+
+    const kpiHtml = total > 0 ? `
+      <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;margin-bottom:var(--space-4);padding:var(--space-3) var(--space-4);background:var(--color-bg-elevated);border-radius:var(--radius-md);align-items:center">
+        <div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary)">Coût total</div>
+          <div style="font-size:var(--text-title-2);font-weight:700">${fmtEur(total)}</div>
+        </div>
+        ${parHl != null ? `<div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary)">Coût / hL</div>
+          <div style="font-size:var(--text-title-2);font-weight:700">${fmtEur(parHl)}</div>
+        </div>` : ''}
+        <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;margin-left:auto">
+          ${Object.entries(bycat).map(([cat, val]) =>
+            `<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${CAT_COLORS[cat]||'#f5f5f5'};color:#333">
+              ${CAT_LABELS[cat] || cat} ${fmtEur(val)}
+            </span>`
+          ).join('')}
+        </div>
+      </div>` : '';
+
+    if (_couts.length === 0) {
+      body.innerHTML = `${kpiHtml}
+        <div style="color:var(--color-ink-tertiary);font-size:var(--text-callout);padding:var(--space-4) 0">
+          Aucun coût enregistré.${_canWrite ? ' Utilisez « + Coût » ou « ↓ Importer intrants ».' : ''}
+        </div>
+        ${_canWrite ? renderForm(null) : ''}`;
+      return;
+    }
+
+    const rows = _couts.map(c => `
+      <tr data-id="${c.id}">
+        <td>${c.date_cout || '—'}</td>
+        <td><span style="padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:${CAT_COLORS[c.categorie]||'#f5f5f5'}">${CAT_LABELS[c.categorie] || c.categorie}</span></td>
+        <td>${escH(c.libelle)}</td>
+        <td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${fmtEur(c.montant)}</td>
+        <td style="color:var(--color-ink-tertiary);font-size:11px">${escH(c.notes || '')}</td>
+        ${_canWrite ? `<td style="white-space:nowrap;text-align:right">
+          <button onclick="_editCout('${c.id}')" style="background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;color:var(--color-ink-secondary)" title="Modifier">✏️</button>
+          <button onclick="_delCout('${c.id}')" style="background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;color:var(--color-ink-secondary)" title="Supprimer">🗑️</button>
+        </td>` : '<td></td>'}
+      </tr>`).join('');
+
+    body.innerHTML = `
+      ${kpiHtml}
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-callout)">
+        <thead>
+          <tr style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-tertiary);border-bottom:2px solid var(--color-border)">
+            <th style="padding:6px 8px;text-align:left">Date</th>
+            <th style="padding:6px 8px;text-align:left">Catégorie</th>
+            <th style="padding:6px 8px;text-align:left">Libellé</th>
+            <th style="padding:6px 8px;text-align:right">Montant (€)</th>
+            <th style="padding:6px 8px;text-align:left">Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr style="font-weight:700;border-top:2px solid var(--color-border)">
+            <td colspan="3" style="padding:6px 8px">Total</td>
+            <td style="padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums">${fmtEur(total)}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+      ${_canWrite ? renderForm(null) : ''}`;
+
+    // Rebind global helpers
+    window._editCout = openCoutForm;
+    window._delCout  = deleteCout;
+  }
+
+  // ── Formulaire inline ────────────────────────────────────────
+  function renderForm(cout) {
+    const id  = cout?.id  || '';
+    const today = new Date().toISOString().slice(0, 10);
+    return `
+      <div id="cout-form" style="margin-top:var(--space-4);padding:var(--space-4);background:var(--color-bg-elevated);border-radius:var(--radius-md);border:1px solid var(--color-border)">
+        <div style="font-weight:600;font-size:var(--text-callout);margin-bottom:var(--space-3)">${id ? 'Modifier le coût' : 'Nouveau coût'}</div>
+        <input type="hidden" id="cout-id" value="${id}">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-3)">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-secondary);margin-bottom:4px">Date *</label>
+            <input class="input" type="date" id="cout-date" value="${cout?.date_cout || today}" style="width:100%;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-secondary);margin-bottom:4px">Catégorie *</label>
+            <select class="input" id="cout-categorie" style="width:100%;box-sizing:border-box">
+              ${Object.entries(CAT_LABELS).map(([k,v]) =>
+                `<option value="${k}"${cout?.categorie===k?' selected':''}>${v}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-secondary);margin-bottom:4px">Montant (€) *</label>
+            <input class="input" type="number" id="cout-montant" min="0" step="0.01" value="${cout?.montant ?? ''}" placeholder="0.00" style="width:100%;box-sizing:border-box">
+          </div>
+        </div>
+        <div style="margin-bottom:var(--space-3)">
+          <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-secondary);margin-bottom:4px">Libellé *</label>
+          <input class="input" type="text" id="cout-libelle" value="${escH(cout?.libelle || '')}" placeholder="ex : Levures, Sulfite, Vendange manuelle…" style="width:100%;box-sizing:border-box">
+        </div>
+        <div style="margin-bottom:var(--space-3)">
+          <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--color-ink-secondary);margin-bottom:4px">Notes</label>
+          <input class="input" type="text" id="cout-notes" value="${escH(cout?.notes || '')}" placeholder="Optionnel" style="width:100%;box-sizing:border-box">
+        </div>
+        <div style="display:flex;gap:var(--space-3)">
+          <button class="btn btn--secondary btn--sm" onclick="closeCoutForm()">Annuler</button>
+          <button class="btn btn--sm" id="cout-save-btn" onclick="saveCout()">💾 Enregistrer</button>
+        </div>
+      </div>`;
+  }
+
+  // ── Actions ─────────────────────────────────────────────────
+  window.openCoutForm = function(id) {
+    _editingId = id || null;
+    const cout = id ? _couts.find(c => c.id === id) : null;
+    const existing = document.getElementById('cout-form');
+    if (existing) existing.outerHTML = renderForm(cout);
+    else document.getElementById('couts-body').insertAdjacentHTML('beforeend', renderForm(cout));
+    document.getElementById('cout-libelle')?.focus();
+  };
+
+  window.closeCoutForm = function() {
+    const f = document.getElementById('cout-form');
+    if (f) f.remove();
+    _editingId = null;
+  };
+
+  window.saveCout = async function() {
+    const lot = window.currentLot;
+    if (!lot) return;
+    const id       = document.getElementById('cout-id').value || null;
+    const categorie = document.getElementById('cout-categorie').value;
+    const libelle   = document.getElementById('cout-libelle').value.trim();
+    const montant   = parseFloat(document.getElementById('cout-montant').value);
+    const date_cout = document.getElementById('cout-date').value;
+    if (!libelle || isNaN(montant) || !date_cout) {
+      WB3Toast?.show({ level:'error', message:'Date, libellé et montant sont requis' });
+      return;
+    }
+    const btn = document.getElementById('cout-save-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      await WB3DB.saveCoutLot({
+        id, lot_id: lot.id, categorie, libelle, montant, date_cout,
+        notes: document.getElementById('cout-notes').value.trim() || null,
+      });
+      WB3Toast?.show({ level:'success', message: id ? 'Coût mis à jour' : 'Coût ajouté' });
+      closeCoutForm();
+      await loadCouts();
+    } catch(e) {
+      WB3Toast?.show({ level:'error', message: 'Erreur : ' + (e.message || e) });
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+    }
+  };
+
+  window.deleteCout = async function(id) {
+    const c = _couts.find(x => x.id === id);
+    const ok = await WB3UI.confirm(
+      `Supprimer « ${c?.libelle || 'ce coût'} » (${fmtEur(c?.montant)}) ?`,
+      { title:'Supprimer le coût', okText:'Supprimer', danger: true }
+    );
+    if (!ok) return;
+    try {
+      await WB3DB.deleteCoutLot(id);
+      WB3Toast?.show({ level:'success', message:'Coût supprimé' });
+      await loadCouts();
+    } catch(e) {
+      WB3Toast?.show({ level:'error', message:'Erreur : ' + (e.message || e) });
+    }
+  };
+
+  window.importCoutsIntrants = async function() {
+    const lot = window.currentLot;
+    if (!lot) return;
+    try {
+      const n = await WB3DB.importIntraitsAsCoûts(lot.id);
+      if (n === 0) {
+        WB3Toast?.show({ level:'info', message:'Aucun nouvel intrant à importer (déjà importés ou aucun)' });
+      } else {
+        WB3Toast?.show({ level:'success', message:`${n} ligne${n>1?'s':''} importée${n>1?'s':''} — renseignez les montants` });
+        await loadCouts();
+      }
+    } catch(e) {
+      WB3Toast?.show({ level:'error', message:'Erreur import : ' + (e.message || e) });
+    }
+  };
+
+  window.exportCoutsCSV = function() {
+    if (_couts.length === 0) { WB3Toast?.show({ level:'warn', message:'Aucun coût à exporter' }); return; }
+    const lot = window.currentLot;
+    const cols = ['date_cout','categorie','libelle','montant','notes'];
+    const hdr  = ['Date','Catégorie','Libellé','Montant (€)','Notes'];
+    const rows = [hdr, ..._couts.map(c => cols.map(k => {
+      const v = c[k] != null ? String(c[k]) : '';
+      return v.includes(',') || v.includes('"') ? '"' + v.replace(/"/g,'""') + '"' : v;
+    }))];
+    const csv  = rows.map(r => r.join(',')).join('\r\n');
+    WB3Nav.downloadFile(csv, `couts-lot-${lot?.numero || lot?.id}-${new Date().toISOString().slice(0,10)}.csv`, 'text/csv;charset=utf-8');
+  };
+
+  // ── Helpers ─────────────────────────────────────────────────
+  function fmtEur(v) {
+    const n = Number(v || 0);
+    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  }
+  function escH(s) {
+    return String(s || '').replace(/[&<>"']/g, c =>
+      ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  // ── Init : observe le DOM, se déclenche après renderPage ────
+  document.addEventListener('WB3_READY', () => {
+    const obs = new MutationObserver(() => {
+      if (document.getElementById('couts-body')) {
+        obs.disconnect();
+        loadCouts();
+      }
+    });
+    obs.observe(document.getElementById('content'), { childList: true, subtree: true });
+  });
+})();
 </script>
 
 <!-- ── Modal Nouvelle analyse ── -->

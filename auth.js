@@ -39,29 +39,31 @@
     return data.user;
   }
 
-  // Connexion par lien magique (Magic Link). Envoie un email contenant
-  // un lien qui authentifie l'utilisateur au clic — sans mot de passe.
-  // Le lien renvoie l'utilisateur sur la même page (app.html) où
-  // onAuthStateChange détectera la session et basculera vers shell.html.
-  async function signInWithMagicLink(email) {
-    const redirectTo = window.location.origin + window.location.pathname;
-    const { error } = await client.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: redirectTo,
-        shouldCreateUser: true, // l'allow-list côté DB filtre les emails autorisés
-      },
-    });
-    if (error) throw error;
-    return true;
-  }
-
   async function signOut() {
     const { error } = await client.auth.signOut();
     if (error) throw error;
     localStorage.removeItem('wb3_current_tenant_id');
     await global.WB3DB._refreshUserContext();
     notifyListeners();
+  }
+
+  // Mot de passe oublié : envoie un email avec un lien de réinitialisation.
+  // redirectTo = la page de connexion courante (app.html) → au clic sur le
+  // lien, Supabase y revient avec un jeton et déclenche PASSWORD_RECOVERY.
+  // ⚠️ L'URL doit figurer dans Supabase ▸ Authentication ▸ URL Configuration
+  //    ▸ Redirect URLs, sinon le lien retombe sur le Site URL par défaut.
+  async function requestPasswordReset(email) {
+    const redirectTo = window.location.href.split('#')[0].split('?')[0];
+    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+  }
+
+  // Après ouverture du lien de réinitialisation (session de récupération
+  // active), définit le nouveau mot de passe du compte connecté.
+  async function updatePassword(newPassword) {
+    const { data, error } = await client.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    return data.user;
   }
 
   async function getSession() {
@@ -124,11 +126,12 @@
 
   global.WB3Auth = {
     signIn,
-    signInWithMagicLink,
     signOut,
     getSession,
     restoreSession,
     onAuthChange,
+    requestPasswordReset,
+    updatePassword,
   };
 
 })(window);

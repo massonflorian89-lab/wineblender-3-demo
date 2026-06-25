@@ -1,3 +1,0 @@
-# Démo non destinée à être indexée par les moteurs de recherche.
-User-agent: *
-Disallow: /

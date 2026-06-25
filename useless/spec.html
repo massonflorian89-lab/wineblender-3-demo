@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-wineblender-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icon-wineblender-16.png">
+<link rel="shortcut icon" href="img/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="img/icon-wineblender-180.png">
+<meta name="theme-color" content="#6a1b2a">
+<title>WB3 — Spec phase 0 (consolidée)</title>
+<style>
+  :root {
+    --p: #6a1b2a;
+    --p-lt: #a84658;
+    --p-dk: #3e0f18;
+    --acc: #c8a87e;
+    --bg: #f7f3ee;
+    --card: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #6b6b70;
+    --ok: #2e7d32;
+    --warn: #c77700;
+    --code-bg: #2a2a32;
+    --code-ink: #e8e8ec;
+    --border: #e5e0d8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 24px 0 24px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+  }
+  nav.toc h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-weight: 700;
+  }
+  nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: section; }
+  nav.toc ol li {
+    counter-increment: section;
+    margin: 4px 0;
+    font-size: 13px;
+  }
+  nav.toc ol li::before {
+    content: counter(section) ".";
+    color: var(--p);
+    margin-right: 6px;
+    font-weight: 600;
+  }
+  nav.toc a {
+    color: var(--ink);
+    text-decoration: none;
+    padding: 4px 0;
+    display: inline-block;
+    transition: color 0.15s;
+  }
+  nav.toc a:hover { color: var(--p); }
+  nav.toc .top-link {
+    display: block;
+    padding: 8px 0 14px;
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  nav.toc .top-link:hover { color: var(--p); }
+
+  main {
+    padding: 32px 36px 80px;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  header.hero {
+    background: linear-gradient(135deg, var(--p), var(--p-dk));
+    color: #fff;
+    padding: 28px 32px;
+    border-radius: 14px;
+    margin-bottom: 28px;
+  }
+  header.hero .badge {
+    display: inline-block;
+    background: rgba(255,255,255,.18);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  header.hero h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: -0.3px; }
+  header.hero .subtitle { font-size: 13.5px; opacity: 0.9; }
+  header.hero .meta { font-size: 12px; opacity: 0.7; margin-top: 12px; }
+
+  section { margin-bottom: 38px; scroll-margin-top: 20px; }
+  h2 {
+    font-size: 19px;
+    border-bottom: 2px solid var(--p);
+    padding-bottom: 6px;
+    margin: 0 0 18px;
+    color: var(--p-dk);
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 15.5px;
+    margin: 22px 0 10px;
+    color: var(--p);
+  }
+  p { margin: 0 0 12px; }
+  code {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Monaco, "Roboto Mono", monospace;
+    font-size: 0.85em;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: "SF Mono", Monaco, "Roboto Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 14px;
+    font-size: 13px;
+    background: var(--card);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: #f0ece5;
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.transition { color: var(--p); font-style: italic; font-size: 12.5px; }
+  td.spec { color: var(--muted); font-size: 12.5px; }
+
+  .callout {
+    background: #fff8ed;
+    border-left: 3px solid var(--acc);
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 14px 0;
+    font-size: 13.5px;
+  }
+  .callout strong { color: var(--p-dk); }
+  .callout.info { background: #eef5ff; border-color: #4a7bb5; }
+  .callout.ok { background: #f0f8f0; border-color: var(--ok); }
+
+  .status-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .status {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 5px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-family: "SF Mono", Monaco, monospace;
+  }
+  .status.archived { opacity: 0.55; }
+
+  .phase-block {
+    background: var(--card);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+  .phase-block h3 {
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .phase-block h3 .num {
+    background: var(--p); color: #fff;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 20px; }
+    main { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <nav class="toc">
+    <a href="index.html" class="top-link">← Espace WB3</a>
+    <h2>Sommaire</h2>
+    <ol>
+      <li><a href="#contexte">Contexte</a></li>
+      <li><a href="#numerotation">Numérotation des lots</a></li>
+      <li><a href="#machine">Machine à états</a></li>
+      <li><a href="#operations">Liste des opérations</a></li>
+      <li><a href="#intrant">Intrant œnologique</a></li>
+      <li><a href="#schema-sql">Schéma SQL initial</a></li>
+      <li><a href="#rls">Multi-tenant & RLS</a></li>
+      <li><a href="#phase1">Plan phase 1</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <header class="hero">
+      <span class="badge">Phase 0 · Cadrage validé</span>
+      <h1>📐 WineBlender 3 — Spécification consolidée</h1>
+      <div class="subtitle">Document de référence pour la phase 1 (création projet Supabase, schéma initial)</div>
+      <div class="meta">Stack : Supabase (Postgres / EU) · Front vanilla JS · PWA</div>
+    </header>
+
+    <!-- 1. Contexte -->
+    <section id="contexte">
+      <h2>1 · Contexte</h2>
+      <p>WineBlender 3 est la refonte de WineBlender en logiciel de traçabilité métier (équivalent Agreo, Process2Wine). Ambition : commercialisation à 18 mois.</p>
+      <p>Modèle centré sur le <strong>lot vivant</strong> qui évolue à chaque opération de cave, avec traçabilité ascendante et descendante complète, gestion multi-tenant pour SaaS.</p>
+      <div class="callout">
+        <strong>Co-existence WB2 / WB3 :</strong> deux backends distincts. WB2 reste sur Firebase (existant), WB3 démarre directement sur Supabase. Pas de migration progressive de Firestore vers Postgres.
+      </div>
+    </section>
+
+    <!-- 2. Numérotation -->
+    <section id="numerotation">
+      <h2>2 · Numérotation des lots</h2>
+
+      <h3>Lot racine (apport vendange)</h3>
+      <pre><code>L-YYYY-JJJ-CÉPAGE-COULEUR-SEQ</code></pre>
+      <p>Exemple : <code>L-2026-264-SYR-R-001</code> = 21/09/2026 (264<sup>e</sup> jour de l'année), Syrah, Rouge, 1<sup>er</sup> lot du jour.</p>
+
+      <h3>Évolution sans mélange (transformation)</h3>
+      <p>Le lot conserve son numéro racine et reçoit un suffixe d'étape :</p>
+      <table>
+        <thead><tr><th>Suffixe</th><th>Étape</th><th>Exemple</th></tr></thead>
+        <tbody>
+          <tr><td><code>.DB</code></td><td>Débourbé</td><td><code>L-2026-264-SYR-R-001.DB</code></td></tr>
+          <tr><td><code>.FA</code></td><td>Fermentation alcoolique</td><td><code>L-2026-264-SYR-R-001.FA</code></td></tr>
+          <tr><td><code>.V</code></td><td>Vin (fin FA)</td><td><code>L-2026-264-SYR-R-001.V</code></td></tr>
+          <tr><td><code>.FML</code></td><td>Fermentation malolactique</td><td><code>L-2026-264-SYR-R-001.FML</code></td></tr>
+          <tr><td><code>.EL</code></td><td>Élevage</td><td><code>L-2026-264-SYR-R-001.EL</code></td></tr>
+          <tr><td><code>.F</code></td><td>Filtré</td><td><code>L-2026-264-SYR-R-001.F</code></td></tr>
+          <tr><td><code>.PM</code></td><td>Pré-mise</td><td><code>L-2026-264-SYR-R-001.PM</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Lot d'assemblage (mélange de plusieurs lots)</h3>
+      <pre><code>A-YYYY-XXX-APPELLATION-COULEUR</code></pre>
+      <p>Exemple : <code>A-2026-001-PICPOUL-B</code>. Les lots parents sont conservés dans la table <code>lineage</code> (graphe de parenté).</p>
+
+      <div class="callout info">
+        <strong>Apport multi-cépages :</strong> à valider avec les pratiques Richemer. Probablement traité comme un assemblage dès l'apport (lot <code>A-…</code> avec parents virtuels par cépage).
+      </div>
+    </section>
+
+    <!-- 3. Machine à états -->
+    <section id="machine">
+      <h2>3 · Machine à états (12 statuts)</h2>
+
+      <p>Toute fin de FA aboutit au statut <code>vin</code>, qu'on y arrive par écoulage (rouges) ou par fin FA (blancs/rosés).</p>
+
+      <div class="status-list">
+        <span class="status">vendange</span>
+        <span class="status">mout</span>
+        <span class="status">mout_stabule</span>
+        <span class="status">mout_debourbe</span>
+        <span class="status">fa</span>
+        <span class="status">vin</span>
+        <span class="status">fml</span>
+        <span class="status">elevage</span>
+        <span class="status">vin_filtre</span>
+        <span class="status">pre_mise</span>
+        <span class="status archived">conditionne</span>
+        <span class="status archived">sorti</span>
+      </div>
+
+      <h3>Diagramme de transitions</h3>
+      <pre>   ┌─────────────┐
+   │  Vendange   │  apport vendange
+   └──────┬──────┘
+          │
+    ┌─────┴────────────────────────────┐
+    │ (blancs/rosés)                    │ (rouges)
+    │ pressurage direct                 │ levurage en cuve foulée
+    ▼                                   │
+  ┌──────┐                              │
+  │ Moût │                              │
+  └───┬──┘                              │
+      │ [stabulation à froid]           │
+      ▼                                 │
+ ┌──────────────┐                       │
+ │ Moût stabulé │                       │
+ └──────┬───────┘                       │
+        │ débourbage                    │
+        ▼                               │
+ ┌────────────────┐                     │
+ │ Moût débourbé  │                     │
+ └──────┬─────────┘                     │
+        │ levurage                      │
+        ▼                               │
+   ┌──────┐                             │
+   │  FA  │ ◄───────────────────────────┘
+   └───┬──┘
+       │ fin FA (blancs/rosés) ──┐
+       │ écoulage (rouges) ──────┤
+       ▼                         ▼
+                  ┌─────┐
+                  │ Vin │
+                  └──┬──┘
+                     │
+        ┌────────────┼────────────┐
+        │ [FML]      │ direct     │
+        ▼            │            │
+     ┌─────┐         │            │
+     │ FML │         │            │
+     └──┬──┘         │            │
+        └────────────┴────────────┘
+                     ▼
+                ┌─────────┐
+                │ Élevage │
+                └────┬────┘
+                     │ filtration
+                     ▼
+              ┌────────────┐
+              │ Vin filtré │
+              └─────┬──────┘
+                    │ préparation mise
+                    ▼
+                ┌──────────┐
+                │ Pré-mise │
+                └────┬─────┘
+                     │
+        ┌────────┬───┴───┬────────────┐
+        ▼        ▼       ▼            ▼
+     Mise     Mise    Sortie       Sortie
+     btl      BIB     vrac         citerne
+        └────────┴───────┴────────────┘
+                     ▼
+              ┌────────────────┐
+              │  Conditionné   │
+              │  ou Sorti      │
+              │   (archivé)    │
+              └────────────────┘</pre>
+    </section>
+
+    <!-- 4. Liste des opérations -->
+    <section id="operations">
+      <h2>4 · Liste des opérations (~47 types)</h2>
+
+      <p>Chaque opération porte un type, une transition automatique de statut (modifiable manuellement), des champs spécifiques (stockés en <code>jsonb</code>), et un lien vers les lots sources/destinations + les intrants utilisés.</p>
+
+      <div class="phase-block">
+        <h3><span class="num">1</span> Vendange &amp; réception</h3>
+        <table>
+          <thead><tr><th>Opération</th><th>Transition</th><th>Spécificité</th></tr></thead>
+          <tbody>
+            <tr><td>Apport vendange</td><td class="transition">→ Vendange (lot racine)</td><td class="spec">Saisie ou import CSV</td></tr>
+            <tr><td>Égrappage / éraflage</td><td class="transition">—</td><td class="spec">Rouges</td></tr>
+            <tr><td>Foulage</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Pressurage direct</td><td class="transition">Vendange → Moût</td><td class="spec">Blancs / rosés</td></tr>
+            <tr><td>Saignée</td><td class="transition">— (crée lot fils)</td><td class="spec">Rosés de saignée</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="phase-block">
+        <h3><span class="num">2</span> Pré-fermentaire (moût)</h3>
+        <table>
+          <thead><tr><th>Opération</th><th>Transition</th><th>Spécificité</th></tr></thead>
+          <tbody>
+            <tr><td>Sulfitage d'entrée</td><td class="transition">—</td><td class="spec">Dose SO₂</td></tr>
+            <tr><td>Enzymage</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Macération pelliculaire</td><td class="transition">—</td><td class="spec">Blancs aromatiques</td></tr>
+            <tr><td>Macération pré-fermentaire à froid</td><td class="transition">—</td><td class="spec">Rouges</td></tr>
+            <tr><td>Stabulation à froid</td><td class="transition">Moût → Moût stabulé</td><td class="spec"></td></tr>
+            <tr><td>Brassage à l'azote</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Ajout oxygène</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Débourbage</td><td class="transition">Moût stabulé OU Moût → Moût débourbé</td><td class="spec"></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="phase-block">
+        <h3><span class="num">3</span> Fermentation alcoolique (FA)</h3>
+        <table>
+          <thead><tr><th>Opération</th><th>Transition</th><th>Spécificité</th></tr></thead>
+          <tbody>
+            <tr><td>Levurage / Inoculation</td><td class="transition">Moût débourbé → FA</td><td class="spec"></td></tr>
+            <tr><td>Nutrition azotée</td><td class="transition">—</td><td class="spec">DAP, Thiamine, nutriments organiques</td></tr>
+            <tr><td>Remontage</td><td class="transition">—</td><td class="spec">Rouges</td></tr>
+            <tr><td>Délestage</td><td class="transition">—</td><td class="spec">Rouges</td></tr>
+            <tr><td>Pigeage</td><td class="transition">—</td><td class="spec">Rouges</td></tr>
+            <tr><td>Contrôle température</td><td class="transition">—</td><td class="spec">Info / suivi</td></tr>
+            <tr><td>Pressurage de marc</td><td class="transition">— (crée vin de presse)</td><td class="spec">Rouges fin macération</td></tr>
+            <tr><td>Délestage final / Écoulage</td><td class="transition">FA → Vin</td><td class="spec">Rouges, décuvage</td></tr>
+            <tr><td>Fin FA constatée</td><td class="transition">FA → Vin</td><td class="spec">Blancs / rosés</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="phase-block">
+        <h3><span class="num">4</span> Fermentation malolactique (FML)</h3>
+        <table>
+          <thead><tr><th>Opération</th><th>Transition</th><th>Spécificité</th></tr></thead>
+          <tbody>
+            <tr><td>Inoculation bactéries lactiques</td><td class="transition">Vin → FML</td><td class="spec">Optionnel</td></tr>
+            <tr><td>Suivi FML (contrôle malique)</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Fin FML constatée</td><td class="transition">FML → Élevage</td><td class="spec"></td></tr>
+            <tr><td>Blocage FML (SO₂)</td><td class="transition">Vin → Élevage</td><td class="spec">Si malo non voulue</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="phase-block">
+        <h3><span class="num">5</span> Élevage</h3>
+        <table>
+          <thead><tr><th>Opération</th><th>Transition</th><th>Spécificité</th></tr></thead>
+          <tbody>
+            <tr><td>Soutirage</td><td class="transition">— (mouvement)</td><td class="spec">Clair / lies, inter-cuve</td></tr>
+            <tr><td>Ouillage</td><td class="transition">—</td><td class="spec">Foudres / fûts</td></tr>
+            <tr><td>Sulfitage d'élevage</td><td class="transition">—</td><td class="spec">Ajustement périodique</td></tr>
+            <tr><td>Bâtonnage lies fines</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Micro-oxygénation</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Transfert fût ↔ cuve</td><td class="transition">— (mouvement)</td><td class="spec"></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="phase-block">
+        <h3><span class="num">6</span> Préparation conditionnement</h3>
+        <table>
+          <thead><tr><th>Opération</th><th>Transition</th><th>Spécificité</th></tr></thead>
+          <tbody>
+            <tr><td>Stabilisation tartrique</td><td class="transition">—</td><td class="spec">Froid / CMC / métatartrique</td></tr>
+            <tr><td>Stabilisation protéique</td><td class="transition">—</td><td class="spec">Bentonite</td></tr>
+            <tr><td>Filtration</td><td class="transition">Élevage → Vin filtré</td><td class="spec">Terre, plaques, tangentielle, stérilisante</td></tr>
+            <tr><td>Ajustement SO₂</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Assemblage</td><td class="transition">Multi-lots → nouveau lot A-…</td><td class="spec">Crée lineage parents/enfants</td></tr>
+            <tr><td>Dégazage / sursaturation CO₂</td><td class="transition">—</td><td class="spec"></td></tr>
+            <tr><td>Préparation mise</td><td class="transition">Vin filtré → Pré-mise</td><td class="spec">Validation analytique finale</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="phase-block">
+        <h3><span class="num">7</span> Conditionnement</h3>
+        <table>
+          <thead><tr><th>Opération</th><th>Transition</th><th>Spécificité</th></tr></thead>
+          <tbody>
+            <tr><td>Mise en bouteille</td><td class="transition">Pré-mise → Conditionné</td><td class="spec">Lot archivé</td></tr>
+            <tr><td>Mise BIB</td><td class="transition">Pré-mise → Conditionné</td><td class="spec"></td></tr>
+            <tr><td>Sortie vrac (vente)</td><td class="transition">Pré-mise → Sorti</td><td class="spec">Lot archivé</td></tr>
+            <tr><td>Sortie citerne</td><td class="transition">Élevage ou Vin filtré → Sorti</td><td class="spec"></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="phase-block">
+        <h3><span class="num">8</span> Transverses (toutes phases)</h3>
+        <table>
+          <thead><tr><th>Opération</th><th>Transition</th><th>Spécificité</th></tr></thead>
+          <tbody>
+            <tr><td>Prélèvement analyse</td><td class="transition">—</td><td class="spec">Lien module Analyse existant</td></tr>
+            <tr><td>Transfert inter-cuve</td><td class="transition">— (mouvement)</td><td class="spec">Sans changement d'état</td></tr>
+            <tr><td>Nettoyage &amp; inertage cuve</td><td class="transition">— (sur contenant)</td><td class="spec"></td></tr>
+            <tr><td>Injection gaz inerte</td><td class="transition">—</td><td class="spec">CO₂, N₂, Ar — ciel de cuve</td></tr>
+            <tr><td><strong>Intrant œnologique</strong></td><td class="transition">— (selon stade)</td><td class="spec">Voir section dédiée</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 5. Intrant œnologique -->
+    <section id="intrant">
+      <h2>5 · Intrant œnologique (type d'opération unifié)</h2>
+
+      <p>Type d'opération générique couvrant tout ajout de produit œnologique au moût ou au vin. Remplace les anciennes opérations séparées (Collage, Acidification, Désacidification, Tanisage, Bentonite curative…).</p>
+
+      <h3>Sous-types</h3>
+      <table>
+        <thead><tr><th>Sous-type</th><th>Famille de produits</th><th>Stades possibles</th></tr></thead>
+        <tbody>
+          <tr><td><code>collage</code></td><td>PVPP, bentonite, gélatine, caséine, charbon, protéine de pois, colle de poisson</td><td>Moût · FA · Élevage · Prép. mise</td></tr>
+          <tr><td><code>acidification</code></td><td>Acide tartrique, acide citrique</td><td>Moût · FA · Élevage</td></tr>
+          <tr><td><code>desacidification</code></td><td>Carbonate de Ca, bicarbonate de K</td><td>Moût · FA · Élevage</td></tr>
+          <tr><td><code>tanisage</code></td><td>Tannins œnologiques</td><td>Moût · FA · Élevage</td></tr>
+          <tr><td><code>correction</code></td><td>Mannoprotéines, gomme arabique, CMC, métatartrique</td><td>Élevage · Prép. mise</td></tr>
+          <tr><td><code>autre</code></td><td>Tout produit du catalogue non-classé</td><td>Tous</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Champs (stockés en <code>operations.donnees jsonb</code>)</h3>
+      <pre><code>{
+  "sous_type": "collage",
+  "stade": "elevage",
+  "produits": [
+    {
+      "produit_lot_id": "uuid-du-lot-commercial",
+      "dose": 25,
+      "unite": "g/hL"
+    }
+  ],
+  "duree_contact_jours": 14,
+  "temperature_c": 12,
+  "remarques": "..."
+}</code></pre>
+
+      <div class="callout">
+        <strong>Catalogue produits :</strong> table <code>produits_catalogue</code> (générique : famille + nom). Les lots commerciaux (avec n° lot, DLUO, fournisseur, stock) vivent dans <code>produits_lots</code>. Une opération référence un <code>produit_lot_id</code>, ce qui garantit la traçabilité fine.
+      </div>
+    </section>
+
+    <!-- 6. Schéma SQL -->
+    <section id="schema-sql">
+      <h2>6 · Schéma SQL initial (Postgres / Supabase)</h2>
+
+      <p>Toutes les tables portent <code>tenant_id</code> pour multi-tenant. Voir section RLS pour l'isolation.</p>
+
+      <h3>Tables principales</h3>
+      <pre><code>-- Multi-tenant
+create table tenants (
+  id uuid primary key default gen_random_uuid(),
+  nom text not null,
+  slug text unique not null,
+  created_at timestamptz default now()
+);
+
+create table memberships (
+  user_id uuid references auth.users not null,
+  tenant_id uuid references tenants not null,
+  role text not null default 'caviste',
+  primary key (user_id, tenant_id)
+);
+
+-- Apports vendange
+create table apports (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants not null,
+  date_apport date not null,
+  parcelle text,
+  cepage text not null,
+  couleur text not null check (couleur in ('R','B','RS')),
+  tonnage_kg numeric,
+  volume_estime_hl numeric,
+  lot_id uuid,
+  created_by uuid references auth.users,
+  created_at timestamptz default now()
+);
+
+-- Lots (cœur du système)
+create table lots (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants not null,
+  numero text not null,
+  millesime int not null,
+  cepage text,
+  couleur text,
+  statut text not null check (statut in (
+    'vendange','mout','mout_stabule','mout_debourbe',
+    'fa','vin','fml','elevage','vin_filtre',
+    'pre_mise','conditionne','sorti'
+  )),
+  volume_hl numeric,
+  contenant_id uuid,
+  lot_type text not null check (lot_type in ('apport','assemblage')),
+  archived boolean default false,
+  created_at timestamptz default now(),
+  unique (tenant_id, numero)
+);
+
+-- Contenants (cuves, foudres, fûts, pressoirs)
+create table contenants (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants not null,
+  nom text not null,
+  type text not null check (type in ('cuve','foudre','fut','pressoir')),
+  capacite_hl numeric not null,
+  localisation text,
+  actif boolean default true,
+  tags text[] default '{}',
+  unique (tenant_id, nom)
+);
+
+-- Opérations
+create table operations (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants not null,
+  type text not null,
+  date_op timestamptz not null,
+  caviste_id uuid references auth.users,
+  notes text,
+  donnees jsonb,
+  fiche_travail_id uuid,
+  created_at timestamptz default now()
+);
+
+-- Liaison opérations ↔ lots
+create table operation_lots (
+  operation_id uuid references operations on delete cascade,
+  lot_id uuid references lots,
+  role text not null check (role in ('source','destination')),
+  volume_hl numeric,
+  primary key (operation_id, lot_id, role)
+);
+
+-- Catalogue produits (générique)
+create table produits_catalogue (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants not null,
+  famille text not null,
+  nom text not null,
+  unite_defaut text,
+  dose_max numeric,
+  actif boolean default true
+);
+
+-- Lots commerciaux de produits (avec DLUO)
+create table produits_lots (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants not null,
+  produit_id uuid references produits_catalogue not null,
+  nom_commercial text not null,
+  fournisseur text,
+  numero_lot text,
+  dluo date,
+  stock_restant numeric,
+  created_at timestamptz default now()
+);
+
+-- Liaison opération ↔ produits utilisés
+create table operation_produits (
+  operation_id uuid references operations on delete cascade,
+  produit_lot_id uuid references produits_lots,
+  dose numeric not null,
+  unite text not null,
+  primary key (operation_id, produit_lot_id)
+);
+
+-- Lineage (graphe de parenté entre lots)
+create table lineage (
+  lot_parent_id uuid references lots not null,
+  lot_enfant_id uuid references lots not null,
+  operation_id uuid references operations,
+  primary key (lot_parent_id, lot_enfant_id)
+);
+
+-- Fiches de travail
+create table fiches_travail (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants not null,
+  date_fiche date not null,
+  caviste_id uuid references auth.users,
+  statut text default 'brouillon' check (statut in ('brouillon','validee')),
+  signature_oenologue uuid references auth.users,
+  signature_at timestamptz,
+  notes text
+);</code></pre>
+    </section>
+
+    <!-- 7. RLS -->
+    <section id="rls">
+      <h2>7 · Multi-tenant &amp; Row Level Security</h2>
+
+      <p>Chaque table porte <code>tenant_id</code>. Les policies suivantes garantissent qu'un utilisateur ne voit que les données du ou des tenants auxquels il appartient (table <code>memberships</code>).</p>
+
+      <pre><code>-- Helper : tenants de l'utilisateur courant
+create or replace function user_tenants() returns setof uuid
+  language sql stable security definer as $$
+  select tenant_id from memberships where user_id = auth.uid();
+$$;
+
+-- À répéter sur chaque table métier
+alter table apports enable row level security;
+
+create policy "lecture tenant" on apports for select
+  using (tenant_id in (select user_tenants()));
+
+create policy "ecriture tenant" on apports for insert
+  with check (tenant_id in (select user_tenants()));
+
+create policy "modification tenant" on apports for update
+  using (tenant_id in (select user_tenants()));
+
+create policy "suppression privilegiee" on apports for delete
+  using (
+    exists (
+      select 1 from memberships
+      where user_id = auth.uid()
+        and tenant_id = apports.tenant_id
+        and role in ('admin','oenologue')
+    )
+  );</code></pre>
+
+      <div class="callout ok">
+        <strong>Garantie :</strong> impossible qu'un bug front fasse fuiter les données d'une cave vers une autre. La base refuse au niveau SQL, indépendamment du code applicatif.
+      </div>
+    </section>
+
+    <!-- 8. Plan phase 1 -->
+    <section id="phase1">
+      <h2>8 · Plan d'attaque phase 1</h2>
+
+      <ol>
+        <li><strong>Création projet Supabase</strong> (région Frankfurt / eu-central-1) — tu crées le compte, je te guide.</li>
+        <li><strong>Installation CLI Supabase</strong> en local (gestion des migrations versionnées, Git-friendly).</li>
+        <li><strong>Migration SQL initiale</strong> — j'écris, tu appliques (`supabase db push`).</li>
+        <li><strong>Policies RLS</strong> sur toutes les tables.</li>
+        <li><strong>Activation Realtime</strong> sur les tables critiques (lots, contenants, operations).</li>
+        <li><strong>Création tenant "Richemer"</strong> + memberships pour les comptes existants.</li>
+        <li><strong>Squelette applicatif</strong> : <code>public/wb3/app.html</code>, <code>storage.js</code> branché Supabase, navigation entre modules.</li>
+        <li><strong>Auth Supabase</strong> avec migration progressive des utilisateurs Firebase (hashes bcrypt préservés).</li>
+        <li><strong>Toggle WB2 ↔ WB3</strong> dans la sidebar de l'application principale.</li>
+      </ol>
+
+      <div class="callout">
+        <strong>Prochaine action :</strong> créer un compte Supabase (gratuit) sur <code>supabase.com</code>, puis créer un nouveau projet en région <strong>Frankfurt</strong>. Une fois fait, partage-moi l'URL du projet et la clé <code>anon</code> (pas la <code>service_role</code>) — je rédige les fichiers de connexion et la première migration.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>
